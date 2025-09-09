@@ -1,57 +1,104 @@
 package main
 
 import "core:fmt"
-import "core:simd"
 
-BuyError :: enum {
-	None,
-	NotEnoughPoints,
-	MissingRequiredSkills,
-	AlreadyHasSkill,
+
+unlock_buyable :: proc(buyable: Buyable) {
+	b_data := buyable_data[buyable]
+	for &block in b_data.owned_blocks {
+		block.bought = true
+		for &linked_block in block.linked_to {
+			linked_block.bought = true // TODO: perhaps some recursion?
+		}
+	}
 }
-Error :: union #shared_nil {
-	BuyError,
+
+buy_skill :: proc(skill: Skill) -> (u32, BuyError) {
+	if skill.level != 1 && !player_has_skill(Skill{name = skill.name, level = skill.level - 1}) do return 0, .MissingRequiredSkills
+	skill_buyable := &buyable_data[skill]
+
+	blocks_to_buy := u32(0)
+	for block in skill_buyable.owned_blocks {
+		if !block.bought do blocks_to_buy += 1
+	}
+	if blocks_to_buy > player.unused_points do return 0, .NotEnoughPoints
+	player.unused_points -= blocks_to_buy
+	unlock_buyable(skill) // Set all blocks to bought
+	skill_buyable.bought = true
+	player.owned_skills[skill] = void{}
+
+	{ 	// Handle Contains
+		containees, ok := buyable_contains[skill]
+		if ok {
+			for buyable in containees do unlock_buyable(buyable)
+		}
+	}
+
+	{ 	// Handle Drag
+		drags := buyable_drags[skill.name]
+		for dragged_skill, drag in drags {
+			if skill.level <= drag do continue
+			unlock_buyable(Skill{level = skill.level - drag, name = dragged_skill})
+		}
+	}
+
+	return blocks_to_buy, .None
 }
+
+
+buy_perk :: proc(perk: Perk) -> (u32, BuyError) {
+
+	perk_buyable := &buyable_data[perk]
+	perk_val := perks[perk]
+
+	{ 	// check pre_reqs
+		for prereq in perk_val.prereqs {
+			if prereq not_in player.owned_perks do return 0, .MissingRequiredPerks
+		}
+	}
+
+	{ 	// check skills_reqs
+		has_reqs := false
+		for skill_req in perk_val.skills_reqs {
+			if player_has_skill(skill_req) {
+				has_reqs = true
+				break
+			}
+		}
+		if !has_reqs do return 0, .MissingRequiredSkills
+	}
+
+	blocks_to_buy := u32(0)
+	for block in perk_buyable.owned_blocks {
+		if !block.bought do blocks_to_buy += 1
+	}
+	if blocks_to_buy > player.unused_points do return 0, .NotEnoughPoints
+	player.unused_points -= blocks_to_buy
+	unlock_buyable(perk) // Set all blocks to bought
+
+	{ 	// Set as bought
+		perk_buyable.bought = true
+		player.owned_perks |= {perk}
+	}
+
+	{ 	// Handle Contains
+		containees, ok := buyable_contains[perk]
+		if ok {
+			for buyable in containees do unlock_buyable(buyable)
+		}
+	}
+
+
+	return blocks_to_buy, .None
+}
+
 
 Unit :: struct {
-	skills:        map[SkillType]([dynamic]^Buyable),
-	perks:         [dynamic]^Buyable,
-	unused_points: i32,
+	owned_skills:  map[Skill]void,
+	owned_perks:   bit_set[Perk],
+	unused_points: u32,
 }
 
-SkillType :: enum {
-	Melee,
-}
-
-Skill :: struct {
-	level: i32,
-	type:  SkillType,
-}
-
-PerkType :: enum {
-	Trip,
-}
-
-Perk :: struct {
-	requirements: []Skill,
-	type:         PerkType,
-}
-
-BuyableType :: enum {
-	Perk,
-	Skill,
-}
-
-Buyable :: struct {
-	cost:   i32,
-	blocks: i32,
-	bought: bool,
-	kind:   union {
-		Perk,
-		Skill,
-	},
-	type:   BuyableType,
-}
 
 ConstraintType :: enum {
 	Contains,
@@ -60,121 +107,38 @@ ConstraintType :: enum {
 	Share,
 }
 
-Constraint :: struct {
-	operandA: ^Buyable,
-	operandB: ^Buyable,
-	strength: u8,
-	type:     ConstraintType,
-}
-
 player := Unit{}
-constraints := []Constraint {
-	Constraint{operandA = &Melee1Buyable, operandB = &TripBuyable, type = .Contains},
-}
-
-Melee1 := Skill {
-	level = 1,
-	type  = .Melee,
-}
-
-Melee2 := Skill {
-	level = 2,
-	type  = .Melee,
-}
-
-Trip := Perk {
-	requirements = []Skill{Melee1},
-}
-
-Melee1Buyable := Buyable {
-	cost = 110,
-	kind = Melee1,
-	type = .Skill,
-}
-Melee2Buyable := Buyable {
-	cost = 120,
-	kind = Melee2,
-	type = .Skill,
-}
-TripBuyable := Buyable {
-	cost = 30,
-	kind = Trip,
-	type = .Perk,
-}
-
-update_constraints :: proc(buyable: ^Buyable) {
-	for constraint in constraints {
-		#partial switch constraint.type {
-		case .Contains:
-			if buyable == constraint.operandA && buyable.bought {
-				constraint.operandB.blocks = constraint.operandB.cost
-			}
-		}
-	}
-}
 
 init_player :: proc() {
-	player.skills = make(map[SkillType]([dynamic]^Buyable), 0)
-	player.perks = make([dynamic]^Buyable, 0)
-	player.unused_points = 110
+	player.unused_points = 120
 }
 
-add_buyable_to_player :: proc(buyable: ^Buyable) {
-	switch b in buyable.kind {
-	case Skill:
-		skills_branch, ok := player.skills[b.type]
-		if !ok {
-			skills_branch = make([dynamic]^Buyable, 0)
-		}
-		append(&skills_branch, buyable)
-		player.skills[b.type] = skills_branch
-	case Perk:
-		append(&player.perks, buyable)
+run :: proc() -> Error {
+	init_player()
+	load_db() or_return
 
+	// add_containee_to(&buyable_skills[Skill{level = 1, name = .Melee}], &buyable_perks[.Sight])
+	buy_skill(Skill{level = 1, name = .Melee}) or_return
+	// buy_skill(Skill{level = 2, name = .Melee}) or_return
+	// buy_skill(Skill{level = 1, name = .Athletics}) or_return
+	spent: u32
+	// spent = buy_perk(.Sight) or_return
+	buy_perk(.Trip) or_return
+	buy_perk(.Aim) or_return
+	// for buyable, v in buyable_data {
+	// 	fmt.println(buyable, v.bought)
+	// }
+	fmt.println("Unused points", player.unused_points)
+	for owned_skill in player.owned_skills {
+		fmt.println(owned_skill)
 	}
-
-}
-has_required_skills :: proc(buyable: Buyable) -> BuyError {
-	switch b in buyable.kind {
-	case Skill:
-		if b.level == 1 do return .None
-		skills_branch, ok := player.skills[b.type]
-		if !ok do return .MissingRequiredSkills
-		if skills_branch[len(skills_branch) - 1].kind.(Skill).level != b.level - 1 do return .MissingRequiredSkills
-		for s in skills_branch {
-			if s.kind.(Skill).level == b.level do return .AlreadyHasSkill
-		}
-	case Perk:
-		for req in b.requirements {
-			req_skill_branch, ok := player.skills[req.type]
-			if !ok do return .MissingRequiredSkills
-			if req.level > req_skill_branch[len(req_skill_branch) - 1].kind.(Skill).level do return .MissingRequiredSkills
-		}
-	}
-	return .None
-}
-
-buy_buyable :: proc(buyable: ^Buyable) -> BuyError {
-	has_required_skills(buyable^) or_return
-	req_points := max(buyable.cost - buyable.blocks, 0)
-	if player.unused_points < req_points {
-		return .NotEnoughPoints
-	}
-	player.unused_points -= req_points
-	buyable.blocks = buyable.cost
-	buyable.bought = true
-	add_buyable_to_player(buyable)
-	update_constraints(buyable)
-	return .None
+	fmt.println(player.owned_perks)
+	return nil
 }
 
 main :: proc() {
-	init_player()
-	buy_buyable(&Melee1Buyable)
-	buy_buyable(&Melee2Buyable)
-	buy_buyable(&TripBuyable)
-	fmt.println("Player Skills:", player.skills)
-	fmt.println("Player Perks:", player.perks)
-	fmt.println("Player Unused Points:", player.unused_points)
-	// fmt.println(player.unused_points)
+	err := run()
+	if err != nil {
+		fmt.println(err)
+	}
 }

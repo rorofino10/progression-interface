@@ -13,8 +13,8 @@ unlock_buyable :: proc(buyable: Buyable) {
 	}
 }
 
-buy_skill :: proc(skill: Skill) -> (u32, BuyError) {
-	if skill.level != 1 && !player_has_skill(Skill{name = skill.name, level = skill.level - 1}) do return 0, .MissingRequiredSkills
+buy_skill :: proc(skill: LeveledSkill) -> (u32, BuyError) {
+	if skill.level != 1 && !player_has_skill({skill.id, skill.level - 1}) do return 0, .MissingRequiredSkills
 	skill_buyable := &buyable_data[skill]
 
 	blocks_to_buy := u32(0)
@@ -35,10 +35,10 @@ buy_skill :: proc(skill: Skill) -> (u32, BuyError) {
 	}
 
 	{ 	// Handle Drag
-		drags := buyable_drags[skill.name]
+		drags := buyable_drags[skill.id]
 		for dragged_skill, drag in drags {
 			if skill.level <= drag do continue
-			unlock_buyable(Skill{level = skill.level - drag, name = dragged_skill})
+			unlock_buyable(LeveledSkill{dragged_skill, skill.level - drag})
 		}
 	}
 
@@ -46,14 +46,14 @@ buy_skill :: proc(skill: Skill) -> (u32, BuyError) {
 }
 
 
-buy_perk :: proc(perk: Perk) -> (u32, BuyError) {
+buy_perk :: proc(perk: PerkID) -> (u32, BuyError) {
 
 	perk_buyable := &buyable_data[perk]
-	perk_val := perks[perk]
+	perk_val := perk_data[perk]
 
 	{ 	// check pre_reqs
 		for prereq in perk_val.prereqs {
-			if prereq not_in player.owned_perks do return 0, .MissingRequiredPerks
+			if prereq not_in player.owned_perks do return 0, .None
 		}
 	}
 
@@ -92,10 +92,14 @@ buy_perk :: proc(perk: Perk) -> (u32, BuyError) {
 	return blocks_to_buy, .None
 }
 
+buy :: proc {
+	buy_perk,
+	buy_skill,
+}
 
 Unit :: struct {
-	owned_skills:  map[Skill]void,
-	owned_perks:   bit_set[Perk],
+	owned_skills:  map[LeveledSkill]void,
+	owned_perks:   bit_set[PerkID],
 	unused_points: u32,
 }
 
@@ -107,7 +111,7 @@ ConstraintType :: enum {
 	Share,
 }
 
-player := Unit{}
+player : Unit
 
 init_player :: proc() {
 	player.unused_points = 120
@@ -117,14 +121,19 @@ run :: proc() -> Error {
 	init_player()
 	load_db() or_return
 
-	// add_containee_to(&buyable_skills[Skill{level = 1, name = .Melee}], &buyable_perks[.Sight])
-	buy_skill(Skill{level = 1, name = .Melee}) or_return
-	// buy_skill(Skill{level = 2, name = .Melee}) or_return
-	// buy_skill(Skill{level = 1, name = .Athletics}) or_return
+	buy_skill({.Melee, 1}) or_return
+	buy_skill({.Melee, 2}) or_return
+	buy_skill({.Athletics, 1}) or_return
 	spent: u32
 	// spent = buy_perk(.Sight) or_return
-	buy_perk(.Trip) or_return
-	buy_perk(.Aim) or_return
+
+	spent = buy(PerkID.Trip) or_return
+	fmt.println("Buy Trip:", spent)
+
+	spent = buy(PerkID.Aim) or_return
+	fmt.println("Buy Aim:", spent)
+
+	// buy(Perk.Sight) or_return
 	// for buyable, v in buyable_data {
 	// 	fmt.println(buyable, v.bought)
 	// }

@@ -1,9 +1,17 @@
 #+feature dynamic-literals
 package main
 
+import "core:container/queue"
 import "core:fmt"
 import "core:math/rand"
+LEVEL :: distinct u32
+STRENGTH :: distinct u8
+
+// CONSTANT
 MAX_SKILL_LEVEL :: 3
+
+// Artificial list size limits
+MAX_SKILL_REQS :: 10
 
 DatabaseError :: enum {
 	None,
@@ -17,38 +25,36 @@ SkillID :: enum u8 {
 
 LeveledSkill :: struct {
 	id:    SkillID,
-	level: u32,
+	level: LEVEL,
 }
 
 SkillData :: struct {
-	blocks: u32,
+	blocks: BlocksSize,
 }
 
 PerkID :: enum u8 {
 	Trip,
 	Aim,
 	Sight,
+	Knife_Master,
 }
 
+Perks :: bit_set[PerkID]
+
 PerkData :: struct {
-	skills_reqs: [dynamic]LeveledSkill,
-	prereqs:     bit_set[PerkID],
-	blocks:      u32,
+	blocks:      BlocksSize,
+	prereqs:     Perks,
+	skills_reqs: [MAX_SKILL_REQS]LeveledSkill,
 }
 
 
 void :: struct {}
 
-ShareError :: enum {
+ConstraintError :: enum {
 	None,
-	MissingPerk,
+	ShareMissingPerk,
 	StrengthIsNotPercentage,
-}
-
-OverlapError :: enum {
-	None, 
 	CannotOverlapWithItself,
-	StrengthIsNotPercentage,
 }
 
 BuyError :: enum {
@@ -60,8 +66,7 @@ BuyError :: enum {
 }
 
 CycleInPreReqsError :: struct {
-	cycle_in:      PerkID,
-	repeated_perk: PerkID,
+	repeated_perk:      PerkID,
 }
 
 
@@ -72,7 +77,7 @@ BuyableCreationError :: union {
 Error :: union #shared_nil {
 	BuyableCreationError,
 	BuyError,
-	ShareError,
+	ConstraintError,
 }
 
 Block :: struct {
@@ -80,11 +85,16 @@ Block :: struct {
 	linked_to: [dynamic]^Block,
 }
 
+Blocks :: []Block
+BlocksSize :: distinct u32
+
 Buyable :: union {
 	PerkID,
 	LeveledSkill,
 }
 
+Buyables :: []Buyable
+DynBuyables :: [dynamic]Buyable
 
 BuyableData :: struct {
 	owned_blocks: []Block,
@@ -92,103 +102,118 @@ BuyableData :: struct {
 }
 
 
-player_has_perk :: proc(perk: PerkID) -> bool {
-	return perk in player.owned_perks
+
+Database :: struct {
+	skill_id_data	: map[SkillID][MAX_SKILL_LEVEL]BlocksSize,
+	perk_data		: map[PerkID]PerkData,
+	buyable_data 	: map[Buyable]BuyableData,
+
+	// Constraint
+	contains_constraint: map[Buyable]DynBuyables,
+	drag_constraint	: map[SkillID]map[SkillID]LEVEL,
+	share_constraints	: [dynamic]TShare,
+	overlap_constraints : [dynamic]TOverlap,
 }
-player_has_skill :: proc(skill: LeveledSkill) -> bool {
-	_, ok := player.owned_skills[skill]
-	return ok
+DB : Database
+
+
+Skill :: proc(skillID: SkillID, blocks: [MAX_SKILL_LEVEL]BlocksSize) {
+	DB.skill_id_data[skillID] = blocks
+} 
+
+Perk :: proc(perkID: PerkID, blocks: BlocksSize, pre_reqs: Perks, skill_reqs: [dynamic]LeveledSkill) {
+	defer delete(skill_reqs)
+
+    assert(len(skill_reqs) <= MAX_SKILL_REQS)
+	perk_data := PerkData{ blocks = blocks, prereqs = pre_reqs }
+	for skill_req, idx in skill_reqs do perk_data.skills_reqs[idx] = skill_req
+	DB.perk_data[perkID] = perk_data
 }
 
-skill_data: map[LeveledSkill]SkillData
-perk_data: map[PerkID]PerkData
-buyable_data : map[Buyable]BuyableData
-buyable_contains : map[Buyable][dynamic]Buyable
-buyable_drags : map[SkillID]map[SkillID]u32
+load_db :: proc() {
 
-load_db :: proc() -> Error {
-	skill_data[{.Melee, 1}] 	= { blocks = 1 }
-	skill_data[{.Melee, 2}] 	= { blocks = 2 }
-	skill_data[{.Melee, 3}] 	= { blocks = 3 }
-	skill_data[{.Athletics, 1}] = { blocks = 1 }
-	skill_data[{.Athletics, 2}] = { blocks = 2 }
-	skill_data[{.Melee, 3}] 	= { blocks = 3 }
+	Skill(.Melee, { 10, 20, 30 }) 
+	Skill(.Athletics, { 5, 10, 15 }) 
 
-	perk_data[.Trip] = PerkData {
-		blocks      = 4,
-		prereqs     = {},
-		skills_reqs = [dynamic]LeveledSkill{{.Melee, 1}},
-	}
-	perk_data[.Aim] = PerkData {
-		blocks      = 8,
-		prereqs     = {.Trip},
-		skills_reqs = [dynamic]LeveledSkill{{.Melee, 1}},
-	}
-	perk_data[.Sight] = PerkData {
-		blocks      = 2,
-		skills_reqs = [dynamic]LeveledSkill{{.Melee, 1}},
-	}
-	// add_containee(Perk.Trip, Perk.Aim)
-	// add_containee(Skill{name = .Melee, level = 1}, Perk.Trip)
-	// add_drag(.Melee, .Athletics, 1)
+	Perk(.Trip, 4, {}, {{.Melee, 1}})
+	Perk(.Aim, 8, {.Knife_Master}, {{.Melee, 1}})
+	Perk(.Sight, 2, {.Knife_Master}, {{.Melee, 1}})
+	Perk(.Knife_Master, 2, {}, {{.Melee, 1}})
+
+	Contains(LeveledSkill{.Melee, 1}, .Trip)
+	Drags(.Melee, .Athletics, 1)
+	Share(.Trip, .Aim, 50)
+	Overlap(.Melee, .Athletics, 100)
+}
+
+init_db :: proc() -> Error{
+	load_db()
+	check_constraints() or_return
 	create_buyables() or_return
-	add_share(.Trip, .Aim, 50) or_return
+	handle_constraints()
 	return nil
 }
 
 create_buyables :: proc() -> BuyableCreationError {
-	check_for_cycles :: proc(perk: PerkID, seen: bit_set[PerkID]) -> Maybe(PerkID) {
-		if perk in seen do return perk
-		new_seen := seen | {perk}
-		for req_perk in perk_data[perk].prereqs {
-			repeated_perk := check_for_cycles(req_perk, new_seen)
-			if repeated_perk != nil do return repeated_perk
+	{ // Check for cycles in pre_reqs
+		
+		@static seen : Perks = {}
+		@static curr_path_stack : [dynamic]PerkID
+
+		check_for_cycles :: proc(perk: PerkID, curr_path: Perks) -> Maybe(PerkID) {
+			append(&curr_path_stack, perk)
+			if perk in curr_path do return perk
+			if perk in seen do return nil
+			seen |= {perk}
+			new_curr_path := curr_path | {perk}
+			for req_perk in DB.perk_data[perk].prereqs {
+				repeated_perk := check_for_cycles(req_perk, new_curr_path)
+				if repeated_perk != nil do return repeated_perk
+				pop(&curr_path_stack)
+			}
+			return nil
 		}
-		return nil
+		for perk in PerkID {
+			repeated_perk, ok := check_for_cycles(perk, {}).?
+			if ok {
+				i:=0
+				for ; i<len(curr_path_stack); i+=1 {
+					if curr_path_stack[i] == repeated_perk do break
+				}
+				for idx in i..<len(curr_path_stack)-1 {
+					path_perk := curr_path_stack[idx]
+					fmt.print(path_perk, "-> ")
+				}
+				last_path_perk := curr_path_stack[len(curr_path_stack)-1]
+				fmt.println(last_path_perk)
+				delete(curr_path_stack)
+				return CycleInPreReqsError{repeated_perk}
+			}
+		}
 	}
+
 
 	for perk in PerkID {
 		// Verify that there are no cycles in reqs
-		repeated_perk, ok := check_for_cycles(perk, {}).?
-		if ok do return CycleInPreReqsError{perk, repeated_perk}
-		perk_val := perk_data[perk]
-		buyable_data[perk] = BuyableData {
+
+		perk_val := DB.perk_data[perk]
+		DB.buyable_data[perk] = BuyableData {
 			owned_blocks = make([]Block, perk_val.blocks),
 		}
 	}
-	for skill in skill_data {
-		skill_val := skill_data[skill]
-		buyable_data[skill] = BuyableData {
-			owned_blocks = make([]Block, skill_val.blocks),
-		}}
+	for skill_id, levels_data in DB.skill_id_data {
+		for blocks, level_indexed_from_0 in levels_data {
+			level := level_indexed_from_0 + 1
+			DB.buyable_data[LeveledSkill{skill_id, LEVEL(level)}] = BuyableData {
+				owned_blocks = make([]Block, blocks),
+			}}
+		}
 	return nil
 }
 
-
-add_containee :: proc(buyableA, buyableB: Buyable) {
-	_, ok := buyable_contains[buyableA]
-	if !ok {
-		buyable_contains[buyableA] = make([dynamic]Buyable, 0)
-	}
-	append(&buyable_contains[buyableA], buyableB)
-}
-
-add_drag :: proc(skillA, skillB: SkillID, drag: u32) {
-	_, ok := buyable_drags[skillA]
-	if !ok {
-		buyable_drags[skillA] = {}
-	}
-	buyable_drags_from := &buyable_drags[skillA]
-	_, ok = buyable_drags_from[skillB]
-	if !ok {
-		buyable_drags_from[skillB] = {}
-	}
-	buyable_drags_from[skillB] = drag
-}
-
-link_buyables :: proc(buyableA, buyableB: Buyable, strength: u8) {
-	buyable_a_data := buyable_data[buyableA]
-	buyable_b_data := buyable_data[buyableB]
+link_buyables :: proc(buyableA, buyableB: Buyable, strength: STRENGTH) {
+	buyable_a_data := DB.buyable_data[buyableA]
+	buyable_b_data := DB.buyable_data[buyableB]
 
 	{ 	// Shuffle blocks to link random blocks
 		rand.shuffle(buyable_a_data.owned_blocks)
@@ -221,36 +246,3 @@ link_buyables :: proc(buyableA, buyableB: Buyable, strength: u8) {
 	}
 }
 
-add_share :: proc(buyableA: Buyable, buyableB: Buyable, strength: u8) -> ShareError {
-	{ 	// Check if atleast one is Perk
-		has_one_perk := false
-		#partial switch _ in buyableA {
-		case PerkID:
-			has_one_perk = true
-		}
-		#partial switch _ in buyableB {
-		case PerkID:
-			has_one_perk = true
-		}
-		if !has_one_perk do return .MissingPerk
-	}
-	// have some sort of sampling
-	if strength > 100 do return .StrengthIsNotPercentage
-
-	link_buyables(buyableA, buyableB, strength)
-
-	return .None
-}
-
-add_overlap :: proc(skillIDA, skillIDB: SkillID, strength: u8) -> OverlapError {
-	if strength > 100 do return .StrengthIsNotPercentage
-	if skillIDA == skillIDB do return .CannotOverlapWithItself
-
-	for level in 0..<MAX_SKILL_LEVEL {
-		skillA, skillB := LeveledSkill{skillIDA, u32(level)}, LeveledSkill{skillIDB, u32(level)}
-
-		link_buyables(skillA, skillB, strength)
-	}
-
-	return .None	
-}

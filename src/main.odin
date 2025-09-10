@@ -2,9 +2,18 @@ package main
 
 import "core:fmt"
 
+player_has_perk :: proc(perk: PerkID) -> bool {
+	return perk in player.owned_perks
+}
+player_has_skill :: proc(skill: LeveledSkill) -> bool {
+	owned_skill_level, ok := player.owned_skills[skill.id]
+	if !ok do return false
+	return  skill.level<=owned_skill_level 
+}
+
 
 unlock_buyable :: proc(buyable: Buyable) {
-	b_data := buyable_data[buyable]
+	b_data := DB.buyable_data[buyable]
 	for &block in b_data.owned_blocks {
 		block.bought = true
 		for &linked_block in block.linked_to {
@@ -15,7 +24,7 @@ unlock_buyable :: proc(buyable: Buyable) {
 
 buy_skill :: proc(skill: LeveledSkill) -> (u32, BuyError) {
 	if skill.level != 1 && !player_has_skill({skill.id, skill.level - 1}) do return 0, .MissingRequiredSkills
-	skill_buyable := &buyable_data[skill]
+	skill_buyable := &DB.buyable_data[skill]
 
 	blocks_to_buy := u32(0)
 	for block in skill_buyable.owned_blocks {
@@ -25,17 +34,17 @@ buy_skill :: proc(skill: LeveledSkill) -> (u32, BuyError) {
 	player.unused_points -= blocks_to_buy
 	unlock_buyable(skill) // Set all blocks to bought
 	skill_buyable.bought = true
-	player.owned_skills[skill] = void{}
+	player.owned_skills[skill.id] = skill.level
 
 	{ 	// Handle Contains
-		containees, ok := buyable_contains[skill]
+		containees, ok := DB.contains_constraint[skill]
 		if ok {
 			for buyable in containees do unlock_buyable(buyable)
 		}
 	}
 
 	{ 	// Handle Drag
-		drags := buyable_drags[skill.id]
+		drags := DB.drag_constraint[skill.id]
 		for dragged_skill, drag in drags {
 			if skill.level <= drag do continue
 			unlock_buyable(LeveledSkill{dragged_skill, skill.level - drag})
@@ -48,18 +57,19 @@ buy_skill :: proc(skill: LeveledSkill) -> (u32, BuyError) {
 
 buy_perk :: proc(perk: PerkID) -> (u32, BuyError) {
 
-	perk_buyable := &buyable_data[perk]
-	perk_val := perk_data[perk]
+	perk_buyable := &DB.buyable_data[perk]
+	perk_val := DB.perk_data[perk]
 
 	{ 	// check pre_reqs
 		for prereq in perk_val.prereqs {
-			if prereq not_in player.owned_perks do return 0, .None
+			if prereq not_in player.owned_perks do return 0, .MissingRequiredPerks
 		}
 	}
 
 	{ 	// check skills_reqs
 		has_reqs := false
 		for skill_req in perk_val.skills_reqs {
+			if skill_req.id == .Melee && skill_req.level == 0 do break
 			if player_has_skill(skill_req) {
 				has_reqs = true
 				break
@@ -82,7 +92,7 @@ buy_perk :: proc(perk: PerkID) -> (u32, BuyError) {
 	}
 
 	{ 	// Handle Contains
-		containees, ok := buyable_contains[perk]
+		containees, ok := DB.contains_constraint[perk]
 		if ok {
 			for buyable in containees do unlock_buyable(buyable)
 		}
@@ -98,17 +108,9 @@ buy :: proc {
 }
 
 Unit :: struct {
-	owned_skills:  map[LeveledSkill]void,
-	owned_perks:   bit_set[PerkID],
+	owned_skills:  map[SkillID]LEVEL,
+	owned_perks:   Perks,
 	unused_points: u32,
-}
-
-
-ConstraintType :: enum {
-	Contains,
-	Drag,
-	Overlap,
-	Share,
 }
 
 player : Unit
@@ -119,29 +121,24 @@ init_player :: proc() {
 
 run :: proc() -> Error {
 	init_player()
-	load_db() or_return
-
-	buy_skill({.Melee, 1}) or_return
-	buy_skill({.Melee, 2}) or_return
-	buy_skill({.Athletics, 1}) or_return
+	init_db() or_return
+	
 	spent: u32
-	// spent = buy_perk(.Sight) or_return
+	spent = buy_skill({.Melee, 1}) or_return
+	// buy_skill({.Melee, 2}) or_return
+
+	spent = buy_skill({.Athletics, 1}) or_return
+
+	spent = buy_skill({.Athletics, 2}) or_return
+
 
 	spent = buy(PerkID.Trip) or_return
 	fmt.println("Buy Trip:", spent)
 
-	spent = buy(PerkID.Aim) or_return
-	fmt.println("Buy Aim:", spent)
-
-	// buy(Perk.Sight) or_return
-	// for buyable, v in buyable_data {
-	// 	fmt.println(buyable, v.bought)
+	// for id, level in player.owned_skills {
+	// 	fmt.println(id, level)
 	// }
-	fmt.println("Unused points", player.unused_points)
-	for owned_skill in player.owned_skills {
-		fmt.println(owned_skill)
-	}
-	fmt.println(player.owned_perks)
+	// fmt.println(player.owned_perks)
 	return nil
 }
 

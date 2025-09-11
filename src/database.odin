@@ -1,4 +1,3 @@
-#+feature dynamic-literals
 package main
 
 import "core:container/queue"
@@ -18,11 +17,6 @@ DatabaseError :: enum {
 	LoadError,
 }
 
-SkillID :: enum u8 {
-	Melee,
-	Athletics,
-}
-
 LeveledSkill :: struct {
 	id:    SkillID,
 	level: LEVEL,
@@ -32,12 +26,6 @@ SkillData :: struct {
 	blocks: BlocksSize,
 }
 
-PerkID :: enum u8 {
-	Trip,
-	Aim,
-	Sight,
-	Knife_Master,
-}
 
 Perks :: bit_set[PerkID]
 
@@ -119,7 +107,16 @@ DB : Database
 
 Skill :: proc(skillID: SkillID, blocks: [MAX_SKILL_LEVEL]BlocksSize) {
 	DB.skill_id_data[skillID] = blocks
-} 
+}
+
+DefineBlockProc :: proc(blockIdx: BlocksSize) -> BlocksSize
+
+SkillByProc :: proc(skillID: SkillID, blockProc: DefineBlockProc){
+	for idx in 1..=MAX_SKILL_LEVEL {
+		db_data := &DB.skill_id_data[skillID]
+		db_data[idx] = blockProc(BlocksSize(idx))
+	}
+}
 
 Perk :: proc(perkID: PerkID, blocks: BlocksSize, pre_reqs: Perks, skill_reqs: [dynamic]LeveledSkill) {
 	defer delete(skill_reqs)
@@ -130,21 +127,7 @@ Perk :: proc(perkID: PerkID, blocks: BlocksSize, pre_reqs: Perks, skill_reqs: [d
 	DB.perk_data[perkID] = perk_data
 }
 
-load_db :: proc() {
 
-	Skill(.Melee, { 10, 20, 30 }) 
-	Skill(.Athletics, { 5, 10, 15 }) 
-
-	Perk(.Trip, 4, {}, {{.Melee, 1}})
-	Perk(.Aim, 8, {.Knife_Master}, {{.Melee, 1}})
-	Perk(.Sight, 2, {.Knife_Master}, {{.Melee, 1}})
-	Perk(.Knife_Master, 2, {}, {{.Melee, 1}})
-
-	Contains(LeveledSkill{.Melee, 1}, .Trip)
-	Drags(.Melee, .Athletics, 1)
-	Share(.Trip, .Aim, 50)
-	Overlap(.Melee, .Athletics, 100)
-}
 
 init_db :: proc() -> Error{
 	load_db()
@@ -157,8 +140,9 @@ init_db :: proc() -> Error{
 create_buyables :: proc() -> BuyableCreationError {
 	{ // Check for cycles in pre_reqs
 		
-		@static seen : Perks = {}
+		@static seen : Perks
 		@static curr_path_stack : [dynamic]PerkID
+		defer delete(curr_path_stack)
 
 		check_for_cycles :: proc(perk: PerkID, curr_path: Perks) -> Maybe(PerkID) {
 			append(&curr_path_stack, perk)
@@ -186,7 +170,6 @@ create_buyables :: proc() -> BuyableCreationError {
 				}
 				last_path_perk := curr_path_stack[len(curr_path_stack)-1]
 				fmt.println(last_path_perk)
-				delete(curr_path_stack)
 				return CycleInPreReqsError{repeated_perk}
 			}
 		}

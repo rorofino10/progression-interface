@@ -16,10 +16,10 @@ SkillID :: enum u8 {
 load_db :: proc() {
 
     // Literal
-	Skill(.Melee, { 10, 20, 30 }) 
+	Skill(.Melee, { {10, 1}, {20, 1}, {30, 1} }) 
 	// Skill(.Athletics, { 10, 20, 30 }) 
     // By Function
-	SkillByProc(.Athletics, proc(i: BlocksSize) -> BlocksSize{return i*5}) 
+	SkillByProc(.Athletics, proc(i: BlocksSize) -> (BlocksSize, LEVEL){return i*5, 2}) 
 
 
 	Perk(.Trip, 4, {}, {{.Melee, 1}})
@@ -28,7 +28,8 @@ load_db :: proc() {
 	Perk(.Knife_Master, 2, {}, {{.Melee, 1}})
 
 	Contains(LeveledSkill{.Melee, 1}, .Trip)
-	Drags(.Melee, .Athletics, 1)
+
+	Drags(.Melee, .Athletics, 3)
 	Share(.Trip, .Aim, 50)
 	Share(.Aim, .Knife_Master, 100)
 	Overlap(.Melee, .Athletics, 75)

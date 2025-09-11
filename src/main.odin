@@ -11,27 +11,70 @@ player_has_skill :: proc(skill: LeveledSkill) -> bool {
 	return  skill.level<=owned_skill_level 
 }
 
+player_has_buyable :: proc(buyable: Buyable) -> bool {
+	switch b in buyable {
+		case LeveledSkill:
+			return player_has_skill(b)
+		case PerkID:
+			return player_has_perk(b)
+	}
+	return false
+}
 
 unlock_buyable :: proc(buyable: Buyable) {
-	b_data := DB.buyable_data[buyable]
+	b_data := &DB.buyable_data[buyable]
 	for &block in b_data.owned_blocks {
-		block.bought = true
+		if !block.bought{
+			block.bought = true
+			b_data.bought_amount += 1
+		}
 		for &linked_block in block.linked_to {
-			linked_block.bought = true // TODO: perhaps some recursion?
+			if !linked_block.bought{
+				linked_block.bought = true
+				linked_to_buyable := linked_block.owned_by
+				linked_to_buyable_data := &DB.buyable_data[linked_block.owned_by]
+				linked_to_buyable_data.bought_amount += 1
+			}
 		}
 	}
 }
 
+level_up :: proc() {
+	player.level += 1
+}
+
+refund_buyable :: proc(buyable: Buyable) -> (u32, RefundError) {
+	if !player_has_buyable(buyable) do return 0, .BuyableNotOwned
+	b_data := &DB.buyable_data[buyable]
+	for &block in b_data.owned_blocks {
+		block.bought = false
+		// Perhaps do something with links?
+	}
+	b_data.bought = false
+	refunded := b_data.bought_amount
+	player.unused_points += refunded
+	b_data.bought_amount = 0
+	switch b in buyable {
+		case LeveledSkill:
+			if b.level == 1 do delete_key(&player.owned_skills, b.id)
+			else do player.owned_skills[b.id] = b.level - 1
+		case PerkID:
+			player.owned_perks -= {b}
+	}
+	return refunded, .None
+}
+
 buy_skill :: proc(skill: LeveledSkill) -> (u32, BuyError) {
+	skill_id_data := DB.skill_id_data[skill.id]
+	required_level := skill_id_data[skill.level].required_level
+
+	if required_level > player.level do return 0, .MissingRequiredUnitLevel
 	if skill.level != 1 && !player_has_skill({skill.id, skill.level - 1}) do return 0, .MissingRequiredSkills
 	skill_buyable := &DB.buyable_data[skill]
 
-	blocks_to_buy := u32(0)
-	for block in skill_buyable.owned_blocks {
-		if !block.bought do blocks_to_buy += 1
-	}
-	if blocks_to_buy > player.unused_points do return 0, .NotEnoughPoints
-	player.unused_points -= blocks_to_buy
+	blocks_to_buy := BlocksSize(len(skill_buyable.owned_blocks)) - skill_buyable.bought_amount
+	if u32(blocks_to_buy) > player.unused_points do return 0, .NotEnoughPoints
+	player.unused_points -= u32(blocks_to_buy)
 	unlock_buyable(skill) // Set all blocks to bought
 	skill_buyable.bought = true
 	player.owned_skills[skill.id] = skill.level
@@ -51,7 +94,7 @@ buy_skill :: proc(skill: LeveledSkill) -> (u32, BuyError) {
 		}
 	}
 
-	return blocks_to_buy, .None
+	return u32(blocks_to_buy), .None
 }
 
 
@@ -113,6 +156,7 @@ buy_buyable :: proc(buyable: Buyable) -> (u32, BuyError){
 }
 
 Unit :: struct {
+	level : LEVEL,
 	owned_skills:  map[SkillID]LEVEL,
 	owned_perks:   Perks,
 	unused_points: u32,
@@ -121,6 +165,7 @@ Unit :: struct {
 player : Unit
 
 init_player :: proc() {
+	player.level = 1
 	player.unused_points = 120
 }
 
@@ -130,12 +175,12 @@ run :: proc() -> Error {
 	
 	run_cli()
 	spent: u32
-	spent = buy_skill({.Melee, 1}) or_return
-	// buy_skill({.Melee, 2}) or_return
+	// spent = buy_skill({.Melee, 1}) or_return
+	// // buy_skill({.Melee, 2}) or_return
 
-	spent = buy_skill({.Athletics, 1}) or_return
+	// spent = buy_skill({.Athletics, 1}) or_return
 
-	spent = buy_skill({.Athletics, 2}) or_return
+	// spent = buy_skill({.Athletics, 2}) or_return
 
 
 	// spent = buy_perk(.Trip) or_return

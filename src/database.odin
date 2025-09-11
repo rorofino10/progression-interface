@@ -24,6 +24,7 @@ LeveledSkill :: struct {
 
 SkillData :: struct {
 	blocks: BlocksSize,
+	required_level: LEVEL,
 }
 
 
@@ -50,7 +51,13 @@ BuyError :: enum {
 	NotEnoughPoints,
 	MissingRequiredSkills,
 	MissingRequiredPerks,
+	MissingRequiredUnitLevel,
 	AlreadyHasSkill,
+}
+
+RefundError :: enum {
+	None,
+	BuyableNotOwned,
 }
 
 CycleInPreReqsError :: struct {
@@ -69,12 +76,13 @@ Error :: union #shared_nil {
 }
 
 Block :: struct {
-	bought:    bool,
-	linked_to: [dynamic]^Block,
+	bought		: bool,
+	linked_to	: [dynamic]^Block,
+	owned_by	: Buyable
 }
 
 Blocks :: []Block
-BlocksSize :: distinct u32
+BlocksSize :: u32
 
 Buyable :: union {
 	PerkID,
@@ -86,13 +94,14 @@ DynBuyables :: [dynamic]Buyable
 
 BuyableData :: struct {
 	owned_blocks: []Block,
+	bought_amount: BlocksSize,
 	bought:       bool,
 }
 
 
 
 Database :: struct {
-	skill_id_data	: map[SkillID][MAX_SKILL_LEVEL]BlocksSize,
+	skill_id_data	: map[SkillID][MAX_SKILL_LEVEL]SkillData,
 	perk_data		: map[PerkID]PerkData,
 	buyable_data 	: map[Buyable]BuyableData,
 
@@ -105,16 +114,18 @@ Database :: struct {
 DB : Database
 
 
-Skill :: proc(skillID: SkillID, blocks: [MAX_SKILL_LEVEL]BlocksSize) {
-	DB.skill_id_data[skillID] = blocks
+Skill :: proc(skillID: SkillID, skill_data: [MAX_SKILL_LEVEL]SkillData) {
+	DB.skill_id_data[skillID] = skill_data
 }
 
-DefineBlockProc :: proc(blockIdx: BlocksSize) -> BlocksSize
+DefineBlockProc :: proc(blockIdx: BlocksSize) -> (BlocksSize, LEVEL)
 
 SkillByProc :: proc(skillID: SkillID, blockProc: DefineBlockProc){
-	blocks_list : [MAX_SKILL_LEVEL]BlocksSize
+	blocks_list : [MAX_SKILL_LEVEL]SkillData
 	for idx in 1..=MAX_SKILL_LEVEL {
-		blocks_list[idx-1] = blockProc(BlocksSize(idx))
+		blocks, level := blockProc(BlocksSize(idx))
+		blocks_list[idx-1].blocks = blocks
+		blocks_list[idx-1].required_level = level
 	}
 	Skill(skillID, blocks_list)
 }
@@ -177,21 +188,29 @@ create_buyables :: proc() -> BuyableCreationError {
 	}
 
 
-	for perk in PerkID {
-		// Verify that there are no cycles in reqs
-
-		perk_val := DB.perk_data[perk]
+	for perk, perk_data in DB.perk_data {
 		DB.buyable_data[perk] = BuyableData {
-			owned_blocks = make([]Block, perk_val.blocks),
+			owned_blocks = make(Blocks, perk_data.blocks),
+		}
+		for &block in DB.buyable_data[perk].owned_blocks {
+			block.owned_by = perk
 		}
 	}
+
 	for skill_id, levels_data in DB.skill_id_data {
-		for blocks, level_indexed_from_0 in levels_data {
+		for data, level_indexed_from_0 in levels_data {
+			blocks := data.blocks
 			level := level_indexed_from_0 + 1
-			DB.buyable_data[LeveledSkill{skill_id, LEVEL(level)}] = BuyableData {
-				owned_blocks = make([]Block, blocks),
-			}}
+			skill := LeveledSkill{skill_id, LEVEL(level)}
+			DB.buyable_data[skill] = BuyableData {
+				owned_blocks = make(Blocks, blocks),
+			}
+			for &block in DB.buyable_data[skill].owned_blocks {
+				block.owned_by = skill
+			}
 		}
+	}
+
 	return nil
 }
 

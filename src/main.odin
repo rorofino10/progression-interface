@@ -102,9 +102,14 @@ buy_perk :: proc(perk: PerkID) -> (u32, BuyError) {
 	return blocks_to_buy, .None
 }
 
-buy :: proc {
-	buy_perk,
-	buy_skill,
+buy_buyable :: proc(buyable: Buyable) -> (u32, BuyError){
+	switch b in buyable {
+		case PerkID:
+			return buy_perk(b)
+		case LeveledSkill:
+			return buy_skill(b)
+	}
+	return 0, nil
 }
 
 Unit :: struct {
@@ -123,6 +128,7 @@ run :: proc() -> Error {
 	init_player()
 	init_db() or_return
 	
+	run_cli()
 	spent: u32
 	spent = buy_skill({.Melee, 1}) or_return
 	// buy_skill({.Melee, 2}) or_return
@@ -132,13 +138,10 @@ run :: proc() -> Error {
 	spent = buy_skill({.Athletics, 2}) or_return
 
 
-	spent = buy(PerkID.Trip) or_return
-	fmt.println("Buy Trip:", spent)
+	// spent = buy_perk(.Trip) or_return
+	// spent = buy_perk(.Knife_Master) or_return
+	
 
-	// for id, level in player.owned_skills {
-	// 	fmt.println(id, level)
-	// }
-	// fmt.println(player.owned_perks)
 	return nil
 }
 

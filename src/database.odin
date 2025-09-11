@@ -112,10 +112,11 @@ Skill :: proc(skillID: SkillID, blocks: [MAX_SKILL_LEVEL]BlocksSize) {
 DefineBlockProc :: proc(blockIdx: BlocksSize) -> BlocksSize
 
 SkillByProc :: proc(skillID: SkillID, blockProc: DefineBlockProc){
+	blocks_list : [MAX_SKILL_LEVEL]BlocksSize
 	for idx in 1..=MAX_SKILL_LEVEL {
-		db_data := &DB.skill_id_data[skillID]
-		db_data[idx] = blockProc(BlocksSize(idx))
+		blocks_list[idx-1] = blockProc(BlocksSize(idx))
 	}
+	Skill(skillID, blocks_list)
 }
 
 Perk :: proc(perkID: PerkID, blocks: BlocksSize, pre_reqs: Perks, skill_reqs: [dynamic]LeveledSkill) {

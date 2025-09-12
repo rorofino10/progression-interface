@@ -16,17 +16,19 @@ Action :: enum {
 
 print_buyable_blocks :: proc(buyable: Buyable) {
     buyable_data := DB.buyable_data[buyable]
-    fmt.print(buyable_data.bought_amount, "/", BlocksSize(len(buyable_data.owned_blocks)), "")
+    owned_block_amount := buyable_data.owned_blocks_range.end - buyable_data.owned_blocks_range.start + 1
+    fmt.print(buyable_data.bought_amount, "/", owned_block_amount, "")
     switch {
         // Already Bought
         case buyable_data.bought:
-            for block in buyable_data.owned_blocks do fmt.print("\x1b[44m \x1b[0m")
+            for _ in 0..<owned_block_amount do fmt.print("\x1b[44m \x1b[0m")
         // Free
-        case BlocksSize(len(buyable_data.owned_blocks)) == buyable_data.bought_amount:
+        case owned_block_amount == buyable_data.bought_amount:
             fmt.print("FREE! ")
-            for block in buyable_data.owned_blocks do fmt.print("\x1b[43m \x1b[0m")
+            for _ in 0..<owned_block_amount do fmt.print("\x1b[43m \x1b[0m")
         case:
-            for block in buyable_data.owned_blocks {
+            for block_idx in buyable_data.owned_blocks_range.start..=buyable_data.owned_blocks_range.end {
+                block := block_system.blocks[block_idx]
                 if block.bought do fmt.print("\x1b[42m \x1b[0m")
                 else do fmt.print("\x1b[31m█\x1b[0m")
             }
@@ -88,42 +90,20 @@ print_state :: proc(){
     fmt.println("Level:", player.level)
 }
 
-parse_action :: proc(s: string) -> Action {
-    switch s {
-        case "buy":
-            return .Buy
-        case "refund":
-            return .Refund
-        case "levelup":
-            return .LevelUp
-    }
-    return .NotRecognized
+parse_action :: proc(action_str: string) -> Action {
+    action, r_err := reflect.enum_from_name(Action, action_str)
+    return action
 }
 
 parse_perk :: proc(s: string) -> PerkID {
-    switch s {
-        case "Aim":
-            return .Aim
-        case "Knife_Master":
-            return .Knife_Master
-        case "Trip":
-            return .Trip
-        case "Sight":
-            return .Sight
-    }
-    return nil
+    perk_id, r_err := reflect.enum_from_name(PerkID, s)
+    return perk_id
 }
 
 parse_skill :: proc(skill_id_str: string, skill_level_str: string) -> LeveledSkill {
-    skill_id : SkillID
+    skill_id, r_err := reflect.enum_from_name(SkillID, skill_id_str)
     skill_level : LEVEL
-    skill_id_upper_str, _ := strings.to_upper(skill_id_str, context.temp_allocator)
-    switch skill_id_upper_str {
-        case "MELEE":
-            skill_id = .Melee
-        case "ATHLETICS":
-            skill_id = .Athletics
-    }
+
     skill_level_uint, _ := strconv.parse_uint(skill_level_str)
     skill_level = LEVEL(skill_level_uint)
     return LeveledSkill{skill_id, skill_level}
@@ -132,12 +112,12 @@ parse_skill :: proc(skill_id_str: string, skill_level_str: string) -> LeveledSki
 run_cli :: proc() {
     
     // Clear Screen
-    // fmt.print("\x1b[2J\x1b[H")
+    fmt.print("\x1b[2J\x1b[H")
     print_state()
 
     scanner: bufio.Scanner
-    stdin := os.stream_from_handle(os.stdin)
-    bufio.scanner_init(&scanner, stdin)
+    stdin := os.stream_from_handle(os.stdin,)
+    bufio.scanner_init(&scanner, stdin, context.temp_allocator)
 
     for {
         
@@ -181,11 +161,11 @@ run_cli :: proc() {
         }
 
         print_state()
-        free_all(context.temp_allocator)
     }
-
+    
     if err := bufio.scanner_error(&scanner); err != nil {
         fmt.eprintln("error scanning input: %v", err)
     }
+    free_all(context.temp_allocator)
 
 }

@@ -1,5 +1,6 @@
 package main
 
+import "core:mem"
 import "core:container/queue"
 import "core:fmt"
 import "core:math/rand"
@@ -21,12 +22,6 @@ LeveledSkill :: struct {
 	id:    SkillID,
 	level: LEVEL,
 }
-
-SkillData :: struct {
-	blocks: BlocksSize,
-	required_level: LEVEL,
-}
-
 
 Perks :: bit_set[PerkID]
 
@@ -73,16 +68,8 @@ Error :: union #shared_nil {
 	BuyableCreationError,
 	BuyError,
 	ConstraintError,
+	mem.Allocator_Error
 }
-
-Block :: struct {
-	bought		: bool,
-	linked_to	: [dynamic]^Block,
-	owned_by	: Buyable
-}
-
-Blocks :: []Block
-BlocksSize :: u32
 
 Buyable :: union {
 	PerkID,
@@ -93,40 +80,38 @@ Buyables :: []Buyable
 DynBuyables :: [dynamic]Buyable
 
 BuyableData :: struct {
-	owned_blocks	: Blocks,
-	bought_amount	: BlocksSize,
-	bought			: bool,
-	spent			: BlocksSize,
+	owned_blocks_range	: BlockRange,
+	bought_amount		: BlocksSize,
+	bought				: bool,
+	spent				: BlocksSize,
 }
 
 
 
 Database :: struct {
-	skill_id_data	: map[SkillID][MAX_SKILL_LEVEL]SkillData,
+	skill_id_data	: map[SkillID][MAX_SKILL_LEVEL]BlocksSize,
 	perk_data		: map[PerkID]PerkData,
 	buyable_data 	: map[Buyable]BuyableData,
 
 	// Constraint
-	contains_constraint: map[Buyable]DynBuyables,
-	drag_constraint	: map[SkillID]map[SkillID]LEVEL,
+	contains_constraint : map[Buyable]DynBuyables,
+	drag_constraint		: map[SkillID]map[SkillID]LEVEL,
 	share_constraints	: [dynamic]TShare,
 	overlap_constraints : [dynamic]TOverlap,
 }
+
 DB : Database
 
-
-Skill :: proc(skillID: SkillID, skill_data: [MAX_SKILL_LEVEL]SkillData) {
-	DB.skill_id_data[skillID] = skill_data
+Skill :: proc(skillID: SkillID, skill_data_arr: [MAX_SKILL_LEVEL]BlocksSize) {
+	DB.skill_id_data[skillID] = skill_data_arr
 }
 
-DefineBlockProc :: proc(blockIdx: BlocksSize) -> (BlocksSize, LEVEL)
+DefineBlockProc :: proc(blockIdx: BlocksSize) -> BlocksSize
 
 SkillByProc :: proc(skillID: SkillID, blockProc: DefineBlockProc){
-	blocks_list : [MAX_SKILL_LEVEL]SkillData
+	blocks_list : [MAX_SKILL_LEVEL]BlocksSize
 	for idx in 1..=MAX_SKILL_LEVEL {
-		blocks, level := blockProc(BlocksSize(idx))
-		blocks_list[idx-1].blocks = blocks
-		blocks_list[idx-1].required_level = level
+		blocks_list[idx-1] = blockProc(BlocksSize(idx))
 	}
 	Skill(skillID, blocks_list)
 }
@@ -145,6 +130,7 @@ Perk :: proc(perkID: PerkID, blocks: BlocksSize, pre_reqs: Perks, skill_reqs: [d
 init_db :: proc() -> Error{
 	load_db()
 	check_constraints() or_return
+	block_system_allocate() or_return
 	create_buyables() or_return
 	handle_constraints()
 	return nil
@@ -217,25 +203,15 @@ create_buyables :: proc() -> BuyableCreationError {
 
 
 	for perk, perk_data in DB.perk_data {
-		DB.buyable_data[perk] = BuyableData {
-			owned_blocks = make(Blocks, perk_data.blocks),
-		}
-		for &block in DB.buyable_data[perk].owned_blocks {
-			block.owned_by = perk
-		}
+		block_system_assign(perk, perk_data.blocks)
 	}
 
 	for skill_id, levels_data in DB.skill_id_data {
-		for data, level_indexed_from_0 in levels_data {
-			blocks := data.blocks
+		for blocks_to_assign, level_indexed_from_0 in levels_data {
 			level := level_indexed_from_0 + 1
 			skill := LeveledSkill{skill_id, LEVEL(level)}
-			DB.buyable_data[skill] = BuyableData {
-				owned_blocks = make(Blocks, blocks),
-			}
-			for &block in DB.buyable_data[skill].owned_blocks {
-				block.owned_by = skill
-			}
+			// fmt.println("Assigning", blocks_to_assign, "to", skill.id, skill.level)
+			block_system_assign(skill, blocks_to_assign)
 		}
 	}
 
@@ -243,37 +219,40 @@ create_buyables :: proc() -> BuyableCreationError {
 }
 
 link_buyables :: proc(buyableA, buyableB: Buyable, strength: STRENGTH) {
-	buyable_a_data := DB.buyable_data[buyableA]
-	buyable_b_data := DB.buyable_data[buyableB]
+	buyable_a_data, buyable_b_data := DB.buyable_data[buyableA], DB.buyable_data[buyableB]
 
-	{ 	// Shuffle blocks to link random blocks
-		rand.shuffle(buyable_a_data.owned_blocks)
-		rand.shuffle(buyable_b_data.owned_blocks)
-	}
+	buyable_a_range, buyable_b_range := buyable_a_data.owned_blocks_range, buyable_b_data.owned_blocks_range
+
+	buyable_a_owned_blocks_amount, buyable_b_owned_blocks_amount := range_len(buyable_a_range), range_len(buyable_b_range)
+
+// 	{ 	// Shuffle blocks to link random blocks
+// 		rand.shuffle(buyable_a_data.owned_blocks_range)
+// 		rand.shuffle(buyable_b_data.owned_blocks_range)
+// 	}
 
 	{ 	// Link A -> B
 		len_shared_blocks_from_a_to_b := int(
-			f32(len(buyable_b_data.owned_blocks)) * f32(strength) / 100,
+			f32(buyable_b_owned_blocks_amount) * f32(strength) / 100,
 		)
-		for block_idx in 0 ..< len_shared_blocks_from_a_to_b {
-			block_idx_mod := block_idx % len(buyable_a_data.owned_blocks)
-			append(
-				&buyable_a_data.owned_blocks[block_idx_mod].linked_to,
-				&buyable_b_data.owned_blocks[block_idx],
-			)
-		}
+		// for block_idx in 0 ..< len_shared_blocks_from_a_to_b {
+		// 	block_idx_mod := block_idx % len(buyable_a_data.owned_blocks_range)
+		// 	append(
+		// 		&buyable_a_data.owned_blocks_range[block_idx_mod].linked_to,
+		// 		&buyable_b_data.owned_blocks_range[block_idx],
+		// 	)
+		// }
 	}
-	{ 	// Link B -> A
-		len_shared_blocks_from_b_to_a := int(
-			f32(len(buyable_a_data.owned_blocks)) * f32(strength) / 100,
-		)
-		for block_idx in 0 ..< len_shared_blocks_from_b_to_a {
-			block_idx_mod := block_idx % len(buyable_b_data.owned_blocks)
-			append(
-				&buyable_b_data.owned_blocks[block_idx_mod].linked_to,
-				&buyable_a_data.owned_blocks[block_idx],
-			)
-		}
-	}
-}
 
+// 	{ 	// Link B -> A
+// 		len_shared_blocks_from_b_to_a := int(
+// 			f32(len(buyable_a_data.owned_blocks_range)) * f32(strength) / 100,
+// 		)
+// 		for block_idx in 0 ..< len_shared_blocks_from_b_to_a {
+// 			block_idx_mod := block_idx % len(buyable_b_data.owned_blocks_range)
+// 			append(
+// 				&buyable_b_data.owned_blocks_range[block_idx_mod].linked_to,
+// 				&buyable_a_data.owned_blocks_range[block_idx],
+// 			)
+// 		}
+// 	}
+}

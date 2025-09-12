@@ -93,9 +93,10 @@ Buyables :: []Buyable
 DynBuyables :: [dynamic]Buyable
 
 BuyableData :: struct {
-	owned_blocks: []Block,
-	bought_amount: BlocksSize,
-	bought:       bool,
+	owned_blocks	: Blocks,
+	bought_amount	: BlocksSize,
+	bought			: bool,
+	spent			: BlocksSize,
 }
 
 
@@ -169,20 +170,47 @@ create_buyables :: proc() -> BuyableCreationError {
 			}
 			return nil
 		}
+
+		@static redundant : Perks
+		check_for_redundancy :: proc(perk: PerkID) -> Maybe(PerkID) {
+			append(&curr_path_stack, perk)
+			if perk in redundant do return perk
+			if perk in seen do return nil
+			seen |= {perk}
+			for req_perk in DB.perk_data[perk].prereqs {
+				redundant_perk := check_for_redundancy(req_perk)
+				if redundant_perk != nil do return redundant_perk
+			}
+			return nil
+		}
 		for perk in PerkID {
-			repeated_perk, ok := check_for_cycles(perk, {}).?
-			if ok {
-				i:=0
-				for ; i<len(curr_path_stack); i+=1 {
-					if curr_path_stack[i] == repeated_perk do break
+			pre_reqs := DB.perk_data[perk].prereqs
+			{ // Check redundancy
+				seen = {}
+				for req_perk in pre_reqs {
+					redundant = pre_reqs - {req_perk}
+					redundant_perk, is_redundant := check_for_redundancy(perk).?
+					if is_redundant do fmt.println("[WARN]:", perk, "has redundant", redundant_perk)
 				}
-				for idx in i..<len(curr_path_stack)-1 {
-					path_perk := curr_path_stack[idx]
-					fmt.print(path_perk, "-> ")
+			}
+			{ // Check for cycles
+
+				seen = {}
+				repeated_perk, ok := check_for_cycles(perk, {}).?
+				
+				if ok {
+					i:=0
+					for ; i<len(curr_path_stack); i+=1 {
+						if curr_path_stack[i] == repeated_perk do break
+					}
+					for idx in i..<len(curr_path_stack)-1 {
+						path_perk := curr_path_stack[idx]
+						fmt.print(path_perk, "-> ")
+					}
+					last_path_perk := curr_path_stack[len(curr_path_stack)-1]
+					fmt.println(last_path_perk)
+					return CycleInPreReqsError{repeated_perk}
 				}
-				last_path_perk := curr_path_stack[len(curr_path_stack)-1]
-				fmt.println(last_path_perk)
-				return CycleInPreReqsError{repeated_perk}
 			}
 		}
 	}

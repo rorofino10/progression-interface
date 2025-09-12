@@ -51,7 +51,7 @@ refund_buyable :: proc(buyable: Buyable) -> (u32, RefundError) {
 		// Perhaps do something with links?
 	}
 	b_data.bought = false
-	refunded := b_data.bought_amount
+	refunded := b_data.spent
 	player.unused_points += refunded
 	b_data.bought_amount = 0
 	switch b in buyable {
@@ -66,7 +66,7 @@ refund_buyable :: proc(buyable: Buyable) -> (u32, RefundError) {
 
 buy_skill :: proc(skill: LeveledSkill) -> (u32, BuyError) {
 	skill_id_data := DB.skill_id_data[skill.id]
-	required_level := skill_id_data[skill.level].required_level
+	required_level := skill_id_data[skill.level-1].required_level
 
 	if required_level > player.level do return 0, .MissingRequiredUnitLevel
 	if skill.level != 1 && !player_has_skill({skill.id, skill.level - 1}) do return 0, .MissingRequiredSkills
@@ -76,9 +76,13 @@ buy_skill :: proc(skill: LeveledSkill) -> (u32, BuyError) {
 	if u32(blocks_to_buy) > player.unused_points do return 0, .NotEnoughPoints
 	player.unused_points -= u32(blocks_to_buy)
 	unlock_buyable(skill) // Set all blocks to bought
-	skill_buyable.bought = true
-	player.owned_skills[skill.id] = skill.level
 
+	{ // Set as bought
+		skill_buyable.spent = blocks_to_buy
+		skill_buyable.bought = true
+		player.owned_skills[skill.id] = skill.level
+	}
+	
 	{ 	// Handle Contains
 		containees, ok := DB.contains_constraint[skill]
 		if ok {
@@ -130,6 +134,7 @@ buy_perk :: proc(perk: PerkID) -> (u32, BuyError) {
 	unlock_buyable(perk) // Set all blocks to bought
 
 	{ 	// Set as bought
+		perk_buyable.spent = blocks_to_buy
 		perk_buyable.bought = true
 		player.owned_perks |= {perk}
 	}

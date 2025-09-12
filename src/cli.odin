@@ -61,14 +61,22 @@ print_player_state :: proc() {
 print_buyables :: proc(){
     fmt.println("Buyables:")
     for buyable, buyable_data in DB.buyable_data {
-        fmt.print('\t')
         switch b in buyable {
             case LeveledSkill:
-                fmt.print(b.id, b.level, ": ")
+                max_skill_owned, owned := player.owned_skills[b.id]
+                if (!owned && b.level == 1) || b.level == max_skill_owned + 1 {
+                    fmt.print('\t')
+                    fmt.print(b.id, b.level, ": ")
+                    print_buyable_blocks(buyable)
+                }
             case PerkID:
-                fmt.print(b,": ")
+                if !player_has_perk(b) {
+                    fmt.print('\t')
+                    fmt.print(b,": ")
+                    print_buyable_blocks(buyable)
+                }
+                
         }
-        print_buyable_blocks(buyable)
     }
 }
 
@@ -158,12 +166,14 @@ run_cli :: proc() {
 
         switch action {
             case .Refund:
-                refund_buyable(buyable)
+                refunded, err := refund_buyable(buyable)
+                if err != nil do fmt.println(err)
+                else do fmt.println("Refunded:", refunded)
+
             case .Buy:
-                buy_buyable(buyable)
                 spent, err := buy_buyable(buyable)
                 if err != nil do fmt.println(err)
-                else do fmt.println("Cost of", buyable, spent)
+                else do fmt.println("Cost:", spent)
             case .LevelUp:
                 level_up()
             case .NotRecognized:

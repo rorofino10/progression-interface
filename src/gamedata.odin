@@ -12,12 +12,17 @@ SkillID :: enum u8 {
 	Melee,
 	Athletics,
 	Finesse,
+	Medicine,
 }
 
 load_db :: proc() {
 
+	BuildPlayer({120, 120, 120}, {{1,1,0},{3,3,2},{4,4,3}})
+
     // Literal
-	Skill(.Melee, { 10, 10, 10 }) 
+	BuildMainSkill(.Melee, [MAX_SKILL_LEVEL]BlocksSize{ 10, 20, 30 })
+	BuildMainSkill(.Athletics, { 10, 10, 10 })
+	BuildExtraSkill(.Medicine, { 10, 10, 10 }) 
 	// Skill(.Athletics, { 10, 10, 10 }) 
 	// Skill(.Athletics, { {10, 1}, {20, 1}, {30, 1} }) 
 	// Skill(.Finesse, { {10, 1}, {20, 1}, {30, 1} }) 

@@ -4,10 +4,10 @@ import "core:mem"
 import "core:fmt"
 
 player_has_perk :: proc(perk: PerkID) -> bool {
-	return perk in player.owned_perks
+	return perk in DB.owned_perks
 }
 player_has_skill :: proc(skill: LeveledSkill) -> bool {
-	owned_skill_level, ok := player.owned_skills[skill.id]
+	owned_skill_level, ok := DB.owned_skills[skill.id]
 	if !ok do return false
 	return  skill.level<=owned_skill_level 
 }
@@ -29,7 +29,7 @@ unlock_buyable :: proc(buyable: Buyable) {
 				if !b.bought {
 					for owner in b.owned_by {
 						owner_b_data := &DB.buyable_data[owner]
-						owner_b_data.bought_amount += 1
+						owner_b_data.owned_amount += 1
 					}
 
 					b.bought = true
@@ -39,7 +39,7 @@ unlock_buyable :: proc(buyable: Buyable) {
 					if !single_block.bought {
 						for owner in single_block.owned_by {
 							owner_b_data := &DB.buyable_data[owner]
-							owner_b_data.bought_amount += 1
+							owner_b_data.owned_amount += 1
 						}
 
 						single_block.bought = true
@@ -59,7 +59,7 @@ lock_buyable :: proc(buyable: Buyable) {
 				if b.bought {
 					for owner in b.owned_by {
 						owner_b_data := &DB.buyable_data[owner]
-						owner_b_data.bought_amount -= 1
+						owner_b_data.owned_amount -= 1
 					}
 
 					b.bought = false
@@ -69,7 +69,7 @@ lock_buyable :: proc(buyable: Buyable) {
 					if single_block.bought {
 						for owner in single_block.owned_by {
 							owner_b_data := &DB.buyable_data[owner]
-							owner_b_data.bought_amount -= 1
+							owner_b_data.owned_amount -= 1
 						}
 
 						single_block.bought = false
@@ -82,9 +82,7 @@ lock_buyable :: proc(buyable: Buyable) {
 	for &block in b_data.owned_blocks do lock_block(block)
 }
 
-level_up :: proc() {
-	player.level += 1
-}
+
 
 refund_buyable :: proc(buyable: Buyable) -> (u32, RefundError) {
 	if !player_has_buyable(buyable) do return 0, .BuyableNotOwned
@@ -93,50 +91,57 @@ refund_buyable :: proc(buyable: Buyable) -> (u32, RefundError) {
 
 	lock_buyable(buyable)
 
-	b_data.bought = false
+	b_data.is_owned = false
 	refunded := b_data.spent
-	player.unused_points += refunded
-	b_data.bought_amount = 0
+	DB.unused_points += refunded
+	b_data.owned_amount = 0
 	switch b in buyable {
 		case LeveledSkill:
-			if b.level == 1 do delete_key(&player.owned_skills, b.id)
-			else do player.owned_skills[b.id] = b.level - 1
+			if b.level == 1 do delete_key(&DB.owned_skills, b.id)
+			else do DB.owned_skills[b.id] = b.level - 1
 		case PerkID:
-			player.owned_perks -= {b}
+			DB.owned_perks -= {b}
 	}
 	return refunded, .None
 }
 
-buy_skill :: proc(skill: LeveledSkill) -> (u32, BuyError) {
-	skill_id_data := DB.skill_id_data[skill.id]
+raise_skill :: proc(skill_id: SkillID) -> (u32, BuyError) {
+	skill_level := DB.owned_skills[skill_id]
+	skill := LeveledSkill{skill_id, skill_level}
+	next_skill := LeveledSkill{skill_id, skill_level+1}
 
-	if skill.level != 1 && !player_has_skill({skill.id, skill.level - 1}) do return 0, .MissingRequiredSkills
-	b_data := &DB.buyable_data[skill]
+	{ // Check if it is capped	
+		skill_idx := DB.skill_id_data[skill_id].idx
+		cap := DB.skill_rank_cap[DB.unit_level-1][skill_idx]
+		if next_skill.level > cap do return 0, .CapReached
+	}
+
+	b_data := &DB.buyable_data[next_skill]
 
     owned_block_amount := BlocksSize(len(b_data.owned_blocks))
-	blocks_to_buy := owned_block_amount - b_data.bought_amount
-	if blocks_to_buy > player.unused_points do return 0, .NotEnoughPoints
-	player.unused_points -= blocks_to_buy
-	unlock_buyable(skill) // Set all blocks to bought
+	blocks_to_buy := owned_block_amount - b_data.owned_amount
+	if blocks_to_buy > DB.unused_points do return 0, .NotEnoughPoints
+	DB.unused_points -= blocks_to_buy
+	unlock_buyable(next_skill) // Set all blocks to bought
 
 	{ // Set as bought
 		b_data.spent = blocks_to_buy
-		b_data.bought = true
-		player.owned_skills[skill.id] = skill.level
+		b_data.is_owned = true
+		DB.owned_skills[next_skill.id] = next_skill.level
 	}
 	
 	{ 	// Handle Contains
-		containees, ok := DB.contains_constraint[skill]
+		containees, ok := DB.contains_constraint[next_skill]
 		if ok {
 			for buyable in containees do unlock_buyable(buyable)
 		}
 	}
 
 	{ 	// Handle Drag
-		drags := DB.drag_constraint[skill.id]
+		drags := DB.drag_constraint[next_skill.id]
 		for dragged_skill, drag in drags {
-			if skill.level <= drag do continue
-			unlock_buyable(LeveledSkill{dragged_skill, skill.level - drag})
+			if next_skill.level <= drag do continue
+			unlock_buyable(LeveledSkill{dragged_skill, next_skill.level - drag})
 		}
 	}
 
@@ -151,7 +156,7 @@ buy_perk :: proc(perk: PerkID) -> (u32, BuyError) {
 
 	{ 	// check pre_reqs
 		for prereq in perk_val.prereqs {
-			if prereq not_in player.owned_perks do return 0, .MissingRequiredPerks
+			if prereq not_in DB.owned_perks do return 0, .MissingRequiredPerks
 		}
 	}
 
@@ -170,15 +175,15 @@ buy_perk :: proc(perk: PerkID) -> (u32, BuyError) {
 	
     owned_block_amount := BlocksSize(len(b_data.owned_blocks))
 
-	blocks_to_buy := owned_block_amount - b_data.bought_amount
-	if blocks_to_buy > player.unused_points do return 0, .NotEnoughPoints
-	player.unused_points -= blocks_to_buy
+	blocks_to_buy := owned_block_amount - b_data.owned_amount
+	if blocks_to_buy > DB.unused_points do return 0, .NotEnoughPoints
+	DB.unused_points -= blocks_to_buy
 	unlock_buyable(perk) // Set all blocks to bought
 
 	{ 	// Set as bought
 		b_data.spent = blocks_to_buy
-		b_data.bought = true
-		player.owned_perks |= {perk}
+		b_data.is_owned = true
+		DB.owned_perks |= {perk}
 	}
 
 	{ 	// Handle Contains
@@ -192,32 +197,7 @@ buy_perk :: proc(perk: PerkID) -> (u32, BuyError) {
 	return blocks_to_buy, .None
 }
 
-buy_buyable :: proc(buyable: Buyable) -> (u32, BuyError){
-	switch b in buyable {
-		case PerkID:
-			return buy_perk(b)
-		case LeveledSkill:
-			return buy_skill(b)
-	}
-	return 0, nil
-}
-
-Unit :: struct {
-	level : LEVEL,
-	owned_skills:  map[SkillID]LEVEL,
-	owned_perks:   Perks,
-	unused_points: u32,
-}
-
-player : Unit
-
-init_player :: proc() {
-	player.level = 1
-	player.unused_points = 120
-}
-
 run :: proc() -> Error {
-	init_player()
 	init_block_system_alloc() or_return
 	init_db() or_return
 	
@@ -226,19 +206,22 @@ run :: proc() -> Error {
 }
 
 main :: proc() {
-	track: mem.Tracking_Allocator
-	mem.tracking_allocator_init(&track, context.allocator)
-	context.allocator = mem.tracking_allocator(&track)
+	when ODIN_DEBUG {
+		track: mem.Tracking_Allocator
+		mem.tracking_allocator_init(&track, context.allocator)
+		context.allocator = mem.tracking_allocator(&track)
 
-	defer {
-		if len(track.allocation_map) > 0 {
-			fmt.eprintf("=== %v allocations not freed: ===\n", len(track.allocation_map))
-			for _, entry in track.allocation_map {
-				fmt.eprintf("- %v bytes @ %v\n", entry.size, entry.location)
+		defer {
+			if len(track.allocation_map) > 0 {
+				fmt.eprintf("=== %v allocations not freed: ===\n", len(track.allocation_map))
+				for _, entry in track.allocation_map {
+					fmt.eprintf("- %v bytes @ %v\n", entry.size, entry.location)
+				}
 			}
+			mem.tracking_allocator_destroy(&track)
 		}
-		mem.tracking_allocator_destroy(&track)
 	}
+
 	err := run()
 	
 	if err != nil {

@@ -9,6 +9,7 @@ import "core:reflect"
 
 Action :: enum {
     NotRecognized,
+    Raise,
     Buy,
     Refund,
     LevelUp,
@@ -17,13 +18,13 @@ Action :: enum {
 print_buyable_blocks :: proc(buyable: Buyable) {
     buyable_data := DB.buyable_data[buyable]
     owned_block_amount := BlocksSize(len(buyable_data.owned_blocks))
-    fmt.print(buyable_data.bought_amount, "/", owned_block_amount, "")
+    fmt.print(buyable_data.owned_amount, "/", owned_block_amount, "")
     switch {
         // Already Bought
-        case buyable_data.bought:
+        case buyable_data.is_owned:
             for _ in 0..<owned_block_amount do fmt.print("\x1b[44m \x1b[0m")
         // Free
-        case owned_block_amount == buyable_data.bought_amount:
+        case owned_block_amount == buyable_data.owned_amount:
             fmt.print("FREE! ")
             for _ in 0..<owned_block_amount do fmt.print("\x1b[43m \x1b[0m")
         case:
@@ -40,18 +41,33 @@ print_player_state :: proc() {
 
 
     { // Print Owned Skills
-        fmt.println("Owned Skills:")
+        // fmt.println("Owned Skills:")
 
-        for skill_id, level in player.owned_skills {
-            fmt.print(" ",skill_id, level, ": ")
-            print_buyable_blocks(LeveledSkill{skill_id, level})
-        } 
+        // for skill_id, level in DB.owned_skills {
+        //     fmt.print(" ",skill_id, level, ": ")
+        //     print_buyable_blocks(LeveledSkill{skill_id, level})
+        // } 
+        fmt.println("Main Skills:")
+        for skill_id, slot in DB.owned_main_skills {
+            level := DB.owned_skills[skill_id]
+            slot_cap := DB.skill_rank_cap[DB.unit_level-1][slot]
+            fmt.print(" SLOT:", slot,"CAP:", slot_cap, skill_id, level, ": ")
+            print_buyable_blocks(LeveledSkill{skill_id, level+1})
+        }
+
+        fmt.println("Extra Skills:")
+        extra_slot_cap := DB.skill_rank_cap[DB.unit_level-1][MAIN_SKILLS_AMOUNT]
+        for skill_id in DB.owned_extra_skills {
+            level := DB.owned_skills[skill_id]
+            fmt.print(" CAP:", extra_slot_cap, skill_id, level, ": ")
+            print_buyable_blocks(LeveledSkill{skill_id, level+1})
+        }
     }
 
     { // Print Owned Skills
         fmt.println("Owned Perks:")
 
-        for perk in player.owned_perks {
+        for perk in DB.owned_perks {
             fmt.print(" ",perk, ": ")
             print_buyable_blocks(perk)
         } 
@@ -64,7 +80,7 @@ print_buyables :: proc(){
     for buyable, buyable_data in DB.buyable_data {
         switch b in buyable {
             case LeveledSkill:
-                max_skill_owned, owned := player.owned_skills[b.id]
+                max_skill_owned, owned := DB.owned_skills[b.id]
                 if (!owned && b.level == 1) || b.level == max_skill_owned + 1 {
                     fmt.print('\t')
                     fmt.print(b.id, b.level, ": ")
@@ -84,8 +100,8 @@ print_buyables :: proc(){
 print_state :: proc(){
 	print_buyables()
 	print_player_state()
-    fmt.println("Unused points:", player.unused_points)
-    fmt.println("Level:", player.level)
+    fmt.println("Unused points:", DB.unused_points)
+    fmt.println("Level:", DB.unit_level)
 }
 
 parse_action :: proc(action_str: string) -> Action {
@@ -98,13 +114,9 @@ parse_perk :: proc(s: string) -> PerkID {
     return perk_id
 }
 
-parse_skill :: proc(skill_id_str: string, skill_level_str: string) -> LeveledSkill {
+parse_skill :: proc(skill_id_str: string) -> SkillID {
     skill_id, r_err := reflect.enum_from_name(SkillID, skill_id_str)
-    skill_level : LEVEL
-
-    skill_level_uint, _ := strconv.parse_uint(skill_level_str)
-    skill_level = LEVEL(skill_level_uint)
-    return LeveledSkill{skill_id, skill_level}
+    return skill_id
 }
 
 run_cli :: proc() {
@@ -129,31 +141,29 @@ run_cli :: proc() {
 
         action := parse_action(words[0])
 
-        buyable : Buyable
-        switch {
-            case len(words) == 2:
-                buyable = parse_perk(words[1])
-            case len(words) > 2:
-                action = parse_action(words[0])
-                buyable = parse_skill(words[1], words[2])
-        }
-
-
         // Clear Screen
         fmt.print("\x1b[2J\x1b[H")
 
         switch action {
             case .Refund:
+                buyable := parse_perk(words[1])
                 refunded, err := refund_buyable(buyable)
                 if err != nil do fmt.println(err)
                 else do fmt.println("Refunded:", refunded)
 
+            case .Raise:
+                buyable := parse_skill(words[1])
+                spent, err := raise_skill(buyable)
+                if err != nil do fmt.println(err)
+                else do fmt.println("Cost:", spent)
             case .Buy:
-                spent, err := buy_buyable(buyable)
+                buyable := parse_perk(words[1])
+                spent, err := buy_perk(buyable)
                 if err != nil do fmt.println(err)
                 else do fmt.println("Cost:", spent)
             case .LevelUp:
-                level_up()
+                err := level_up()
+                if err != nil do fmt.println(err)
             case .NotRecognized:
                 fmt.println("Action Not Recognized")
         }

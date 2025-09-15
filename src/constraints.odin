@@ -49,13 +49,13 @@ share_buyables :: proc(buyableA, buyableB: Buyable, strength: STRENGTH) {
 	blocks_to_share_a, blocks_to_share_b, blocks_to_share_max: BlocksSize
 	switch a in buyableA {
 		case LeveledSkill:
-			buyable_a_blocks_to_own = DB.skill_id_data[a.id][a.level]
+			buyable_a_blocks_to_own = DB.skill_id_data[a.id].blocks[a.level]
 		case PerkID:
 			buyable_a_blocks_to_own = DB.perk_data[a].blocks
 	}
 	switch b in buyableB {
 		case LeveledSkill:
-			buyable_b_blocks_to_own = DB.skill_id_data[b.id][b.level]
+			buyable_b_blocks_to_own = DB.skill_id_data[b.id].blocks[b.level]
 		case PerkID:
 			buyable_b_blocks_to_own = DB.perk_data[b].blocks
 	}

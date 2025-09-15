@@ -9,18 +9,31 @@ STRENGTH :: distinct u8
 
 // CONSTANT
 MAX_SKILL_LEVEL :: 3
-
+MAX_UNIT_LEVEL :: 30
+MAIN_SKILLS_AMOUNT :: 2
 // Artificial list size limits
 MAX_SKILL_REQS :: 10
 
 DatabaseError :: enum {
 	None,
 	LoadError,
+	MissingMainSkills,
 }
 
 LeveledSkill :: struct {
 	id:    SkillID,
 	level: LEVEL,
+}
+
+SkillType :: enum {
+	Main,
+	Extra
+}
+
+SkillData :: struct {
+	blocks	: [MAX_SKILL_LEVEL]BlocksSize,
+	type	: SkillType,
+	idx		: u32,
 }
 
 Perks :: bit_set[PerkID]
@@ -43,6 +56,7 @@ ConstraintError :: enum {
 
 BuyError :: enum {
 	None,
+	CapReached,
 	NotEnoughPoints,
 	MissingRequiredSkills,
 	MissingRequiredPerks,
@@ -64,11 +78,18 @@ BuyableCreationError :: union {
 	CycleInPreReqsError,
 }
 
+LevelUpError :: enum {
+	None,
+	MAX_LEVEL_REACHED,
+}
+
 Error :: union #shared_nil {
+	DatabaseError,
 	BuyableCreationError,
 	BuyError,
 	ConstraintError,
-	mem.Allocator_Error
+	LevelUpError,
+	mem.Allocator_Error,
 }
 
 Buyable :: union {
@@ -80,17 +101,17 @@ Buyables :: []Buyable
 DynBuyables :: [dynamic]Buyable
 
 BuyableData :: struct {
-	blocks_left_to_assign : BlocksSize,
-	owned_blocks		: DynOwnedBlocks,
-	bought_amount		: BlocksSize,
-	bought				: bool,
-	spent				: BlocksSize,
+	blocks_left_to_assign 	: BlocksSize,
+	owned_blocks			: DynOwnedBlocks,
+	owned_amount			: BlocksSize,
+	is_owned				: bool,
+	spent					: BlocksSize,
 }
 
 
 
 Database :: struct {
-	skill_id_data	: map[SkillID][MAX_SKILL_LEVEL]BlocksSize,
+	skill_id_data	: map[SkillID]SkillData,
 	perk_data		: map[PerkID]PerkData,
 	buyable_data 	: map[Buyable]BuyableData,
 
@@ -99,22 +120,54 @@ Database :: struct {
 	drag_constraint		: map[SkillID]map[SkillID]LEVEL,
 	share_constraints	: [dynamic]TShare,
 	overlap_constraints : [dynamic]TOverlap,
+
+	// Unit
+	unit_level				: LEVEL,
+	unused_points			: u32,
+	owned_main_skills		: [MAIN_SKILLS_AMOUNT]SkillID,
+	owned_main_skills_amount: u32,
+	owned_extra_skills		: [dynamic]SkillID,
+	owned_perks				: Perks,
+	owned_skills			: map[SkillID]LEVEL,
+	points_gain				: [MAX_UNIT_LEVEL]u32,
+	unit_level_cap			: LEVEL,
+	skill_rank_cap			: [MAX_UNIT_LEVEL][MAIN_SKILLS_AMOUNT+1]LEVEL
 }
 
 DB : Database
 
-Skill :: proc(skillID: SkillID, skill_data_arr: [MAX_SKILL_LEVEL]BlocksSize) {
-	DB.skill_id_data[skillID] = skill_data_arr
+BuildMainSkillStartingLevel :: proc(skillID: SkillID, starting_level: LEVEL, skill_data_arr: [MAX_SKILL_LEVEL]BlocksSize) {
+	assert(DB.owned_main_skills_amount < MAIN_SKILLS_AMOUNT)
+	DB.owned_main_skills[DB.owned_main_skills_amount] = skillID
+	DB.skill_id_data[skillID] = {blocks = skill_data_arr, type = .Main, idx = DB.owned_main_skills_amount}
+	DB.owned_skills[skillID] = starting_level
+	DB.owned_main_skills_amount += 1
+}
+
+BuildMainSkillDefault :: proc(skillID: SkillID, skill_data_arr: [MAX_SKILL_LEVEL]BlocksSize) {
+	assert(DB.owned_main_skills_amount < MAIN_SKILLS_AMOUNT)
+	DB.owned_main_skills[DB.owned_main_skills_amount] = skillID
+	DB.skill_id_data[skillID] = {blocks = skill_data_arr, type = .Extra, idx = DB.owned_main_skills_amount}
+	DB.owned_skills[skillID] = 0
+	DB.owned_main_skills_amount += 1
+}
+
+BuildMainSkill :: proc{BuildMainSkillDefault, BuildMainSkillStartingLevel}
+
+BuildExtraSkill :: proc(skillID: SkillID, skill_data_arr: [MAX_SKILL_LEVEL]BlocksSize) {
+	DB.skill_id_data[skillID] = {blocks = skill_data_arr, type = .Extra, idx = MAIN_SKILLS_AMOUNT}
+	append(&DB.owned_extra_skills, skillID)
+	DB.owned_skills[skillID] = 0
 }
 
 DefineBlockProc :: proc(blockIdx: BlocksSize) -> BlocksSize
 
-SkillByProc :: proc(skillID: SkillID, blockProc: DefineBlockProc){
+BuildSkillByProc :: proc(skillID: SkillID, blockProc: DefineBlockProc){
 	blocks_list : [MAX_SKILL_LEVEL]BlocksSize
 	for idx in 1..=MAX_SKILL_LEVEL {
 		blocks_list[idx-1] = blockProc(BlocksSize(idx))
 	}
-	Skill(skillID, blocks_list)
+	BuildExtraSkill(skillID, blocks_list)
 }
 
 Perk :: proc(perkID: PerkID, blocks: BlocksSize, pre_reqs: Perks, skill_reqs: [dynamic]LeveledSkill) {
@@ -126,10 +179,33 @@ Perk :: proc(perkID: PerkID, blocks: BlocksSize, pre_reqs: Perks, skill_reqs: [d
 	DB.perk_data[perkID] = perk_data
 }
 
+level_up :: proc() -> LevelUpError {
+	if DB.unit_level >= DB.unit_level_cap do return .MAX_LEVEL_REACHED
+	DB.unit_level += 1
+	DB.unused_points += DB.points_gain[DB.unit_level-1]
+	return nil
+}
 
+BuildPlayer :: proc(points_gain: [dynamic]u32, rank_caps: [dynamic][MAIN_SKILLS_AMOUNT+1]LEVEL) {
+	defer delete(points_gain)
+	defer delete(rank_caps)
+
+	assert(len(points_gain) <= MAX_UNIT_LEVEL)
+	assert(len(points_gain) == len(rank_caps))
+
+	DB.unit_level = 1
+	DB.unit_level_cap = LEVEL(len(points_gain))
+
+	for gain, idx in points_gain do DB.points_gain[idx] = gain
+	for caps, level in rank_caps do DB.skill_rank_cap[level] = caps
+
+	DB.unused_points = points_gain[0]
+}
 
 init_db :: proc() -> Error{
 	load_db()
+	if DB.owned_main_skills_amount != MAIN_SKILLS_AMOUNT do return DatabaseError.MissingMainSkills
+	assert(DB.owned_main_skills_amount == MAIN_SKILLS_AMOUNT)
 	check_constraints() or_return
 	block_system_allocate() or_return
 	create_buyables() or_return
@@ -207,8 +283,8 @@ create_buyables :: proc() -> BuyableCreationError {
         }				
 	}
 	
-	for skill_id, levels_data in DB.skill_id_data {
-		for blocks_to_assign, level_indexed_from_0 in levels_data {
+	for skill_id, skill_data in DB.skill_id_data {
+		for blocks_to_assign, level_indexed_from_0 in skill_data.blocks {
 			level := level_indexed_from_0 + 1
 			skill := LeveledSkill{skill_id, LEVEL(level)}
 			DB.buyable_data[skill] = BuyableData {

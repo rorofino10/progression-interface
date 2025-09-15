@@ -41,15 +41,68 @@ Overlap :: proc(skillA, skillB : SkillID, strength: STRENGTH) {
     append(&DB.overlap_constraints, TOverlap{skillA, skillB, strength})
 }
 
+
+share_buyables :: proc(buyableA, buyableB: Buyable, strength: STRENGTH) {
+	buyable_a_data, buyable_b_data := DB.buyable_data[buyableA], DB.buyable_data[buyableB]
+	
+	buyable_a_blocks_to_own, buyable_b_blocks_to_own : BlocksSize 
+	blocks_to_share_a, blocks_to_share_b, blocks_to_share_max: BlocksSize
+	switch a in buyableA {
+		case LeveledSkill:
+			buyable_a_blocks_to_own = DB.skill_id_data[a.id][a.level]
+		case PerkID:
+			buyable_a_blocks_to_own = DB.perk_data[a].blocks
+	}
+	switch b in buyableB {
+		case LeveledSkill:
+			buyable_b_blocks_to_own = DB.skill_id_data[b.id][b.level]
+		case PerkID:
+			buyable_b_blocks_to_own = DB.perk_data[b].blocks
+	}
+
+
+// 	{ 	// Shuffle blocks to link random blocks
+// 		rand.shuffle(buyable_a_data.owned_blocks_range)
+// 		rand.shuffle(buyable_b_data.owned_blocks_range)
+// 	}
+	blocks_to_share_a = BlocksSize(f32(buyable_a_blocks_to_own) * f32(strength) / 100)
+	blocks_to_share_b = BlocksSize(f32(buyable_b_blocks_to_own) * f32(strength) / 100)
+	blocks_to_share_max = max(blocks_to_share_a, blocks_to_share_b)
+	block_system_assign_share(buyableA, buyableB, blocks_to_share_a, blocks_to_share_b, blocks_to_share_max)
+	{ 	// Link A -> B
+		// for block_idx in 0 ..< len_shared_blocks_from_a_to_b {
+		// 	block_idx_mod := block_idx % len(buyable_a_data.owned_blocks_range)
+		// 	append(
+		// 		&buyable_a_data.owned_blocks_range[block_idx_mod].linked_to,
+		// 		&buyable_b_data.owned_blocks_range[block_idx],
+		// 	)
+		// }
+	}
+
+// 	{ 	// Link B -> A
+// 		len_shared_blocks_from_b_to_a := int(
+// 			f32(len(buyable_a_data.owned_blocks_range)) * f32(strength) / 100,
+// 		)
+// 		for block_idx in 0 ..< len_shared_blocks_from_b_to_a {
+// 			block_idx_mod := block_idx % len(buyable_b_data.owned_blocks_range)
+// 			append(
+// 				&buyable_b_data.owned_blocks_range[block_idx_mod].linked_to,
+// 				&buyable_a_data.owned_blocks_range[block_idx],
+// 			)
+// 		}
+// 	}
+}
+
+
 handle_share :: proc(share: TShare) {
-	link_buyables(share.buyableA, share.buyableB, share.strength)
+	share_buyables(share.buyableA, share.buyableB, share.strength)
 }
 
 handle_overlap :: proc(overlap: TOverlap) {
 	for level in 1..=MAX_SKILL_LEVEL {
 		skillA, skillB := LeveledSkill{overlap.skillA, LEVEL(level)}, LeveledSkill{overlap.skillB, LEVEL(level)}
 
-		link_buyables(skillA, skillB, overlap.strength)
+		share_buyables(skillA, skillB, overlap.strength)
 	}
 }
 

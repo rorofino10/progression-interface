@@ -80,7 +80,8 @@ Buyables :: []Buyable
 DynBuyables :: [dynamic]Buyable
 
 BuyableData :: struct {
-	owned_blocks_range	: BlockRange,
+	blocks_left_to_assign : BlocksSize,
+	owned_blocks		: DynOwnedBlocks,
 	bought_amount		: BlocksSize,
 	bought				: bool,
 	spent				: BlocksSize,
@@ -132,7 +133,6 @@ init_db :: proc() -> Error{
 	check_constraints() or_return
 	block_system_allocate() or_return
 	create_buyables() or_return
-	handle_constraints()
 	return nil
 }
 
@@ -200,59 +200,31 @@ create_buyables :: proc() -> BuyableCreationError {
 			}
 		}
 	}
-
-
 	for perk, perk_data in DB.perk_data {
-		block_system_assign(perk, perk_data.blocks)
+   		DB.buyable_data[perk] = BuyableData {
+        	owned_blocks = make(DynOwnedBlocks, 0),
+			blocks_left_to_assign = perk_data.blocks, 
+        }				
 	}
-
+	
 	for skill_id, levels_data in DB.skill_id_data {
 		for blocks_to_assign, level_indexed_from_0 in levels_data {
 			level := level_indexed_from_0 + 1
 			skill := LeveledSkill{skill_id, LEVEL(level)}
-			// fmt.println("Assigning", blocks_to_assign, "to", skill.id, skill.level)
-			block_system_assign(skill, blocks_to_assign)
+			DB.buyable_data[skill] = BuyableData {
+				owned_blocks = make(DynOwnedBlocks, 0),
+				blocks_left_to_assign = blocks_to_assign, 
+			}			
 		}
 	}
+	
+	handle_constraints()
+
+	for buyable, buyable_data in DB.buyable_data {
+		block_system_assign(buyable, buyable_data.blocks_left_to_assign)
+	}
+
 
 	return nil
 }
 
-link_buyables :: proc(buyableA, buyableB: Buyable, strength: STRENGTH) {
-	buyable_a_data, buyable_b_data := DB.buyable_data[buyableA], DB.buyable_data[buyableB]
-
-	buyable_a_range, buyable_b_range := buyable_a_data.owned_blocks_range, buyable_b_data.owned_blocks_range
-
-	buyable_a_owned_blocks_amount, buyable_b_owned_blocks_amount := range_len(buyable_a_range), range_len(buyable_b_range)
-
-// 	{ 	// Shuffle blocks to link random blocks
-// 		rand.shuffle(buyable_a_data.owned_blocks_range)
-// 		rand.shuffle(buyable_b_data.owned_blocks_range)
-// 	}
-
-	{ 	// Link A -> B
-		len_shared_blocks_from_a_to_b := int(
-			f32(buyable_b_owned_blocks_amount) * f32(strength) / 100,
-		)
-		// for block_idx in 0 ..< len_shared_blocks_from_a_to_b {
-		// 	block_idx_mod := block_idx % len(buyable_a_data.owned_blocks_range)
-		// 	append(
-		// 		&buyable_a_data.owned_blocks_range[block_idx_mod].linked_to,
-		// 		&buyable_b_data.owned_blocks_range[block_idx],
-		// 	)
-		// }
-	}
-
-// 	{ 	// Link B -> A
-// 		len_shared_blocks_from_b_to_a := int(
-// 			f32(len(buyable_a_data.owned_blocks_range)) * f32(strength) / 100,
-// 		)
-// 		for block_idx in 0 ..< len_shared_blocks_from_b_to_a {
-// 			block_idx_mod := block_idx % len(buyable_b_data.owned_blocks_range)
-// 			append(
-// 				&buyable_b_data.owned_blocks_range[block_idx_mod].linked_to,
-// 				&buyable_a_data.owned_blocks_range[block_idx],
-// 			)
-// 		}
-// 	}
-}

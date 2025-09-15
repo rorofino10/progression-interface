@@ -23,18 +23,63 @@ player_has_buyable :: proc(buyable: Buyable) -> bool {
 }
 
 unlock_buyable :: proc(buyable: Buyable) {
-	b_data := &DB.buyable_data[buyable]
-	owned_blocks_start, owned_blocks_end := b_data.owned_blocks_range.start, b_data.owned_blocks_range.end
-	for owned_block_idx in owned_blocks_start..=owned_blocks_end {
-		block := &block_system.blocks[owned_block_idx]
+	unlock_block :: proc(block: OwnedBlock) {
+		switch &b in block {
+			case ^Block:
+				if !b.bought {
+					for owner in b.owned_by {
+						owner_b_data := &DB.buyable_data[owner]
+						owner_b_data.bought_amount += 1
+					}
 
-		for owner in block.owned_by {
-			owner_b_data := &DB.buyable_data[owner]
-			owner_b_data.bought_amount += 1
+					b.bought = true
+				}
+			case ^BlockGroup:
+				for &single_block in b.blocks {
+					if !single_block.bought {
+						for owner in single_block.owned_by {
+							owner_b_data := &DB.buyable_data[owner]
+							owner_b_data.bought_amount += 1
+						}
+
+						single_block.bought = true
+					}		
+				} 
 		}
+	}	
+	b_data := &DB.buyable_data[buyable]
+	for &block in b_data.owned_blocks do unlock_block(block)
+}
 
-		block.bought = true
+
+lock_buyable :: proc(buyable: Buyable) {
+	lock_block :: proc(block: OwnedBlock) {
+		switch &b in block {
+			case ^Block:
+				if b.bought {
+					for owner in b.owned_by {
+						owner_b_data := &DB.buyable_data[owner]
+						owner_b_data.bought_amount -= 1
+					}
+
+					b.bought = false
+				}
+			case ^BlockGroup:
+				for &single_block in b.blocks {
+					if single_block.bought {
+						for owner in single_block.owned_by {
+							owner_b_data := &DB.buyable_data[owner]
+							owner_b_data.bought_amount -= 1
+						}
+
+						single_block.bought = false
+					}
+				} 
+		}
 	}
+
+	b_data := &DB.buyable_data[buyable]
+	for &block in b_data.owned_blocks do lock_block(block)
 }
 
 level_up :: proc() {
@@ -44,12 +89,10 @@ level_up :: proc() {
 refund_buyable :: proc(buyable: Buyable) -> (u32, RefundError) {
 	if !player_has_buyable(buyable) do return 0, .BuyableNotOwned
 	b_data := &DB.buyable_data[buyable]
-	owned_blocks_amount := b_data.owned_blocks_range.end - b_data.owned_blocks_range.start + 1
+	owned_blocks_amount := BlocksSize(len(b_data.owned_blocks))
 
-    for block_idx in b_data.owned_blocks_range.start..=b_data.owned_blocks_range.end {
-		block := &block_system.blocks[block_idx]
-		block.bought = false
-	}
+	lock_buyable(buyable)
+
 	b_data.bought = false
 	refunded := b_data.spent
 	player.unused_points += refunded
@@ -68,17 +111,17 @@ buy_skill :: proc(skill: LeveledSkill) -> (u32, BuyError) {
 	skill_id_data := DB.skill_id_data[skill.id]
 
 	if skill.level != 1 && !player_has_skill({skill.id, skill.level - 1}) do return 0, .MissingRequiredSkills
-	skill_buyable_data := &DB.buyable_data[skill]
+	b_data := &DB.buyable_data[skill]
 
-    owned_block_amount := skill_buyable_data.owned_blocks_range.end - skill_buyable_data.owned_blocks_range.start + 1
-	blocks_to_buy := owned_block_amount - skill_buyable_data.bought_amount
+    owned_block_amount := BlocksSize(len(b_data.owned_blocks))
+	blocks_to_buy := owned_block_amount - b_data.bought_amount
 	if blocks_to_buy > player.unused_points do return 0, .NotEnoughPoints
 	player.unused_points -= blocks_to_buy
 	unlock_buyable(skill) // Set all blocks to bought
 
 	{ // Set as bought
-		skill_buyable_data.spent = blocks_to_buy
-		skill_buyable_data.bought = true
+		b_data.spent = blocks_to_buy
+		b_data.bought = true
 		player.owned_skills[skill.id] = skill.level
 	}
 	
@@ -103,7 +146,7 @@ buy_skill :: proc(skill: LeveledSkill) -> (u32, BuyError) {
 
 buy_perk :: proc(perk: PerkID) -> (u32, BuyError) {
 
-	perk_buyable_data := &DB.buyable_data[perk]
+	b_data := &DB.buyable_data[perk]
 	perk_val := DB.perk_data[perk]
 
 	{ 	// check pre_reqs
@@ -114,7 +157,6 @@ buy_perk :: proc(perk: PerkID) -> (u32, BuyError) {
 
 	{ 	// check skills_reqs
 		has_reqs := false
-		fmt.println(perk_val.skills_reqs)
 		for skill_req in perk_val.skills_reqs {
 			if skill_req.id == .Melee && skill_req.level == 0 do break
 			if player_has_skill(skill_req) {
@@ -126,15 +168,16 @@ buy_perk :: proc(perk: PerkID) -> (u32, BuyError) {
 	}
 
 	
-	owned_block_amount := perk_buyable_data.owned_blocks_range.end - perk_buyable_data.owned_blocks_range.start + 1
-	blocks_to_buy := owned_block_amount - perk_buyable_data.bought_amount
+    owned_block_amount := BlocksSize(len(b_data.owned_blocks))
+
+	blocks_to_buy := owned_block_amount - b_data.bought_amount
 	if blocks_to_buy > player.unused_points do return 0, .NotEnoughPoints
 	player.unused_points -= blocks_to_buy
 	unlock_buyable(perk) // Set all blocks to bought
 
 	{ 	// Set as bought
-		perk_buyable_data.spent = blocks_to_buy
-		perk_buyable_data.bought = true
+		b_data.spent = blocks_to_buy
+		b_data.bought = true
 		player.owned_perks |= {perk}
 	}
 

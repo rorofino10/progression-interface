@@ -16,7 +16,7 @@ Action :: enum {
 
 print_buyable_blocks :: proc(buyable: Buyable) {
     buyable_data := DB.buyable_data[buyable]
-    owned_block_amount := buyable_data.owned_blocks_range.end - buyable_data.owned_blocks_range.start + 1
+    owned_block_amount := BlocksSize(len(buyable_data.owned_blocks))
     fmt.print(buyable_data.bought_amount, "/", owned_block_amount, "")
     switch {
         // Already Bought
@@ -27,9 +27,8 @@ print_buyable_blocks :: proc(buyable: Buyable) {
             fmt.print("FREE! ")
             for _ in 0..<owned_block_amount do fmt.print("\x1b[43m \x1b[0m")
         case:
-            for block_idx in buyable_data.owned_blocks_range.start..=buyable_data.owned_blocks_range.end {
-                block := block_system.blocks[block_idx]
-                if block.bought do fmt.print("\x1b[42m \x1b[0m")
+            for block in buyable_data.owned_blocks {
+                if owned_block_is_bought(block) do fmt.print("\x1b[42m \x1b[0m")
                 else do fmt.print("\x1b[31m█\x1b[0m")
             }
     }
@@ -83,7 +82,6 @@ print_buyables :: proc(){
 }
 
 print_state :: proc(){
-
 	print_buyables()
 	print_player_state()
     fmt.println("Unused points:", player.unused_points)
@@ -112,7 +110,7 @@ parse_skill :: proc(skill_id_str: string, skill_level_str: string) -> LeveledSki
 run_cli :: proc() {
     
     // Clear Screen
-    fmt.print("\x1b[2J\x1b[H")
+    // fmt.print("\x1b[2J\x1b[H")
     print_state()
 
     scanner: bufio.Scanner

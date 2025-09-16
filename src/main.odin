@@ -112,6 +112,12 @@ raise_skill :: proc(skill_id: SkillID) -> (u32, BuyError) {
 
 	skill_id_data := &DB.skill_id_data[skill_id]
 
+	b_data := &DB.buyable_data[next_skill]
+
+    owned_block_amount := BlocksSize(len(b_data.owned_blocks))
+	blocks_to_buy := owned_block_amount - b_data.owned_amount
+	if blocks_to_buy > DB.unused_points do return 0, .NotEnoughPoints
+
 	{ // Check for promotion
 		last_main_skill_id := DB.owned_main_skills[DB.owned_main_skills_amount-1]
 		last_main_skill_level := DB.owned_skills[last_main_skill_id]
@@ -156,12 +162,6 @@ raise_skill :: proc(skill_id: SkillID) -> (u32, BuyError) {
 		if next_skill.level > cap do return 0, .CapReached
 	}
 
-
-	b_data := &DB.buyable_data[next_skill]
-
-    owned_block_amount := BlocksSize(len(b_data.owned_blocks))
-	blocks_to_buy := owned_block_amount - b_data.owned_amount
-	if blocks_to_buy > DB.unused_points do return 0, .NotEnoughPoints
 	DB.unused_points -= blocks_to_buy
 	unlock_buyable(next_skill) // Set all blocks to bought
 

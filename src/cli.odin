@@ -13,6 +13,7 @@ Action :: enum {
     Buy,
     Refund,
     LevelUp,
+    SetPoints,
 }
 
 print_buyable_blocks :: proc(buyable: Buyable) {
@@ -182,6 +183,10 @@ run_cli :: proc() {
             case .LevelUp:
                 err := level_up()
                 if err != nil do fmt.println(err)
+            case .SetPoints:
+                points, ok := strconv.parse_int(words[1])
+                if !ok do fmt.println("Error parsing Int")
+                else do DB.unused_points = u32(points)
             case .NotRecognized:
                 fmt.println("Action Not Recognized")
         }

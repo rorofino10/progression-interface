@@ -17,11 +17,12 @@ SkillID :: enum u8 {
 
 load_db :: proc() {
 
-	BuildPlayer({120, 120, 120}, {{1,1,0},{3,3,2},{4,4,3}})
+	BuildPlayer({120, 120, 120}, {{5,2,1,0},{3,3,3,2},{4,4,4,3}})
 
     // Literal
-	BuildMainSkill(.Melee, [MAX_SKILL_LEVEL]BlocksSize{ 10, 20, 30 })
+	BuildMainSkill(.Melee, { 10, 20, 30 })
 	BuildMainSkill(.Athletics, { 10, 10, 10 })
+	BuildMainSkill(.Finesse, { 10, 10, 10 })
 	BuildExtraSkill(.Medicine, { 10, 10, 10 }) 
 	// Skill(.Athletics, { 10, 10, 10 }) 
 	// Skill(.Athletics, { {10, 1}, {20, 1}, {30, 1} }) 
@@ -36,12 +37,13 @@ load_db :: proc() {
 	Perk(.Sight, 10, {}, {{.Melee, 1}})
 	// Perk(.Knife_Master, 2, {}, {{.Melee, 1}})
 
-	Contains(LeveledSkill{.Melee, 1}, .Trip)
+	// Contains(LeveledSkill{.Melee, 1}, .Trip)
+	// Contains(LeveledSkill{.Melee, 1}, LeveledSkill{.Athletics, 1})
 	// Share(LeveledSkill{.Melee, 1}, .Trip, 100)
 	// Drags(.Melee, .Athletics, 1)
 
 
-	Share(.Trip, .Aim, 100)
+	// Share(.Trip, .Aim, 100)
 	// Share(.Aim, .Sight, 100)
 	// Share(.Aim, .Knife_Master, 100)
 	// Overlap(.Melee, .Athletics, 75)

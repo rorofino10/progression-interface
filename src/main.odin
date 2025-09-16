@@ -110,11 +110,52 @@ raise_skill :: proc(skill_id: SkillID) -> (u32, BuyError) {
 	skill := LeveledSkill{skill_id, skill_level}
 	next_skill := LeveledSkill{skill_id, skill_level+1}
 
+	skill_id_data := &DB.skill_id_data[skill_id]
+
+	{ // Check for promotion
+		last_main_skill_id := DB.owned_main_skills[DB.owned_main_skills_amount-1]
+		last_main_skill_level := DB.owned_skills[last_main_skill_id]
+		if skill_id_data.type == .Extra && next_skill.level > last_main_skill_level {
+			// swap
+			(&DB.skill_id_data[last_main_skill_id]).idx = skill_id_data.idx
+			(&DB.skill_id_data[last_main_skill_id]).type = .Extra
+			
+			DB.owned_main_skills[DB.owned_main_skills_amount-1] = skill_id
+			DB.owned_extra_skills[skill_id_data.idx] = last_main_skill_id
+
+			skill_id_data.idx = DB.owned_main_skills_amount-1
+			skill_id_data.type = .Main
+		}
+	}
+
+	{ // Sift Up if possible 
+		for main_skill_idx := skill_id_data.idx; main_skill_idx > 0; main_skill_idx-=1 {
+			curr_main_skill, prev_main_skill := DB.owned_main_skills[main_skill_idx], DB.owned_main_skills[main_skill_idx-1]
+			curr_main_skill_level, prev_main_skill_level := DB.owned_skills[curr_main_skill], DB.owned_skills[prev_main_skill] 
+			curr_main_skill_data, prev_main_skill_data := &DB.skill_id_data[curr_main_skill], &DB.skill_id_data[prev_main_skill]
+
+			if curr_main_skill_level >= prev_main_skill_level {
+				// swap
+				DB.owned_main_skills[main_skill_idx] = prev_main_skill
+				DB.owned_main_skills[main_skill_idx-1] = curr_main_skill
+
+				curr_main_skill_data.idx -= 1
+				prev_main_skill_data.idx += 1
+			}
+		}
+	}	
+
 	{ // Check if it is capped	
-		skill_idx := DB.skill_id_data[skill_id].idx
-		cap := DB.skill_rank_cap[DB.unit_level-1][skill_idx]
+		cap: LEVEL
+		switch skill_id_data.type {
+			case .Main:
+				cap = DB.skill_rank_cap[DB.unit_level-1][skill_id_data.idx]
+			case .Extra:
+				cap = DB.skill_rank_cap[DB.unit_level-1][MAIN_SKILLS_AMOUNT]
+		}
 		if next_skill.level > cap do return 0, .CapReached
 	}
+
 
 	b_data := &DB.buyable_data[next_skill]
 

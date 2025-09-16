@@ -37,6 +37,23 @@ print_buyable_blocks :: proc(buyable: Buyable) {
     fmt.print('\n')
 }
 
+print_blocks_state :: proc() {
+    fmt.println("Blocks: ")
+    for block_idx in 0..<block_system.last_block_ptr {
+        block := block_system.blocks[block_idx]
+
+        // fmt.printf("\x1b[41;97m%d\x1b[0m", len(block.owned_by))
+        switch block.bought {
+            
+            case true:
+                fmt.printf("\x1b[42m%d\x1b[0m", len(block.owned_by))
+            case false:
+                fmt.printf("\x1b[41m%d\x1b[0m", len(block.owned_by))
+        }
+    }
+    fmt.print('\n')
+}
+
 print_player_state :: proc() {
 
 
@@ -51,7 +68,7 @@ print_player_state :: proc() {
         for skill_id, slot in DB.owned_main_skills {
             level := DB.owned_skills[skill_id]
             slot_cap := DB.skill_rank_cap[DB.unit_level-1][slot]
-            fmt.print(" SLOT:", slot,"CAP:", slot_cap, skill_id, level, ": ")
+            fmt.print("", skill_slot_name[slot], ":" ,"CAP:", slot_cap, skill_id, level, ": ")
             print_buyable_blocks(LeveledSkill{skill_id, level+1})
         }
 
@@ -100,6 +117,7 @@ print_buyables :: proc(){
 print_state :: proc(){
 	print_buyables()
 	print_player_state()
+    print_blocks_state()
     fmt.println("Unused points:", DB.unused_points)
     fmt.println("Level:", DB.unit_level)
 }

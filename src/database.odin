@@ -1,3 +1,4 @@
+#+feature dynamic-literals
 package main
 
 import "core:mem"
@@ -10,9 +11,12 @@ STRENGTH :: distinct u8
 // CONSTANT
 MAX_SKILL_LEVEL :: 3
 MAX_UNIT_LEVEL :: 30
-MAIN_SKILLS_AMOUNT :: 2
+MAIN_SKILLS_AMOUNT :: 3
 // Artificial list size limits
 MAX_SKILL_REQS :: 10
+
+// skill_slot_name := [MAIN_SKILLS_AMOUNT]string{"Primary 1", "Primary 2", "Major 1", "Major 2", "Major 3", "Major 4"}
+skill_slot_name := [MAIN_SKILLS_AMOUNT]string{"Primary 1", "Primary 2", "Major 1"}
 
 DatabaseError :: enum {
 	None,
@@ -147,7 +151,7 @@ BuildMainSkillStartingLevel :: proc(skillID: SkillID, starting_level: LEVEL, ski
 BuildMainSkillDefault :: proc(skillID: SkillID, skill_data_arr: [MAX_SKILL_LEVEL]BlocksSize) {
 	assert(DB.owned_main_skills_amount < MAIN_SKILLS_AMOUNT)
 	DB.owned_main_skills[DB.owned_main_skills_amount] = skillID
-	DB.skill_id_data[skillID] = {blocks = skill_data_arr, type = .Extra, idx = DB.owned_main_skills_amount}
+	DB.skill_id_data[skillID] = {blocks = skill_data_arr, type = .Main, idx = DB.owned_main_skills_amount}
 	DB.owned_skills[skillID] = 0
 	DB.owned_main_skills_amount += 1
 }
@@ -155,7 +159,7 @@ BuildMainSkillDefault :: proc(skillID: SkillID, skill_data_arr: [MAX_SKILL_LEVEL
 BuildMainSkill :: proc{BuildMainSkillDefault, BuildMainSkillStartingLevel}
 
 BuildExtraSkill :: proc(skillID: SkillID, skill_data_arr: [MAX_SKILL_LEVEL]BlocksSize) {
-	DB.skill_id_data[skillID] = {blocks = skill_data_arr, type = .Extra, idx = MAIN_SKILLS_AMOUNT}
+	DB.skill_id_data[skillID] = {blocks = skill_data_arr, type = .Extra, idx = u32(len(DB.owned_extra_skills))}
 	append(&DB.owned_extra_skills, skillID)
 	DB.owned_skills[skillID] = 0
 }

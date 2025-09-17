@@ -23,58 +23,29 @@ player_has_buyable :: proc(buyable: Buyable) -> bool {
 }
 
 unlock_buyable :: proc(buyable: Buyable) {
-	unlock_block :: proc(block: OwnedBlock) {
-		switch &b in block {
-			case ^Block:
-				if !b.bought {
-					for owner in b.owned_by {
-						owner_b_data := &DB.buyable_data[owner]
-						owner_b_data.owned_amount += 1
-					}
-
-					b.bought = true
-				}
-			case ^BlockGroup:
-				for &single_block in b.blocks {
-					if !single_block.bought {
-						for owner in single_block.owned_by {
-							owner_b_data := &DB.buyable_data[owner]
-							owner_b_data.owned_amount += 1
-						}
-
-						single_block.bought = true
-					}		
-				} 
+	unlock_block :: proc(block: ^Block) {
+		if !block.bought {
+			for owner in block.owned_by {
+				owner_b_data := &DB.buyable_data[owner]
+				owner_b_data.owned_amount += 1
+			}
 		}
-	}	
+		block.bought = true
+	}
 	b_data := &DB.buyable_data[buyable]
 	for &block in b_data.owned_blocks do unlock_block(block)
 }
 
 
 lock_buyable :: proc(buyable: Buyable) {
-	lock_block :: proc(block: OwnedBlock) {
-		switch &b in block {
-			case ^Block:
-				if b.bought {
-					for owner in b.owned_by {
-						owner_b_data := &DB.buyable_data[owner]
-						owner_b_data.owned_amount -= 1
-					}
+	lock_block :: proc(block: ^Block) {
+		if block.bought {
+			for owner in block.owned_by {
+				owner_b_data := &DB.buyable_data[owner]
+				owner_b_data.owned_amount -= 1
+			}
 
-					b.bought = false
-				}
-			case ^BlockGroup:
-				for &single_block in b.blocks {
-					if single_block.bought {
-						for owner in single_block.owned_by {
-							owner_b_data := &DB.buyable_data[owner]
-							owner_b_data.owned_amount -= 1
-						}
-
-						single_block.bought = false
-					}
-				} 
+			block.bought = false
 		}
 	}
 

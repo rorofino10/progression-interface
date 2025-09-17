@@ -31,7 +31,7 @@ print_buyable_blocks :: proc(buyable: Buyable) {
             for _ in 0..<owned_block_amount do fmt.print("\x1b[43m \x1b[0m")
         case:
             for block in buyable_data.owned_blocks {
-                if owned_block_is_bought(block) do fmt.print("\x1b[42m \x1b[0m")
+                if block.bought do fmt.print("\x1b[42m \x1b[0m")
                 else do fmt.print("\x1b[31m█\x1b[0m")
             }
     }

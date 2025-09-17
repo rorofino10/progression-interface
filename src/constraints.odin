@@ -61,41 +61,16 @@ share_buyables :: proc(buyableA, buyableB: Buyable, strength: STRENGTH) {
 	}
 
 
-// 	{ 	// Shuffle blocks to link random blocks
-// 		rand.shuffle(buyable_a_data.owned_blocks_range)
-// 		rand.shuffle(buyable_b_data.owned_blocks_range)
-// 	}
 	blocks_to_share_a = BlocksSize(f32(buyable_a_blocks_to_own) * f32(strength) / 100)
 	blocks_to_share_b = BlocksSize(f32(buyable_b_blocks_to_own) * f32(strength) / 100)
 	blocks_to_share_max = max(blocks_to_share_a, blocks_to_share_b)
-	block_system_assign_share(buyableA, buyableB, blocks_to_share_a, blocks_to_share_b, blocks_to_share_max)
-	{ 	// Link A -> B
-		// for block_idx in 0 ..< len_shared_blocks_from_a_to_b {
-		// 	block_idx_mod := block_idx % len(buyable_a_data.owned_blocks_range)
-		// 	append(
-		// 		&buyable_a_data.owned_blocks_range[block_idx_mod].linked_to,
-		// 		&buyable_b_data.owned_blocks_range[block_idx],
-		// 	)
-		// }
-	}
-
-// 	{ 	// Link B -> A
-// 		len_shared_blocks_from_b_to_a := int(
-// 			f32(len(buyable_a_data.owned_blocks_range)) * f32(strength) / 100,
-// 		)
-// 		for block_idx in 0 ..< len_shared_blocks_from_b_to_a {
-// 			block_idx_mod := block_idx % len(buyable_b_data.owned_blocks_range)
-// 			append(
-// 				&buyable_b_data.owned_blocks_range[block_idx_mod].linked_to,
-// 				&buyable_a_data.owned_blocks_range[block_idx],
-// 			)
-// 		}
-// 	}
+	// block_system_assign_share(buyableA, buyableB, blocks_to_share_a, blocks_to_share_b, blocks_to_share_max)
 }
 
 
 handle_share :: proc(share: TShare) {
-	share_buyables(share.buyableA, share.buyableB, share.strength)
+	block_system_assign_share(share.buyableA, share.buyableB, share.strength)
+	// share_buyables(share.buyableA, share.buyableB, share.strength)
 }
 
 handle_overlap :: proc(overlap: TOverlap) {

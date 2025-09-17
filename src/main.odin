@@ -26,15 +26,15 @@ unlock_buyable :: proc(buyable: Buyable) {
 
 	@static seen_set : map[Buyable]void
 	unlock_block :: proc(block: ^Block) {
+		if block.bought do return
 		_, seen := seen_set[block.owned_by]
 		if seen do return
-		if !block.bought{
-			seen_set[block.owned_by] = void{}
-			block.bought = true
-			(&DB.buyable_data[block.owned_by]).bought_amount += 1
-			for &linked_block in block.linked_to do unlock_block(linked_block)
-			delete_key(&seen_set, block.owned_by)
-		}
+		
+		seen_set[block.owned_by] = void{}
+		block.bought = true
+		(&DB.buyable_data[block.owned_by]).bought_amount += 1
+		for &linked_block in block.linked_to do unlock_block(linked_block)
+		delete_key(&seen_set, block.owned_by)
 	}
 
 	b_data := &DB.buyable_data[buyable]

@@ -71,6 +71,13 @@ BuyError :: enum {
 RefundError :: enum {
 	None,
 	BuyableNotOwned,
+	RequiredByAnotherBuyable,
+}
+
+ReduceError :: enum {
+	None,
+	CannotReduceSkill,
+	RequiredByAnotherBuyable,
 }
 
 CycleInPreReqsError :: struct {

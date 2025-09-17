@@ -84,24 +84,54 @@ lock_buyable :: proc(buyable: Buyable) {
 
 
 
-refund_buyable :: proc(buyable: Buyable) -> (u32, RefundError) {
-	if !player_has_buyable(buyable) do return 0, .BuyableNotOwned
-	b_data := &DB.buyable_data[buyable]
+reduce_skill :: proc(skill_id: SkillID) -> (u32, ReduceError) {
+	skill_level := DB.owned_skills[skill_id]
+	if skill_level == 0 do return 0, .CannotReduceSkill
+
+	skill := LeveledSkill{skill_id, skill_level}
+	b_data := &DB.buyable_data[skill]
 	owned_blocks_amount := BlocksSize(len(b_data.owned_blocks))
 
-	lock_buyable(buyable)
+
+	{ // Check if it is required in another owned buyable
+		for owned_perk in DB.owned_perks {
+			owned_perk_data := DB.perk_data[owned_perk]	
+			for skill_req in owned_perk_data.skills_reqs {
+				if skill == skill_req do return 0, .RequiredByAnotherBuyable
+			} 
+		}
+	}
+
+	lock_buyable(skill)
 
 	b_data.is_owned = false
 	refunded := b_data.spent
 	DB.unused_points += refunded
 	b_data.owned_amount = 0
-	switch b in buyable {
-		case LeveledSkill:
-			if b.level == 1 do delete_key(&DB.owned_skills, b.id)
-			else do DB.owned_skills[b.id] = b.level - 1
-		case PerkID:
-			DB.owned_perks -= {b}
+	DB.owned_skills[skill_id] = skill_level - 1
+	return refunded, .None
+}
+
+refund_perk :: proc(perk_id: PerkID) -> (u32, RefundError) {
+	if !player_has_buyable(perk_id) do return 0, .BuyableNotOwned
+
+	{ // Check if it is required in another owned buyable
+		for owned_perk in DB.owned_perks {
+			owned_perk_data := DB.perk_data[owned_perk]	
+			if perk_id in owned_perk_data.prereqs do return 0, .RequiredByAnotherBuyable
+		}
 	}
+
+	b_data := &DB.buyable_data[perk_id]
+	owned_blocks_amount := BlocksSize(len(b_data.owned_blocks))
+
+	lock_buyable(perk_id)
+
+	b_data.is_owned = false
+	refunded := b_data.spent
+	DB.unused_points += refunded
+	b_data.owned_amount = 0
+	DB.owned_perks -= {perk_id}
 	return refunded, .None
 }
 

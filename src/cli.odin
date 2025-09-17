@@ -12,6 +12,7 @@ Action :: enum {
     Raise,
     Buy,
     Refund,
+    Reduce,
     LevelUp,
     SetPoints,
 }
@@ -166,7 +167,12 @@ run_cli :: proc() {
         switch action {
             case .Refund:
                 buyable := parse_perk(words[1])
-                refunded, err := refund_buyable(buyable)
+                refunded, err := refund_perk(buyable)
+                if err != nil do fmt.println(err)
+                else do fmt.println("Refunded:", refunded)
+            case .Reduce:
+                buyable := parse_skill(words[1])
+                refunded, err := reduce_skill(buyable)
                 if err != nil do fmt.println(err)
                 else do fmt.println("Refunded:", refunded)
 

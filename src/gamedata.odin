@@ -32,9 +32,9 @@ load_db :: proc() {
 	// SkillByProc(.Athletics, proc(i: BlocksSize) -> BlocksSize{return i*5}) 
 
 
-	Perk(.Trip, 5, {}, {{.Melee, 1}})
-	Perk(.Aim, 10, {}, {{.Melee, 1}})
-	Perk(.Sight, 10, {}, {{.Melee, 1}})
+	Perk(.Trip, 90, {}, {{.Melee, 1}})
+	Perk(.Aim, 100, {}, {{.Melee, 1}})
+	// Perk(.Sight, 10, {}, {{.Melee, 1}})
 	// Perk(.Knife_Master, 2, {}, {{.Melee, 1}})
 
 	// Contains(LeveledSkill{.Melee, 1}, .Trip)
@@ -45,7 +45,7 @@ load_db :: proc() {
 
 	Share(.Trip, .Aim, 50)
 	// Share(.Aim, .Sight, 50)
-	Share(.Sight, .Aim, 50)
+	// Share(.Sight, .Aim, 50)
 	// Share(.Aim, .Knife_Master, 100)
 	// Overlap(.Melee, .Athletics, 75)
 	// Overlap(.Finesse, .Athletics, 50)

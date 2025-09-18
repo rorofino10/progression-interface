@@ -26,6 +26,7 @@ unlock_buyable :: proc(buyable: Buyable) {
 	unlock_block :: proc(block: ^Block) {
 		if !block.bought {
 			for owner in block.owned_by {
+				// owner := ownership.buyable
 				owner_b_data := &DB.buyable_data[owner]
 				owner_b_data.owned_amount += 1
 			}
@@ -41,6 +42,7 @@ lock_buyable :: proc(buyable: Buyable) {
 	lock_block :: proc(block: ^Block) {
 		if block.bought {
 			for owner in block.owned_by {
+				// owner := ownership.buyable
 				owner_b_data := &DB.buyable_data[owner]
 				owner_b_data.owned_amount -= 1
 			}

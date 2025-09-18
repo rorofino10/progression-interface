@@ -84,9 +84,14 @@ CycleInPreReqsError :: struct {
 	repeated_perk:      PerkID,
 }
 
+ShareFudgeError :: struct {
+	share: TShare
+}
+
 
 BuyableCreationError :: union {
 	CycleInPreReqsError,
+	ShareFudgeError,
 }
 
 LevelUpError :: enum {
@@ -308,7 +313,7 @@ create_buyables :: proc() -> BuyableCreationError {
 		block_system_assign(buyable, buyable_data.blocks_left_to_assign)
 	}
 	
-	handle_constraints()
+	handle_constraints() or_return
 
 	for buyable, &buyable_data in DB.buyable_data {
 		buyable_data.owned_blocks = query_all_blocks_from_buyable(buyable)

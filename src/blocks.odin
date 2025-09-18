@@ -1,5 +1,6 @@
 package main
 
+import "core:math"
 import "core:fmt"
 import "base:runtime"
 import "core:mem"
@@ -77,45 +78,84 @@ query_all_blocks_from_buyable :: proc(buyable: Buyable) -> []^Block {
     return query_blocks_from_buyable(buyable, blocks)
 }
 
-block_system_assign_share :: proc(buyableA, buyableB: Buyable, strength: STRENGTH) {
-
+block_system_assign_share :: proc(buyableA, buyableB: Buyable, blocks_to_share : BlocksSize) {
     context.allocator = block_system_alloc
-
-    b_data_a := &DB.buyable_data[buyableA]
-    b_data_b := &DB.buyable_data[buyableB]
-
-	blocks_to_share_a := BlocksSize(f32(b_data_a.blocks_left_to_assign) * f32(strength) / 100)
-	blocks_to_share_b := BlocksSize(f32(b_data_b.blocks_left_to_assign) * f32(strength) / 100)
-
-    blocks_to_assign := max(blocks_to_share_a, blocks_to_share_a)
-
+    fmt.println("Sharing", buyableA, buyableB)
     {// Create a new Shared Group
-        // Query blocks
-        query_a := query_blocks_from_buyable(buyableA, blocks_to_share_a)
-        query_b := query_blocks_from_buyable(buyableB, blocks_to_share_b)
-        defer delete(query_b)
+        query_a := query_blocks_from_buyable(buyableA, blocks_to_share)
+        query_b := query_blocks_from_buyable(buyableB, blocks_to_share)
         defer delete(query_a)
+        defer delete(query_b)
         
-        for block_idx, relative_block_idx in block_system.last_block_ptr..=block_system.last_block_ptr+blocks_to_assign-1 {
-
+        for block_idx, relative_block_idx in block_system.last_block_ptr..<block_system.last_block_ptr+blocks_to_share {
             query_block_a := query_a[relative_block_idx]
             query_block_b := query_b[relative_block_idx]
             defer {
                 delete(query_block_a.owned_by)
                 delete(query_block_b.owned_by)
-                query_block_a.owned_by = nil
                 query_block_b.owned_by = nil
+                query_block_a.owned_by = nil
             }
-            for owner in query_block_a.owned_by {
-                append(&block_system.blocks[block_idx].owned_by, owner)
-            }
-            for owner in query_block_b.owned_by {
-                append(&block_system.blocks[block_idx].owned_by, owner)
-            }
+            for owner in query_block_b.owned_by do append(&block_system.blocks[block_idx].owned_by, owner)
+            for owner in query_block_a.owned_by do append(&block_system.blocks[block_idx].owned_by, owner)
         }          
     }
 
-    block_system.last_block_ptr += blocks_to_assign
+    block_system.last_block_ptr += blocks_to_share
 }
+// block_system_assign_share :: proc(buyableA, buyableB: Buyable, strength: STRENGTH) {
+//     context.allocator = block_system_alloc
 
-// I have to share 
+//     minBuyable, maxBuyable : Buyable
+//     {   // Sort them so the one with less blocks is A, the other is B
+//             b_data_a := &DB.buyable_data[buyableA]
+//             b_data_b := &DB.buyable_data[buyableB]
+//             if b_data_a.blocks_left_to_assign <= b_data_b.blocks_left_to_assign do minBuyable, maxBuyable = buyableA, buyableB
+//             else do minBuyable, maxBuyable = buyableB, buyableA
+            
+//     }
+
+//     b_data_min := &DB.buyable_data[minBuyable]
+//     b_data_max := &DB.buyable_data[maxBuyable]
+
+// 	blocks_to_share_min := BlocksSize(f32(b_data_min.blocks_left_to_assign) * f32(strength) / 100)
+// 	blocks_to_share_max := BlocksSize(f32(b_data_max.blocks_left_to_assign) * f32(strength) / 100)
+
+//     blocks_to_assign := blocks_to_share_max
+
+//     {// Create a new Shared Group
+//         query_min := query_blocks_from_buyable(minBuyable, blocks_to_share_min)
+//         query_max := query_blocks_from_buyable(maxBuyable, blocks_to_share_max)
+//         defer delete(query_max)
+//         defer delete(query_min)
+        
+//         gap := blocks_to_share_max / blocks_to_share_min
+
+//         for _, relative_block_idx in block_system.last_block_ptr..=block_system.last_block_ptr+blocks_to_share_min-1 {
+//             query_block_min := query_min[relative_block_idx]
+            
+//             defer {
+//                 delete(query_block_min.owned_by)
+//                 query_block_min.owned_by = nil
+//             }
+//             for owner in query_block_min.owned_by {
+//                 new_block_idx := block_system.last_block_ptr+gap*u32(relative_block_idx)
+//                 append(&block_system.blocks[new_block_idx].owned_by, owner)
+//             }
+//         }          
+
+//         for block_idx, relative_block_idx in block_system.last_block_ptr..=block_system.last_block_ptr+blocks_to_share_max-1 {
+
+//             query_block_max := query_max[relative_block_idx]
+//             defer {
+//                 delete(query_block_max.owned_by)
+//                 query_block_max.owned_by = nil
+//             }
+//             for owner in query_block_max.owned_by {
+//                 append(&block_system.blocks[block_idx].owned_by, owner)
+//             }
+//         }          
+//     }
+
+//     block_system.last_block_ptr += blocks_to_assign
+// }

@@ -20,7 +20,8 @@ Action :: enum {
 print_buyable_blocks :: proc(buyable: Buyable) {
     buyable_data := DB.buyable_data[buyable]
     owned_block_amount := BlocksSize(len(buyable_data.owned_blocks))
-    fmt.print(buyable_data.owned_amount, "/", owned_block_amount, "")
+    fmt.print(buyable_data.owned_amount, "/", owned_block_amount, " ", sep="")
+    fmt.print(f32(buyable_data.owned_amount)/f32(owned_block_amount)*100, "%", " ", sep="")
     switch {
         // Already Bought
         case buyable_data.is_owned:

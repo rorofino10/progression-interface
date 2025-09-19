@@ -67,9 +67,7 @@ print_skill_progress :: proc(skillID: SkillID, level_cap: LEVEL) {
 
 print_blocks_state :: proc() {
     fmt.println("Blocks: ")
-    for block_idx in 0..<block_system.last_block_ptr {
-        block := block_system.blocks[block_idx]
-
+    for block in block_system.blocks {
         // fmt.printf("\x1b[41;97m%d\x1b[0m", len(block.owned_by))
         switch block.bought {
             

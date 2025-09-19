@@ -139,7 +139,7 @@ Buyables :: []Buyable
 DynBuyables :: [dynamic]Buyable
 
 BuyableData :: struct {
-	blocks_left_to_assign 	: BlocksSize,
+	assigned_blocks_amount 	: BlocksSize,
 	owned_amount			: BlocksSize,
 	is_owned				: bool,
 	is_upgradeable			: bool,
@@ -327,7 +327,7 @@ create_buyables :: proc() -> BuyableCreationError {
 	}
 	for perk, perk_data in DB.perk_data {
    		DB.buyable_data[perk] = BuyableData {
-			blocks_left_to_assign = perk_data.blocks, 
+			assigned_blocks_amount = perk_data.blocks, 
         }				
 	}
 	
@@ -336,14 +336,14 @@ create_buyables :: proc() -> BuyableCreationError {
 			level := level_indexed_from_0 + 1
 			skill := LeveledSkill{skill_id, LEVEL(level)}
 			DB.buyable_data[skill] = BuyableData {
-				blocks_left_to_assign = blocks_to_assign, 
+				assigned_blocks_amount = blocks_to_assign, 
 			}			
 		}
 	}
 	
 	
 	for buyable, buyable_data in DB.buyable_data {
-		block_system_assign(buyable, buyable_data.blocks_left_to_assign)
+		block_system_assign(buyable, buyable_data.assigned_blocks_amount)
 	}
 	
 	handle_constraints() or_return

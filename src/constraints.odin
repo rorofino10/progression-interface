@@ -44,8 +44,8 @@ Overlap :: proc(skillA, skillB : SkillID, strength: STRENGTH) {
 
 handle_share :: proc(share: TShare) -> BuyableCreationError{
 	// fmt.println("Handling", share)
-	buyable_a_blocks_to_own := DB.buyable_data[share.buyableA].blocks_left_to_assign
-	buyable_b_blocks_to_own := DB.buyable_data[share.buyableB].blocks_left_to_assign
+	buyable_a_blocks_to_own := DB.buyable_data[share.buyableA].assigned_blocks_amount
+	buyable_b_blocks_to_own := DB.buyable_data[share.buyableB].assigned_blocks_amount
 
 	blocks_to_share := BlocksSize(2 * (f64(share.strength) / 100) * f64(buyable_a_blocks_to_own*buyable_b_blocks_to_own) / f64(buyable_a_blocks_to_own+buyable_b_blocks_to_own))
 	fudged_strength_a := f64(blocks_to_share) / f64(buyable_a_blocks_to_own)

@@ -7,6 +7,8 @@ import "core:bufio"
 import "core:fmt"
 import "core:reflect"
 
+SKILL_NAME_LENGTH :: 13
+
 Action :: enum {
     NotRecognized,
     Raise,
@@ -22,7 +24,7 @@ print_buyable_blocks :: proc(buyable: Buyable) {
     buyable_data := DB.buyable_data[buyable]
     owned_blocks := query_all_blocks_from_buyable(buyable)
     defer free_all(query_system_alloc)
-    owned_block_amount := buyable_data.blocks_left_to_assign
+    owned_block_amount := buyable_data.assigned_blocks_amount
     fmt.print(f32(buyable_data.owned_amount)/f32(owned_block_amount)*100, "%", " ", sep="")
     fmt.print(buyable_data.owned_amount, "/", owned_block_amount, " ", sep="")
     switch {
@@ -49,7 +51,7 @@ print_skill_progress :: proc(skillID: SkillID, level_cap: LEVEL) {
     next_skill := LeveledSkill{skillID, skill_level+1}
 
     buyable_data := DB.buyable_data[next_skill]
-    owned_block_amount := buyable_data.blocks_left_to_assign
+    owned_block_amount := buyable_data.assigned_blocks_amount
     
     switch skill_id_data.raisable_state {
         case .Free:
@@ -64,6 +66,8 @@ print_skill_progress :: proc(skillID: SkillID, level_cap: LEVEL) {
     for level in 1..=skill_level do fmt.print(" ")
     fmt.print("\x1b[100m")
     for level in skill_level+1..=level_cap do fmt.print(" ")
+    fmt.print("\x1b[45m")
+    for level in level_cap+1..=MAX_SKILL_LEVEL do fmt.print(" ")
     fmt.print("\x1b[0m\n")
 }
 
@@ -104,8 +108,11 @@ print_player_state :: proc() {
                 case .Capped:
                     fmt.print("\x1b[44m")
             }
-            fmt.print(skill_id, level)
-            fmt.print("\x1b[0m\t\t")
+            skill_id_str, _ := reflect.enum_name_from_value(skill_id)
+            fmt.print(skill_id_str)
+            for pad in len(skill_id_str)..<SKILL_NAME_LENGTH+1 do fmt.print(' ')
+            fmt.print(level)
+            fmt.print("\t\x1b[0m ")
             // fmt.print("", skill_slot_name[slot], ":" ,"CAP:", slot_cap, skill_id, level, ": ")
             // fmt.print(skill_id_data.raisable_state)
             print_skill_progress(skill_id, slot_cap)
@@ -129,8 +136,11 @@ print_player_state :: proc() {
                 case .Capped:
                     fmt.print("\x1b[44m")
             }
-            fmt.print(skill_id, level)
-            fmt.print("\x1b[0m\n")
+            skill_id_str, _ := reflect.enum_name_from_value(skill_id)
+            fmt.print(skill_id_str)
+            for pad in len(skill_id_str)..<SKILL_NAME_LENGTH+1 do fmt.print(' ')
+            fmt.print(level)
+            fmt.print("\t\x1b[0m\n")
         }
     }
 
@@ -149,7 +159,7 @@ print_player_state :: proc() {
                 fmt.print("\x1b[0m ")
                 
                 buyable_data := DB.buyable_data[perk]
-                owned_block_amount := buyable_data.blocks_left_to_assign
+                owned_block_amount := buyable_data.assigned_blocks_amount
                 fmt.printfln("%.0f%%",f32(buyable_data.owned_amount)/f32(owned_block_amount)*100)
         }
     }

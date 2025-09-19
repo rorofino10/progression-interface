@@ -86,7 +86,7 @@ query_blocks_from_buyable :: proc(buyable: Buyable, query_amount: BlocksSize) ->
 }
 
 query_all_blocks_from_buyable :: proc(buyable: Buyable) -> BlocksQuery {
-    blocks := DB.buyable_data[buyable].blocks_left_to_assign
+    blocks := DB.buyable_data[buyable].assigned_blocks_amount
     return query_blocks_from_buyable(buyable, blocks)
 }
 

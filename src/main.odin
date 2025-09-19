@@ -57,7 +57,7 @@ recalc_perks_buyable_state :: proc() {
 			}
 		}
 		{ // Check for points
-			owned_block_amount := b_data.blocks_left_to_assign
+			owned_block_amount := b_data.assigned_blocks_amount
 
 			blocks_to_buy := owned_block_amount - b_data.owned_amount
 			if blocks_to_buy > DB.unused_points { 
@@ -81,7 +81,7 @@ recalc_skill_id_raisable_state :: proc() {
 
 			b_data := &DB.buyable_data[next_skill]
 
-			owned_block_amount := b_data.blocks_left_to_assign
+			owned_block_amount := b_data.assigned_blocks_amount
 			blocks_to_buy := owned_block_amount - b_data.owned_amount
 			if blocks_to_buy > DB.unused_points do return .NotEnoughPoints
 		}
@@ -105,7 +105,7 @@ recalc_skill_id_raisable_state :: proc() {
 
 			b_data := &DB.buyable_data[next_skill]
 
-			owned_block_amount := b_data.blocks_left_to_assign
+			owned_block_amount := b_data.assigned_blocks_amount
 			blocks_to_buy := owned_block_amount - b_data.owned_amount
 			if blocks_to_buy == 0 do return .Free
 		}
@@ -195,7 +195,7 @@ reduce_skill :: proc(skill_id: SkillID) -> (u32, ReduceError) {
 
 	skill := LeveledSkill{skill_id, skill_level}
 	b_data := &DB.buyable_data[skill]
-	owned_blocks_amount := b_data.blocks_left_to_assign
+	owned_blocks_amount := b_data.assigned_blocks_amount
 
 
 	{ // Check if it is required in another owned buyable
@@ -228,7 +228,7 @@ refund_perk :: proc(perk_id: PerkID) -> (u32, RefundError) {
 	}
 
 	b_data := &DB.buyable_data[perk_id]
-	owned_blocks_amount := b_data.blocks_left_to_assign
+	owned_blocks_amount := b_data.assigned_blocks_amount
 
 	lock_buyable(perk_id)
 
@@ -249,7 +249,7 @@ raise_skill :: proc(skill_id: SkillID) -> (u32, BuyError) {
 
 	b_data := &DB.buyable_data[next_skill]
 
-    owned_block_amount := b_data.blocks_left_to_assign
+    owned_block_amount := b_data.assigned_blocks_amount
 	blocks_to_buy := owned_block_amount - b_data.owned_amount
 	{ // Check points
 		if skill_id_data.raisable_state == .NotEnoughPoints do return 0, .NotEnoughPoints 
@@ -324,7 +324,7 @@ buy_perk :: proc(perk: PerkID) -> (u32, BuyError) {
 
 	b_data := &DB.buyable_data[perk]
 	perk_val := DB.perk_data[perk]
-	owned_block_amount := b_data.blocks_left_to_assign
+	owned_block_amount := b_data.assigned_blocks_amount
 	blocks_to_buy := owned_block_amount - b_data.owned_amount
 
 	if blocks_to_buy > DB.unused_points do return 0, .NotEnoughPoints

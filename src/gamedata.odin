@@ -51,9 +51,9 @@ load_db :: proc() {
 	// Perk(.Knife_Master, 2, {}, {{.Melee, 1}})
 
 	// Contains(LeveledSkill{.Melee, 1}, .Trip)
-	// Contains(LeveledSkill{.Melee, 1}, LeveledSkill{.Athletics, 1})
+	// Contains(LeveledSkill{.Melee, 3}, LeveledSkill{.Endurance, 1})
 	// Share(LeveledSkill{.Melee, 1}, .Trip, 100)
-	// Drags(.Melee, .Athletics, 1)
+	Drags(.Melee, .Endurance, 1)
 
 
 	// Share(.Trip, .Aim, 50)

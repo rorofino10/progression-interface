@@ -41,6 +41,27 @@ print_buyable_blocks :: proc(buyable: Buyable) {
     fmt.print('\n')
 }
 
+print_skill_progress :: proc(skillID: SkillID) {
+    skill_id_data := DB.skill_id_data[skillID]
+    skill_level := DB.owned_skills[skillID]
+    next_skill := LeveledSkill{skillID, skill_level+1}
+
+    buyable_data := DB.buyable_data[next_skill]
+    owned_block_amount := BlocksSize(len(buyable_data.owned_blocks))
+    
+    switch skill_id_data.raisable_state {
+        case .Raisable:
+            if owned_block_amount == buyable_data.owned_amount do fmt.print("\x1b[43m")
+            else do fmt.print("\x1b[42m")
+        case .NotEnoughPoints:
+            fmt.print("\x1b[41m")
+        case .Capped:
+            fmt.print("\x1b[44m")
+    }
+    for level in 0..=skill_level do fmt.print(" ")
+    fmt.print("\x1b[0m\n")
+}
+
 print_blocks_state :: proc() {
     fmt.println("Blocks: ")
     for block_idx in 0..<block_system.last_block_ptr {
@@ -74,7 +95,8 @@ print_player_state :: proc() {
             level := DB.owned_skills[skill_id]
             slot_cap := DB.skill_rank_cap[DB.unit_level-1][slot]
             fmt.print("", skill_slot_name[slot], ":" ,"CAP:", slot_cap, skill_id, level, ": ")
-            fmt.print(skill_id_data.raisable_state, '\n')
+            fmt.print(skill_id_data.raisable_state)
+            print_skill_progress(skill_id)
             // print_buyable_blocks(LeveledSkill{skill_id, level+1})
         }
 
@@ -84,7 +106,8 @@ print_player_state :: proc() {
             skill_id_data := DB.skill_id_data[skill_id]
             level := DB.owned_skills[skill_id]
             fmt.print(" CAP:", extra_slot_cap, skill_id, level, ": ")
-            fmt.print(skill_id_data.raisable_state, '\n')
+            fmt.print(skill_id_data.raisable_state)
+            print_skill_progress(skill_id)
             // print_buyable_blocks(LeveledSkill{skill_id, level+1})
         }
     }
@@ -94,7 +117,7 @@ print_player_state :: proc() {
 
         for perk in DB.owned_perks {
             fmt.print(" ",perk, ": ")
-            print_buyable_blocks(perk)
+            // print_buyable_blocks(perk)
         } 
     }
 

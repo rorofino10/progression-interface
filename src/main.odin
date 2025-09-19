@@ -74,17 +74,6 @@ recalc_skill_id_raisable_state :: proc() {
 		
 		curr_level := DB.owned_skills[skillID]
 
-		{ // Check if Capped
-			cap: LEVEL
-			skill_id_data := &DB.skill_id_data[skillID]
-			switch skill_id_data.type {
-				case .Main:
-					cap = DB.skill_rank_cap[DB.unit_level-1][skill_id_data.idx]
-				case .Extra:
-					cap = DB.skill_rank_cap[DB.unit_level-1][MAIN_SKILLS_AMOUNT]
-			}
-			if curr_level >= cap do return .Capped
-		}
 
 		{ // Check If Enough Points
 			skill := LeveledSkill{skillID, curr_level}
@@ -97,6 +86,29 @@ recalc_skill_id_raisable_state :: proc() {
 			if blocks_to_buy > DB.unused_points do return .NotEnoughPoints
 		}
 
+
+		{ // Check if Capped
+			cap: LEVEL
+			skill_id_data := &DB.skill_id_data[skillID]
+			switch skill_id_data.type {
+				case .Main:
+					cap = DB.skill_rank_cap[DB.unit_level-1][skill_id_data.idx]
+				case .Extra:
+					cap = DB.skill_rank_cap[DB.unit_level-1][MAIN_SKILLS_AMOUNT]
+			}
+			if curr_level >= cap do return .Capped
+		}
+
+		{ // Check if Free
+			skill := LeveledSkill{skillID, curr_level}
+			next_skill := LeveledSkill{skillID, curr_level+1}
+
+			b_data := &DB.buyable_data[next_skill]
+
+			owned_block_amount := BlocksSize(len(b_data.owned_blocks))
+			blocks_to_buy := owned_block_amount - b_data.owned_amount
+			if blocks_to_buy == 0 do return .Free
+		}
 		return .Raisable
 	}
 	primary_1 := DB.owned_main_skills[0]
@@ -236,7 +248,13 @@ raise_skill :: proc(skill_id: SkillID) -> (u32, BuyError) {
 
     owned_block_amount := BlocksSize(len(b_data.owned_blocks))
 	blocks_to_buy := owned_block_amount - b_data.owned_amount
-	if blocks_to_buy > DB.unused_points do return 0, .NotEnoughPoints
+	{ // Check points
+		if skill_id_data.raisable_state == .NotEnoughPoints do return 0, .NotEnoughPoints 
+	}
+
+	{ // Check if it is capped	
+		if skill_id_data.raisable_state == .Capped do return 0, .CapReached
+	}
 
 	{ // Check for promotion
 		last_main_skill_id := DB.owned_main_skills[DB.owned_main_skills_amount-1]
@@ -270,18 +288,6 @@ raise_skill :: proc(skill_id: SkillID) -> (u32, BuyError) {
 			}
 		}
 	}	
-
-	{ // Check if it is capped	
-		cap: LEVEL
-		switch skill_id_data.type {
-			case .Main:
-				cap = DB.skill_rank_cap[DB.unit_level-1][skill_id_data.idx]
-			case .Extra:
-				cap = DB.skill_rank_cap[DB.unit_level-1][MAIN_SKILLS_AMOUNT]
-		}
-		if next_skill.level > cap do return 0, .CapReached
-	}
-
 
 	{ // Set as bought
 		DB.unused_points -= blocks_to_buy

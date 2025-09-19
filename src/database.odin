@@ -38,6 +38,7 @@ SkillRaisableState :: enum {
 	NotEnoughPoints,
 	Raisable,
 	Capped,
+	Free,
 }
 
 SkillData :: struct {

@@ -21,8 +21,8 @@ Action :: enum {
 print_buyable_blocks :: proc(buyable: Buyable) {
     buyable_data := DB.buyable_data[buyable]
     owned_block_amount := BlocksSize(len(buyable_data.owned_blocks))
-    fmt.print(buyable_data.owned_amount, "/", owned_block_amount, " ", sep="")
     fmt.print(f32(buyable_data.owned_amount)/f32(owned_block_amount)*100, "%", " ", sep="")
+    fmt.print(buyable_data.owned_amount, "/", owned_block_amount, " ", sep="")
     switch {
         // Already Bought
         case buyable_data.is_owned:
@@ -50,15 +50,16 @@ print_skill_progress :: proc(skillID: SkillID, level_cap: LEVEL) {
     owned_block_amount := BlocksSize(len(buyable_data.owned_blocks))
     
     switch skill_id_data.raisable_state {
+        case .Free:
+            fmt.print("\x1b[43m")
         case .Raisable:
-            if owned_block_amount == buyable_data.owned_amount do fmt.print("\x1b[43m")
-            else do fmt.print("\x1b[42m")
+            fmt.print("\x1b[42m")
         case .NotEnoughPoints:
             fmt.print("\x1b[41m")
         case .Capped:
             fmt.print("\x1b[44m")
     }
-    for level in 0..=skill_level do fmt.print(" ")
+    for level in 1..=skill_level do fmt.print(" ")
     fmt.print("\x1b[100m")
     for level in skill_level+1..=level_cap do fmt.print(" ")
     fmt.print("\x1b[0m\n")
@@ -94,6 +95,8 @@ print_player_state :: proc() {
 
             fmt.print("[",skill_slot_name[slot],"]\t", sep="")
             switch skill_id_data.raisable_state {
+                case .Free:
+                    fmt.print("\x1b[43m")
                 case .Raisable:
                     fmt.print("\x1b[42m")
                 case .NotEnoughPoints:
@@ -117,6 +120,8 @@ print_player_state :: proc() {
 
             fmt.print("[EXTRA]\t\t")
             switch skill_id_data.raisable_state {
+                case .Free:
+                    fmt.print("\x1b[43m")
                 case .Raisable:
                     fmt.print("\x1b[42m")
                 case .NotEnoughPoints:
@@ -129,31 +134,9 @@ print_player_state :: proc() {
         }
     }
 
-    { // Print Owned Skills
-        fmt.println("Owned Perks:")
-
-        for perk in DB.owned_perks {
-            fmt.print(" ",perk, ": ")
-            // print_buyable_blocks(perk)
-        } 
-    }
-
-}
-
-print_buyables :: proc(){
-    fmt.println("Buyables:")
-    for buyable, buyable_data in DB.buyable_data {
-        switch b in buyable {
-            case LeveledSkill:
-                // max_skill_owned, owned := DB.owned_skills[b.id]
-                // if (!owned && b.level == 1) || b.level == max_skill_owned + 1 {
-                //     fmt.print("  ")
-                //     fmt.print(b.id, b.level, ": ")
-                //     print_buyable_blocks(buyable)
-                // }
-            case PerkID:
-                fmt.print("  ")
-                perk_val := DB.perk_data[b]
+    { // Print Perks
+        fmt.println("Perks:")
+        for perk, perk_val in DB.perk_data {
                 switch perk_val.buyable_state {
                     case .Buyable:
                         fmt.print("\x1b[42m")
@@ -162,20 +145,17 @@ print_buyables :: proc(){
                     case .Owned:
                         fmt.print("\x1b[44m")
                 }
-                fmt.print(b)
-                fmt.print("\x1b[0m\n")
+                fmt.print(perk)
+                fmt.print("\x1b[0m ")
                 
-                // if !player_has_perk(b) {
-                //     fmt.print(b,": ")
-                //     print_buyable_blocks(buyable)
-                // }
-                
+                buyable_data := DB.buyable_data[perk]
+                owned_block_amount := BlocksSize(len(buyable_data.owned_blocks))
+                fmt.printfln("%.0f%%",f32(buyable_data.owned_amount)/f32(owned_block_amount)*100)
         }
     }
 }
 
 print_state :: proc(){
-	print_buyables()
 	print_player_state()
     fmt.println("Unused points:", DB.unused_points)
     fmt.println("Level:", DB.unit_level)
@@ -220,30 +200,36 @@ run_cli :: proc() {
         words := strings.split(line, " ", context.temp_allocator)
 
         action := parse_action(words[0])
-
+        args := words[1:]
         // Clear Screen
         fmt.print("\x1b[2J\x1b[H")
 
         switch action {
             case .Refund:
-                buyable := parse_perk(words[1])
+                buyable := parse_perk(args[0])
                 refunded, err := refund_perk(buyable)
                 if err != nil do fmt.println(err)
                 else do fmt.println("Refunded:", refunded)
             case .Reduce:
-                buyable := parse_skill(words[1])
+                buyable := parse_skill(args[0])
                 refunded, err := reduce_skill(buyable)
                 if err != nil do fmt.println(err)
                 else do fmt.println("Refunded:", refunded)
             case .Blocks:
-                print_blocks_state()
+                if len(args) == 0 do print_blocks_state()
+                else {
+                    for arg in args {
+                        perk := parse_perk(arg)
+                        print_buyable_blocks(perk)
+                    }
+                }
             case .Raise:
-                buyable := parse_skill(words[1])
+                buyable := parse_skill(args[0])
                 spent, err := raise_skill(buyable)
                 if err != nil do fmt.println(err)
                 else do fmt.println("Cost:", spent)
             case .Buy:
-                buyable := parse_perk(words[1])
+                buyable := parse_perk(args[0])
                 spent, err := buy_perk(buyable)
                 if err != nil do fmt.println(err)
                 else do fmt.println("Cost:", spent)
@@ -251,7 +237,7 @@ run_cli :: proc() {
                 err := level_up()
                 if err != nil do fmt.println(err)
             case .SetPoints:
-                points, ok := strconv.parse_int(words[1])
+                points, ok := strconv.parse_int(args[0])
                 if !ok do fmt.println("Error parsing Int")
                 else do DB.unused_points = u32(points)
             case .NotRecognized:

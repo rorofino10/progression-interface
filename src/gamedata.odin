@@ -23,7 +23,7 @@ SkillID :: enum u8 {
 
 load_db :: proc() {
 
-	BuildPlayer({1000, 120, 120}, {
+	BuildPlayer({30, 120, 120}, {
 		{6,5,3,2,1,1,0},
 		{7,6,4,3,2,2,1},
 		{8,7,5,4,3,3,1}
@@ -56,7 +56,7 @@ load_db :: proc() {
 	Drags(.Melee, .Endurance, 1)
 
 
-	// Share(.Trip, .Aim, 50)
+	Share(.Trip, .Aim, 50)
 	// Share(.Aim, .Sight, 50)
 	// Share(.Sight, .Aim, 50)
 	// Share(.Aim, .Knife_Master, 100)

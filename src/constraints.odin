@@ -42,58 +42,36 @@ Overlap :: proc(skillA, skillB : SkillID, strength: STRENGTH) {
     append(&DB.overlap_constraints, TOverlap{skillA, skillB, strength})
 }
 
-
-share_buyables :: proc(buyableA, buyableB: Buyable, strength: STRENGTH) {
-	buyable_a_data, buyable_b_data := DB.buyable_data[buyableA], DB.buyable_data[buyableB]
-	
-	buyable_a_blocks_to_own, buyable_b_blocks_to_own : BlocksSize 
-	blocks_to_share_a, blocks_to_share_b, blocks_to_share_max: BlocksSize
-	switch a in buyableA {
-		case LeveledSkill:
-			buyable_a_blocks_to_own = DB.skill_id_data[a.id].blocks[a.level]
-		case PerkID:
-			buyable_a_blocks_to_own = DB.perk_data[a].blocks
-	}
-	switch b in buyableB {
-		case LeveledSkill:
-			buyable_b_blocks_to_own = DB.skill_id_data[b.id].blocks[b.level]
-		case PerkID:
-			buyable_b_blocks_to_own = DB.perk_data[b].blocks
-	}
-
-	blocks_to_share_a = BlocksSize(f32(buyable_a_blocks_to_own) * f32(strength) / 100)
-	blocks_to_share_b = BlocksSize(f32(buyable_b_blocks_to_own) * f32(strength) / 100)
-	blocks_to_share_max = max(blocks_to_share_a, blocks_to_share_b)
-	// block_system_assign_share(buyableA, buyableB, blocks_to_share_a, blocks_to_share_b, blocks_to_share_max)
-}
-
-
 handle_share :: proc(share: TShare) -> BuyableCreationError{
-	
+	// fmt.println("Handling", share)
 	buyable_a_blocks_to_own := DB.buyable_data[share.buyableA].blocks_left_to_assign
 	buyable_b_blocks_to_own := DB.buyable_data[share.buyableB].blocks_left_to_assign
 
-	blocks_to_share_a := BlocksSize(f32(buyable_a_blocks_to_own) * f32(share.strength) / 100)
-	blocks_to_share_b := BlocksSize(f32(buyable_b_blocks_to_own) * f32(share.strength) / 100)
+	blocks_to_share := BlocksSize(2 * (f64(share.strength) / 100) * f64(buyable_a_blocks_to_own*buyable_b_blocks_to_own) / f64(buyable_a_blocks_to_own+buyable_b_blocks_to_own))
+	fudged_strength_a := f64(blocks_to_share) / f64(buyable_a_blocks_to_own)
+	fudged_strength_b := f64(blocks_to_share) / f64(buyable_b_blocks_to_own)
+	share_a_diff := abs(f64(share.strength)/100 - fudged_strength_a)
+	share_b_diff := abs(f64(share.strength)/100 - fudged_strength_b)
 
-	blocks_to_share := max(blocks_to_share_a, blocks_to_share_b)
-	share_a_diff := abs((f32(blocks_to_share) / f32(buyable_a_blocks_to_own)) - (f32(blocks_to_share_a) / f32(buyable_a_blocks_to_own)))
-	share_b_diff := abs((f32(blocks_to_share) / f32(buyable_b_blocks_to_own)) - (f32(blocks_to_share_b) / f32(buyable_b_blocks_to_own)))
-
-	fmt.println("Share A diff",share_a_diff)
-	fmt.println("Share B diff",share_b_diff)
+	// fmt.println("To Share", blocks_to_share)
+	// fmt.println("Efective A strength", fudged_strength_a)
+	// fmt.println("Efective B strength", fudged_strength_b)
+	// fmt.println("Share A diff",share_a_diff)
+	// fmt.println("Share B diff",share_b_diff)
 	
-	if share_a_diff >= 0.10 || share_b_diff >= 0.10 do return ShareFudgeError{share}
+	if !(0 <= fudged_strength_a && fudged_strength_a <= 1.0) || !(0 <= fudged_strength_b && fudged_strength_b <= 1.0) || share_a_diff >= 0.10 || share_b_diff >= 0.10 do return ShareFudgeError{share}
 	block_system_assign_share(share.buyableA, share.buyableB, blocks_to_share)
 	return nil
 }
 
-handle_overlap :: proc(overlap: TOverlap) {
+handle_overlap :: proc(overlap: TOverlap) -> BuyableCreationError {
 	for level in 1..=MAX_SKILL_LEVEL {
 		skillA, skillB := LeveledSkill{overlap.skillA, LEVEL(level)}, LeveledSkill{overlap.skillB, LEVEL(level)}
 		
-		share_buyables(skillA, skillB, overlap.strength)
+		err := handle_share(TShare{skillA, skillB, overlap.strength})
+		if err != nil do return OverlapFudgeError{overlap, LEVEL(level)}
 	}
+	return nil
 }
 
 check_constraints :: proc() -> Error {
@@ -126,7 +104,7 @@ handle_constraints :: proc() -> BuyableCreationError {
         handle_share(share) or_return
     }
     for overlap in DB.overlap_constraints {
-        handle_overlap(overlap)
+        handle_overlap(overlap) or_return
     }
 	return nil
 }

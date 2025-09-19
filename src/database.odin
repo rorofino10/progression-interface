@@ -88,10 +88,16 @@ ShareFudgeError :: struct {
 	share: TShare
 }
 
+OverlapFudgeError :: struct {
+	overlap: TOverlap,
+	level: LEVEL,
+}
+
 
 BuyableCreationError :: union {
 	CycleInPreReqsError,
 	ShareFudgeError,
+	OverlapFudgeError,
 }
 
 LevelUpError :: enum {

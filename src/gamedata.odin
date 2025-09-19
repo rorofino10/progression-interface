@@ -21,7 +21,7 @@ load_db :: proc() {
 
     // Literal
 	BuildMainSkill(.Melee, { 10, 20, 30 })
-	BuildMainSkill(.Athletics, { 10, 10, 10 })
+	BuildMainSkill(.Athletics, { 10, 20, 30 })
 	BuildMainSkill(.Finesse, { 10, 10, 10 })
 	BuildExtraSkill(.Medicine, { 10, 10, 10 }) 
 	// Skill(.Athletics, { 10, 10, 10 }) 
@@ -43,10 +43,10 @@ load_db :: proc() {
 	// Drags(.Melee, .Athletics, 1)
 
 
-	Share(.Trip, .Aim, 50)
+	// Share(.Trip, .Aim, 50)
 	// Share(.Aim, .Sight, 50)
 	// Share(.Sight, .Aim, 50)
 	// Share(.Aim, .Knife_Master, 100)
-	// Overlap(.Melee, .Athletics, 75)
+	Overlap(.Melee, .Athletics, 50)
 	// Overlap(.Finesse, .Athletics, 50)
 }

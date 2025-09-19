@@ -57,7 +57,7 @@ recalc_perks_buyable_state :: proc() {
 			}
 		}
 		{ // Check for points
-			owned_block_amount := BlocksSize(len(b_data.owned_blocks))
+			owned_block_amount := b_data.blocks_left_to_assign
 
 			blocks_to_buy := owned_block_amount - b_data.owned_amount
 			if blocks_to_buy > DB.unused_points { 
@@ -81,7 +81,7 @@ recalc_skill_id_raisable_state :: proc() {
 
 			b_data := &DB.buyable_data[next_skill]
 
-			owned_block_amount := BlocksSize(len(b_data.owned_blocks))
+			owned_block_amount := b_data.blocks_left_to_assign
 			blocks_to_buy := owned_block_amount - b_data.owned_amount
 			if blocks_to_buy > DB.unused_points do return .NotEnoughPoints
 		}
@@ -105,7 +105,7 @@ recalc_skill_id_raisable_state :: proc() {
 
 			b_data := &DB.buyable_data[next_skill]
 
-			owned_block_amount := BlocksSize(len(b_data.owned_blocks))
+			owned_block_amount := b_data.blocks_left_to_assign
 			blocks_to_buy := owned_block_amount - b_data.owned_amount
 			if blocks_to_buy == 0 do return .Free
 		}
@@ -163,7 +163,8 @@ unlock_buyable :: proc(buyable: Buyable) {
 		block.bought = true
 	}
 	b_data := &DB.buyable_data[buyable]
-	for &block in b_data.owned_blocks do unlock_block(block)
+	owned_blocks := query_all_blocks_from_buyable(buyable)
+	for &block in owned_blocks do unlock_block(block)
 }
 
 
@@ -181,7 +182,9 @@ lock_buyable :: proc(buyable: Buyable) {
 	}
 
 	b_data := &DB.buyable_data[buyable]
-	for &block in b_data.owned_blocks do lock_block(block)
+	owned_blocks := query_all_blocks_from_buyable(buyable)
+	for &block in owned_blocks do lock_block(block)
+	free_all(query_system_alloc)
 }
 
 
@@ -192,7 +195,7 @@ reduce_skill :: proc(skill_id: SkillID) -> (u32, ReduceError) {
 
 	skill := LeveledSkill{skill_id, skill_level}
 	b_data := &DB.buyable_data[skill]
-	owned_blocks_amount := BlocksSize(len(b_data.owned_blocks))
+	owned_blocks_amount := b_data.blocks_left_to_assign
 
 
 	{ // Check if it is required in another owned buyable
@@ -225,7 +228,7 @@ refund_perk :: proc(perk_id: PerkID) -> (u32, RefundError) {
 	}
 
 	b_data := &DB.buyable_data[perk_id]
-	owned_blocks_amount := BlocksSize(len(b_data.owned_blocks))
+	owned_blocks_amount := b_data.blocks_left_to_assign
 
 	lock_buyable(perk_id)
 
@@ -246,7 +249,7 @@ raise_skill :: proc(skill_id: SkillID) -> (u32, BuyError) {
 
 	b_data := &DB.buyable_data[next_skill]
 
-    owned_block_amount := BlocksSize(len(b_data.owned_blocks))
+    owned_block_amount := b_data.blocks_left_to_assign
 	blocks_to_buy := owned_block_amount - b_data.owned_amount
 	{ // Check points
 		if skill_id_data.raisable_state == .NotEnoughPoints do return 0, .NotEnoughPoints 
@@ -321,7 +324,7 @@ buy_perk :: proc(perk: PerkID) -> (u32, BuyError) {
 
 	b_data := &DB.buyable_data[perk]
 	perk_val := DB.perk_data[perk]
-	owned_block_amount := BlocksSize(len(b_data.owned_blocks))
+	owned_block_amount := b_data.blocks_left_to_assign
 	blocks_to_buy := owned_block_amount - b_data.owned_amount
 
 	if blocks_to_buy > DB.unused_points do return 0, .NotEnoughPoints
@@ -395,6 +398,7 @@ main :: proc() {
 	}
 	{ // Cleanup
 		delete(block_system_buffer)
+		delete(query_system_buffer)
 	}
 
 }

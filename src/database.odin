@@ -1,6 +1,7 @@
 #+feature dynamic-literals
 package main
 
+import "core:slice"
 import "core:mem"
 import "core:container/queue"
 import "core:fmt"
@@ -139,7 +140,6 @@ DynBuyables :: [dynamic]Buyable
 
 BuyableData :: struct {
 	blocks_left_to_assign 	: BlocksSize,
-	owned_blocks			: []^Block,
 	owned_amount			: BlocksSize,
 	is_owned				: bool,
 	is_upgradeable			: bool,
@@ -256,6 +256,7 @@ init_db :: proc() -> Error{
 	assert(DB.owned_main_skills_amount == MAIN_SKILLS_AMOUNT)
 	check_constraints() or_return
 	block_system_allocate() or_return
+	init_query_system_alloc() or_return
 	create_buyables() or_return
 	return nil
 }
@@ -347,9 +348,10 @@ create_buyables :: proc() -> BuyableCreationError {
 	
 	handle_constraints() or_return
 
-	for buyable, &buyable_data in DB.buyable_data {
-		buyable_data.owned_blocks = query_all_blocks_from_buyable(buyable)
-	}
+	// for buyable, &buyable_data in DB.buyable_data {
+	// 	buyable_data.owned_blocks = slice.clone(query_all_blocks_from_buyable(buyable))
+	// 	free_all(query_system_alloc)
+	// }
 	
 	recalc_buyable_states()
 	return nil

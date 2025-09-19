@@ -33,17 +33,17 @@ load_db :: proc() {
 	// BuildMainSkillLambda(.Melee, { 10, 20, 30 })
 
 	// Lambda
-	BuildMainSkillLambda(.Melee, proc(i: BlocksSize) -> BlocksSize{return i*10})
-	BuildMainSkillLambda(.Endurance, proc(i: BlocksSize) -> BlocksSize{return i*10})
-	BuildMainSkillLambda(.Sorcery, proc(i: BlocksSize) -> BlocksSize{return i*10})
-	BuildMainSkillLambda(.Mana, proc(i: BlocksSize) -> BlocksSize{return i*10})
-	BuildMainSkillLambda(.Ranged, proc(i: BlocksSize) -> BlocksSize{return i*10})
-	BuildMainSkillLambda(.Perception, proc(i: BlocksSize) -> BlocksSize{return i*10})
+	BuildMainSkillLambda(.Melee, proc(i: BlocksSize) -> BlocksSize{return i})
+	BuildMainSkillLambda(.Endurance, proc(i: BlocksSize) -> BlocksSize{return i})
+	BuildMainSkillLambda(.Sorcery, proc(i: BlocksSize) -> BlocksSize{return i})
+	BuildMainSkillLambda(.Mana, proc(i: BlocksSize) -> BlocksSize{return i})
+	BuildMainSkillLambda(.Ranged, proc(i: BlocksSize) -> BlocksSize{return i})
+	BuildMainSkillLambda(.Perception, proc(i: BlocksSize) -> BlocksSize{return i})
 
-	BuildExtraSkillLambda(.Medicine, proc(i: BlocksSize) -> BlocksSize{return i*10}) 
-	BuildExtraSkillLambda(.Logic, proc(i: BlocksSize) -> BlocksSize{return i*10}) 
-	BuildExtraSkillLambda(.Finesse, proc(i: BlocksSize) -> BlocksSize{return i*10}) 
-	BuildExtraSkillLambda(.Athletics, proc(i: BlocksSize) -> BlocksSize{return i*10}) 
+	BuildExtraSkillLambda(.Medicine, proc(i: BlocksSize) -> BlocksSize{return i}) 
+	BuildExtraSkillLambda(.Logic, proc(i: BlocksSize) -> BlocksSize{return i}) 
+	BuildExtraSkillLambda(.Finesse, proc(i: BlocksSize) -> BlocksSize{return i}) 
+	BuildExtraSkillLambda(.Athletics, proc(i: BlocksSize) -> BlocksSize{return i}) 
 
 	Perk(.Trip, 90, {}, {{.Melee, 1}})
 	Perk(.Aim, 100, {}, {{.Melee, 1}})
@@ -53,7 +53,7 @@ load_db :: proc() {
 	// Contains(LeveledSkill{.Melee, 1}, .Trip)
 	// Contains(LeveledSkill{.Melee, 3}, LeveledSkill{.Endurance, 1})
 	// Share(LeveledSkill{.Melee, 1}, .Trip, 100)
-	Drags(.Melee, .Endurance, 1)
+	// Drags(.Melee, .Endurance, 1)
 
 
 	Share(.Trip, .Aim, 50)

@@ -8,12 +8,17 @@ import "core:mem"
 
 MAX_BLOCKS_AMOUNT :: 10_000
 BLOCK_SYSTEM_ALLOCATED_MEM :: runtime.Megabyte
+QUERY_SYSTEM_ALLOCATED_MEM :: runtime.Megabyte
 
 block_system_alloc: mem.Allocator
 block_system_arena: mem.Arena
 block_system_buffer: []byte
 
 block_system: ^BlockSystem
+
+query_system_alloc: mem.Allocator
+query_system_arena: mem.Arena
+query_system_buffer: []byte
 
 BlockSystem :: struct {
     blocks          : Blocks,
@@ -26,12 +31,20 @@ Block :: struct {
 
 Blocks :: [dynamic]Block
 BlocksSize :: u32
-
+BlocksQuery :: []^Block
 
 init_block_system_alloc :: proc() -> Error {
 	block_system_buffer = make([]byte, BLOCK_SYSTEM_ALLOCATED_MEM) or_return
 	mem.arena_init(&block_system_arena, block_system_buffer)
 	block_system_alloc = mem.arena_allocator(&block_system_arena)
+
+    return nil
+}
+
+init_query_system_alloc :: proc() -> Error {
+	query_system_buffer = make([]byte, QUERY_SYSTEM_ALLOCATED_MEM) or_return
+	mem.arena_init(&query_system_arena, query_system_buffer)
+	query_system_alloc = mem.arena_allocator(&query_system_arena)
 
     return nil
 }
@@ -55,8 +68,9 @@ block_system_assign :: proc(buyable: Buyable, blocks_to_assign: BlocksSize) {
     }
 }
 
-query_blocks_from_buyable :: proc(buyable: Buyable, query_amount: BlocksSize) -> []^Block {
-    query := make([]^Block, query_amount)
+query_blocks_from_buyable :: proc(buyable: Buyable, query_amount: BlocksSize) -> BlocksQuery {
+    context.allocator = query_system_alloc
+    query := make(BlocksQuery, query_amount)
     query_curr_idx : BlocksSize = 0
     for &block in block_system.blocks {
         if query_curr_idx == query_amount do break
@@ -71,19 +85,17 @@ query_blocks_from_buyable :: proc(buyable: Buyable, query_amount: BlocksSize) ->
     return query
 }
 
-query_all_blocks_from_buyable :: proc(buyable: Buyable) -> []^Block {
+query_all_blocks_from_buyable :: proc(buyable: Buyable) -> BlocksQuery {
     blocks := DB.buyable_data[buyable].blocks_left_to_assign
     return query_blocks_from_buyable(buyable, blocks)
 }
 
 block_system_assign_share :: proc(buyableA, buyableB: Buyable, blocks_to_share : BlocksSize) {
     context.allocator = block_system_alloc
-    fmt.println("Sharing", buyableA, buyableB)
     {// Create a new Shared Group
         query_a := query_blocks_from_buyable(buyableA, blocks_to_share)
         query_b := query_blocks_from_buyable(buyableB, blocks_to_share)
-        defer delete(query_a)
-        defer delete(query_b)
+        defer free_all(query_system_alloc)
         
         for relative_block_idx in 0..<blocks_to_share {
             query_block_a := query_a[relative_block_idx]

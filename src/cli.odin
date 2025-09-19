@@ -20,7 +20,9 @@ Action :: enum {
 
 print_buyable_blocks :: proc(buyable: Buyable) {
     buyable_data := DB.buyable_data[buyable]
-    owned_block_amount := BlocksSize(len(buyable_data.owned_blocks))
+    owned_blocks := query_all_blocks_from_buyable(buyable)
+    defer free_all(query_system_alloc)
+    owned_block_amount := buyable_data.blocks_left_to_assign
     fmt.print(f32(buyable_data.owned_amount)/f32(owned_block_amount)*100, "%", " ", sep="")
     fmt.print(buyable_data.owned_amount, "/", owned_block_amount, " ", sep="")
     switch {
@@ -32,7 +34,7 @@ print_buyable_blocks :: proc(buyable: Buyable) {
             fmt.print("FREE! ")
             for _ in 0..<owned_block_amount do fmt.print("\x1b[43m \x1b[0m")
         case:
-            for block in buyable_data.owned_blocks {
+            for block in owned_blocks {
                 if block.bought do fmt.print("\x1b[42m \x1b[0m")
                 else do fmt.print("\x1b[31m█\x1b[0m")
             }
@@ -47,7 +49,7 @@ print_skill_progress :: proc(skillID: SkillID, level_cap: LEVEL) {
     next_skill := LeveledSkill{skillID, skill_level+1}
 
     buyable_data := DB.buyable_data[next_skill]
-    owned_block_amount := BlocksSize(len(buyable_data.owned_blocks))
+    owned_block_amount := buyable_data.blocks_left_to_assign
     
     switch skill_id_data.raisable_state {
         case .Free:
@@ -147,7 +149,7 @@ print_player_state :: proc() {
                 fmt.print("\x1b[0m ")
                 
                 buyable_data := DB.buyable_data[perk]
-                owned_block_amount := BlocksSize(len(buyable_data.owned_blocks))
+                owned_block_amount := buyable_data.blocks_left_to_assign
                 fmt.printfln("%.0f%%",f32(buyable_data.owned_amount)/f32(owned_block_amount)*100)
         }
     }

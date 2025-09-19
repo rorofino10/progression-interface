@@ -41,7 +41,7 @@ print_buyable_blocks :: proc(buyable: Buyable) {
     fmt.print('\n')
 }
 
-print_skill_progress :: proc(skillID: SkillID) {
+print_skill_progress :: proc(skillID: SkillID, level_cap: LEVEL) {
     skill_id_data := DB.skill_id_data[skillID]
     skill_level := DB.owned_skills[skillID]
     next_skill := LeveledSkill{skillID, skill_level+1}
@@ -59,6 +59,8 @@ print_skill_progress :: proc(skillID: SkillID) {
             fmt.print("\x1b[44m")
     }
     for level in 0..=skill_level do fmt.print(" ")
+    fmt.print("\x1b[100m")
+    for level in skill_level+1..=level_cap do fmt.print(" ")
     fmt.print("\x1b[0m\n")
 }
 
@@ -83,32 +85,47 @@ print_player_state :: proc() {
 
 
     { // Print Owned Skills
-        // fmt.println("Owned Skills:")
-
-        // for skill_id, level in DB.owned_skills {
-        //     fmt.print(" ",skill_id, level, ": ")
-        //     print_buyable_blocks(LeveledSkill{skill_id, level})
-        // } 
-        fmt.println("Main Skills:")
+        fmt.println("Skills:")
+        // Main Skills
         for skill_id, slot in DB.owned_main_skills {
             skill_id_data := DB.skill_id_data[skill_id]
             level := DB.owned_skills[skill_id]
             slot_cap := DB.skill_rank_cap[DB.unit_level-1][slot]
-            fmt.print("", skill_slot_name[slot], ":" ,"CAP:", slot_cap, skill_id, level, ": ")
-            fmt.print(skill_id_data.raisable_state)
-            print_skill_progress(skill_id)
+
+            fmt.print("[",skill_slot_name[slot],"]\t", sep="")
+            switch skill_id_data.raisable_state {
+                case .Raisable:
+                    fmt.print("\x1b[42m")
+                case .NotEnoughPoints:
+                    fmt.print("\x1b[41m")
+                case .Capped:
+                    fmt.print("\x1b[44m")
+            }
+            fmt.print(skill_id, level)
+            fmt.print("\x1b[0m\t\t")
+            // fmt.print("", skill_slot_name[slot], ":" ,"CAP:", slot_cap, skill_id, level, ": ")
+            // fmt.print(skill_id_data.raisable_state)
+            print_skill_progress(skill_id, slot_cap)
             // print_buyable_blocks(LeveledSkill{skill_id, level+1})
         }
 
-        fmt.println("Extra Skills:")
+        // Extra Skills
         extra_slot_cap := DB.skill_rank_cap[DB.unit_level-1][MAIN_SKILLS_AMOUNT]
         for skill_id in DB.owned_extra_skills {
             skill_id_data := DB.skill_id_data[skill_id]
             level := DB.owned_skills[skill_id]
-            fmt.print(" CAP:", extra_slot_cap, skill_id, level, ": ")
-            fmt.print(skill_id_data.raisable_state)
-            print_skill_progress(skill_id)
-            // print_buyable_blocks(LeveledSkill{skill_id, level+1})
+
+            fmt.print("[EXTRA]\t\t")
+            switch skill_id_data.raisable_state {
+                case .Raisable:
+                    fmt.print("\x1b[42m")
+                case .NotEnoughPoints:
+                    fmt.print("\x1b[41m")
+                case .Capped:
+                    fmt.print("\x1b[44m")
+            }
+            fmt.print(skill_id, level)
+            fmt.print("\x1b[0m\n")
         }
     }
 
@@ -128,18 +145,30 @@ print_buyables :: proc(){
     for buyable, buyable_data in DB.buyable_data {
         switch b in buyable {
             case LeveledSkill:
-                max_skill_owned, owned := DB.owned_skills[b.id]
-                if (!owned && b.level == 1) || b.level == max_skill_owned + 1 {
-                    fmt.print('\t')
-                    fmt.print(b.id, b.level, ": ")
-                    print_buyable_blocks(buyable)
-                }
+                // max_skill_owned, owned := DB.owned_skills[b.id]
+                // if (!owned && b.level == 1) || b.level == max_skill_owned + 1 {
+                //     fmt.print("  ")
+                //     fmt.print(b.id, b.level, ": ")
+                //     print_buyable_blocks(buyable)
+                // }
             case PerkID:
-                if !player_has_perk(b) {
-                    fmt.print('\t')
-                    fmt.print(b,": ")
-                    print_buyable_blocks(buyable)
+                fmt.print("  ")
+                perk_val := DB.perk_data[b]
+                switch perk_val.buyable_state {
+                    case .Buyable:
+                        fmt.print("\x1b[42m")
+                    case .UnmetRequirements:
+                        fmt.print("\x1b[41m")
+                    case .Owned:
+                        fmt.print("\x1b[44m")
                 }
+                fmt.print(b)
+                fmt.print("\x1b[0m\n")
+                
+                // if !player_has_perk(b) {
+                //     fmt.print(b,": ")
+                //     print_buyable_blocks(buyable)
+                // }
                 
         }
     }

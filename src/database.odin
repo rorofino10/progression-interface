@@ -35,9 +35,9 @@ SkillType :: enum {
 }
 
 SkillRaisableState :: enum {
+	NotEnoughPoints,
 	Raisable,
 	Capped,
-	NotEnoughPoints,
 }
 
 SkillData :: struct {
@@ -49,9 +49,16 @@ SkillData :: struct {
 
 Perks :: bit_set[PerkID]
 
+PerkBuyableState :: enum {
+	UnmetRequirements,
+	Buyable,
+	Owned,
+}
+
 PerkData :: struct {
 	blocks:      BlocksSize,
 	prereqs:     Perks,
+	buyable_state: PerkBuyableState,
 	skills_reqs: [MAX_SKILL_REQS]LeveledSkill,
 }
 
@@ -221,6 +228,8 @@ level_up :: proc() -> LevelUpError {
 	if DB.unit_level >= DB.unit_level_cap do return .MAX_LEVEL_REACHED
 	DB.unit_level += 1
 	DB.unused_points += DB.points_gain[DB.unit_level-1]
+	
+	recalc_buyable_states()
 	return nil
 }
 
@@ -341,7 +350,7 @@ create_buyables :: proc() -> BuyableCreationError {
 		buyable_data.owned_blocks = query_all_blocks_from_buyable(buyable)
 	}
 	
-	recalc_raisable_state_for_all()
+	recalc_buyable_states()
 	return nil
 }
 

@@ -22,7 +22,54 @@ player_has_buyable :: proc(buyable: Buyable) -> bool {
 	return false
 }
 
-recalc_raisable_state_for_all :: proc() {
+recalc_perks_buyable_state :: proc() {
+	for perk, &perk_val in DB.perk_data {
+		b_data := &DB.buyable_data[perk]
+
+		{ // Owned?
+			if b_data.is_owned {
+				perk_val.buyable_state = .Owned
+				continue
+			}
+		}
+
+		{ 	// check pre_reqs
+			for prereq in perk_val.prereqs {
+				if prereq not_in DB.owned_perks {
+					perk_val.buyable_state = .UnmetRequirements
+					continue
+				}
+			}
+		}
+
+		{ 	// check skills_reqs
+			has_reqs := false
+			for skill_req in perk_val.skills_reqs {
+				if skill_req.id == .Melee && skill_req.level == 0 do break
+				if player_has_skill(skill_req) {
+					has_reqs = true
+					break
+				}
+			}
+			if !has_reqs { 
+				perk_val.buyable_state = .UnmetRequirements
+				continue
+			}
+		}
+		{ // Check for points
+			owned_block_amount := BlocksSize(len(b_data.owned_blocks))
+
+			blocks_to_buy := owned_block_amount - b_data.owned_amount
+			if blocks_to_buy > DB.unused_points { 
+				perk_val.buyable_state = .UnmetRequirements
+				continue
+			}
+		}
+
+		perk_val.buyable_state = .Buyable
+	}
+}
+recalc_skill_id_raisable_state :: proc() {
 	immediate_raisable_state :: proc(skillID: SkillID) -> SkillRaisableState{
 		
 		curr_level := DB.owned_skills[skillID]
@@ -85,6 +132,11 @@ recalc_raisable_state_for_all :: proc() {
 		if extra_skill_level >= last_main_skill_level do (&DB.skill_id_data[extra_skill]).raisable_state = .Raisable
 	}
 
+}
+
+recalc_buyable_states :: proc() {
+	recalc_skill_id_raisable_state()
+	recalc_perks_buyable_state()
 }
 
 unlock_buyable :: proc(buyable: Buyable) {
@@ -242,9 +294,7 @@ raise_skill :: proc(skill_id: SkillID) -> (u32, BuyError) {
 	
 	{ 	// Handle Contains
 		containees, ok := DB.contains_constraint[next_skill]
-		if ok {
-			for buyable in containees do unlock_buyable(buyable)
-		}
+		if ok do for buyable in containees do unlock_buyable(buyable)
 	}
 
 	{ 	// Handle Drag
@@ -255,7 +305,7 @@ raise_skill :: proc(skill_id: SkillID) -> (u32, BuyError) {
 		}
 	}
 
-	recalc_raisable_state_for_all()
+	recalc_buyable_states()
 
 	return blocks_to_buy, .None
 }
@@ -265,6 +315,10 @@ buy_perk :: proc(perk: PerkID) -> (u32, BuyError) {
 
 	b_data := &DB.buyable_data[perk]
 	perk_val := DB.perk_data[perk]
+	owned_block_amount := BlocksSize(len(b_data.owned_blocks))
+	blocks_to_buy := owned_block_amount - b_data.owned_amount
+
+	if blocks_to_buy > DB.unused_points do return 0, .NotEnoughPoints
 
 	{ 	// check pre_reqs
 		for prereq in perk_val.prereqs {
@@ -284,15 +338,10 @@ buy_perk :: proc(perk: PerkID) -> (u32, BuyError) {
 		if !has_reqs do return 0, .MissingRequiredSkills
 	}
 
-	
-    owned_block_amount := BlocksSize(len(b_data.owned_blocks))
-
-	blocks_to_buy := owned_block_amount - b_data.owned_amount
-	if blocks_to_buy > DB.unused_points do return 0, .NotEnoughPoints
-	DB.unused_points -= blocks_to_buy
-	unlock_buyable(perk) // Set all blocks to bought
-
 	{ 	// Set as bought
+		DB.unused_points -= blocks_to_buy
+		unlock_buyable(perk) // Set all blocks to bought
+
 		b_data.spent = blocks_to_buy
 		b_data.is_owned = true
 		DB.owned_perks |= {perk}
@@ -300,11 +349,10 @@ buy_perk :: proc(perk: PerkID) -> (u32, BuyError) {
 
 	{ 	// Handle Contains
 		containees, ok := DB.contains_constraint[perk]
-		if ok {
-			for buyable in containees do unlock_buyable(buyable)
-		}
+		if ok do for buyable in containees do unlock_buyable(buyable)
 	}
 
+	recalc_buyable_states()
 
 	return blocks_to_buy, .None
 }

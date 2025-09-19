@@ -13,6 +13,7 @@ Action :: enum {
     Buy,
     Refund,
     Reduce,
+    Blocks,
     LevelUp,
     SetPoints,
 }
@@ -69,18 +70,22 @@ print_player_state :: proc() {
         // } 
         fmt.println("Main Skills:")
         for skill_id, slot in DB.owned_main_skills {
+            skill_id_data := DB.skill_id_data[skill_id]
             level := DB.owned_skills[skill_id]
             slot_cap := DB.skill_rank_cap[DB.unit_level-1][slot]
             fmt.print("", skill_slot_name[slot], ":" ,"CAP:", slot_cap, skill_id, level, ": ")
-            print_buyable_blocks(LeveledSkill{skill_id, level+1})
+            fmt.print(skill_id_data.raisable_state, '\n')
+            // print_buyable_blocks(LeveledSkill{skill_id, level+1})
         }
 
         fmt.println("Extra Skills:")
         extra_slot_cap := DB.skill_rank_cap[DB.unit_level-1][MAIN_SKILLS_AMOUNT]
         for skill_id in DB.owned_extra_skills {
+            skill_id_data := DB.skill_id_data[skill_id]
             level := DB.owned_skills[skill_id]
             fmt.print(" CAP:", extra_slot_cap, skill_id, level, ": ")
-            print_buyable_blocks(LeveledSkill{skill_id, level+1})
+            fmt.print(skill_id_data.raisable_state, '\n')
+            // print_buyable_blocks(LeveledSkill{skill_id, level+1})
         }
     }
 
@@ -120,23 +125,25 @@ print_buyables :: proc(){
 print_state :: proc(){
 	print_buyables()
 	print_player_state()
-    print_blocks_state()
     fmt.println("Unused points:", DB.unused_points)
     fmt.println("Level:", DB.unit_level)
 }
 
 parse_action :: proc(action_str: string) -> Action {
-    action, r_err := reflect.enum_from_name(Action, action_str)
+    str := strings.to_pascal_case(action_str, context.temp_allocator)
+    action, r_err := reflect.enum_from_name(Action, str)
     return action
 }
 
-parse_perk :: proc(s: string) -> PerkID {
-    perk_id, r_err := reflect.enum_from_name(PerkID, s)
+parse_perk :: proc(perk_id_str: string) -> PerkID {
+    str := strings.to_pascal_case(perk_id_str, context.temp_allocator)
+    perk_id, r_err := reflect.enum_from_name(PerkID, str)
     return perk_id
 }
 
 parse_skill :: proc(skill_id_str: string) -> SkillID {
-    skill_id, r_err := reflect.enum_from_name(SkillID, skill_id_str)
+    str := strings.to_pascal_case(skill_id_str, context.temp_allocator)
+    skill_id, r_err := reflect.enum_from_name(SkillID, str)
     return skill_id
 }
 
@@ -148,7 +155,7 @@ run_cli :: proc() {
 
     scanner: bufio.Scanner
     stdin := os.stream_from_handle(os.stdin,)
-    bufio.scanner_init(&scanner, stdin, context.temp_allocator)
+    bufio.scanner_init(&scanner, stdin, context.allocator)
 
     for {
         
@@ -176,7 +183,8 @@ run_cli :: proc() {
                 refunded, err := reduce_skill(buyable)
                 if err != nil do fmt.println(err)
                 else do fmt.println("Refunded:", refunded)
-
+            case .Blocks:
+                print_blocks_state()
             case .Raise:
                 buyable := parse_skill(words[1])
                 spent, err := raise_skill(buyable)
@@ -199,11 +207,11 @@ run_cli :: proc() {
         }
 
         print_state()
+        free_all(context.temp_allocator)
     }
     
     if err := bufio.scanner_error(&scanner); err != nil {
         fmt.eprintln("error scanning input: %v", err)
     }
-    free_all(context.temp_allocator)
 
 }

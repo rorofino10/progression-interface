@@ -9,14 +9,14 @@ LEVEL :: distinct u32
 STRENGTH :: distinct u8
 
 // CONSTANT
-MAX_SKILL_LEVEL :: 3
+MAX_SKILL_LEVEL :: 10
 MAX_UNIT_LEVEL :: 30
-MAIN_SKILLS_AMOUNT :: 3
+MAIN_SKILLS_AMOUNT :: 6
 // Artificial list size limits
 MAX_SKILL_REQS :: 10
 
-// skill_slot_name := [MAIN_SKILLS_AMOUNT]string{"Primary 1", "Primary 2", "Major 1", "Major 2", "Major 3", "Major 4"}
-skill_slot_name := [MAIN_SKILLS_AMOUNT]string{"Primary 1", "Primary 2", "Major 1"}
+skill_slot_name := [MAIN_SKILLS_AMOUNT]string{"Primary 1", "Primary 2", "Major 1", "Major 2", "Major 3", "Major 4"}
+// skill_slot_name := [MAIN_SKILLS_AMOUNT]string{"Primary 1", "Primary 2", "Major 1"}
 
 DatabaseError :: enum {
 	None,
@@ -34,8 +34,15 @@ SkillType :: enum {
 	Extra
 }
 
+SkillRaisableState :: enum {
+	Raisable,
+	Capped,
+	NotEnoughPoints,
+}
+
 SkillData :: struct {
 	blocks	: [MAX_SKILL_LEVEL]BlocksSize,
+	raisable_state : SkillRaisableState,
 	type	: SkillType,
 	idx		: u32,
 }
@@ -127,6 +134,7 @@ BuyableData :: struct {
 	owned_blocks			: []^Block,
 	owned_amount			: BlocksSize,
 	is_owned				: bool,
+	is_upgradeable			: bool,
 	spent					: BlocksSize,
 }
 
@@ -184,7 +192,15 @@ BuildExtraSkill :: proc(skillID: SkillID, skill_data_arr: [MAX_SKILL_LEVEL]Block
 
 DefineBlockProc :: proc(blockIdx: BlocksSize) -> BlocksSize
 
-BuildSkillByProc :: proc(skillID: SkillID, blockProc: DefineBlockProc){
+BuildMainSkillLambda :: proc(skillID: SkillID, blockProc: DefineBlockProc){
+	blocks_list : [MAX_SKILL_LEVEL]BlocksSize
+	for idx in 1..=MAX_SKILL_LEVEL {
+		blocks_list[idx-1] = blockProc(BlocksSize(idx))
+	}
+	BuildMainSkill(skillID, blocks_list)
+}
+
+BuildExtraSkillLambda :: proc(skillID: SkillID, blockProc: DefineBlockProc){
 	blocks_list : [MAX_SKILL_LEVEL]BlocksSize
 	for idx in 1..=MAX_SKILL_LEVEL {
 		blocks_list[idx-1] = blockProc(BlocksSize(idx))
@@ -325,6 +341,7 @@ create_buyables :: proc() -> BuyableCreationError {
 		buyable_data.owned_blocks = query_all_blocks_from_buyable(buyable)
 	}
 	
+	recalc_raisable_state_for_all()
 	return nil
 }
 

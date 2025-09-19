@@ -22,6 +22,71 @@ player_has_buyable :: proc(buyable: Buyable) -> bool {
 	return false
 }
 
+recalc_raisable_state_for_all :: proc() {
+	immediate_raisable_state :: proc(skillID: SkillID) -> SkillRaisableState{
+		
+		curr_level := DB.owned_skills[skillID]
+
+		{ // Check if Capped
+			cap: LEVEL
+			skill_id_data := &DB.skill_id_data[skillID]
+			switch skill_id_data.type {
+				case .Main:
+					cap = DB.skill_rank_cap[DB.unit_level-1][skill_id_data.idx]
+				case .Extra:
+					cap = DB.skill_rank_cap[DB.unit_level-1][MAIN_SKILLS_AMOUNT]
+			}
+			if curr_level >= cap do return .Capped
+		}
+
+		{ // Check If Enough Points
+			skill := LeveledSkill{skillID, curr_level}
+			next_skill := LeveledSkill{skillID, curr_level+1}
+
+			b_data := &DB.buyable_data[next_skill]
+
+			owned_block_amount := BlocksSize(len(b_data.owned_blocks))
+			blocks_to_buy := owned_block_amount - b_data.owned_amount
+			if blocks_to_buy > DB.unused_points do return .NotEnoughPoints
+		}
+
+		return .Raisable
+	}
+	primary_1 := DB.owned_main_skills[0]
+	(&DB.skill_id_data[primary_1]).raisable_state = immediate_raisable_state(primary_1)
+	for main_skill_idx in 1..<MAIN_SKILLS_AMOUNT {
+		prev_main_skill := DB.owned_main_skills[main_skill_idx-1]
+		curr_main_skill := DB.owned_main_skills[main_skill_idx]
+
+		curr_raisable_state := immediate_raisable_state(curr_main_skill)
+		(&DB.skill_id_data[curr_main_skill]).raisable_state = curr_raisable_state
+		if curr_raisable_state != .Capped do continue
+		prev_raisable_state := DB.skill_id_data[prev_main_skill].raisable_state
+		if prev_raisable_state == .Capped do continue
+		prev_main_skill_level := DB.owned_skills[prev_main_skill]
+		curr_main_skill_level := DB.owned_skills[curr_main_skill]
+
+		if curr_main_skill_level >= prev_main_skill_level do (&DB.skill_id_data[curr_main_skill]).raisable_state = .Raisable
+	}
+
+	for extra_skill in DB.owned_extra_skills {
+		last_main_skill := DB.owned_main_skills[MAIN_SKILLS_AMOUNT-1]
+
+		curr_raisable_state := immediate_raisable_state(extra_skill)
+		(&DB.skill_id_data[extra_skill]).raisable_state = curr_raisable_state
+
+		if curr_raisable_state != .Capped do continue
+		last_main_skill_raisable_state := DB.skill_id_data[last_main_skill].raisable_state
+		if last_main_skill_raisable_state == .Capped do continue
+
+		extra_skill_level := DB.owned_skills[extra_skill]
+		last_main_skill_level := DB.owned_skills[last_main_skill]
+
+		if extra_skill_level >= last_main_skill_level do (&DB.skill_id_data[extra_skill]).raisable_state = .Raisable
+	}
+
+}
+
 unlock_buyable :: proc(buyable: Buyable) {
 	unlock_block :: proc(block: ^Block) {
 		if !block.bought {
@@ -165,10 +230,11 @@ raise_skill :: proc(skill_id: SkillID) -> (u32, BuyError) {
 		if next_skill.level > cap do return 0, .CapReached
 	}
 
-	DB.unused_points -= blocks_to_buy
-	unlock_buyable(next_skill) // Set all blocks to bought
 
 	{ // Set as bought
+		DB.unused_points -= blocks_to_buy
+		unlock_buyable(next_skill) // Set all blocks to bought
+	
 		b_data.spent = blocks_to_buy
 		b_data.is_owned = true
 		DB.owned_skills[next_skill.id] = next_skill.level
@@ -188,6 +254,8 @@ raise_skill :: proc(skill_id: SkillID) -> (u32, BuyError) {
 			unlock_buyable(LeveledSkill{dragged_skill, next_skill.level - drag})
 		}
 	}
+
+	recalc_raisable_state_for_all()
 
 	return blocks_to_buy, .None
 }

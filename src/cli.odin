@@ -171,22 +171,25 @@ print_state :: proc(){
     fmt.println("Level:", DB.unit_level)
 }
 
-parse_action :: proc(action_str: string) -> Action {
+parse_action :: proc(action_str: string) -> (Action, bool) {
     str := strings.to_pascal_case(action_str, context.temp_allocator)
-    action, r_err := reflect.enum_from_name(Action, str)
-    return action
+    action, ok := reflect.enum_from_name(Action, str)
+    if !ok do return .NotRecognized, ok
+    return action, ok
 }
 
-parse_perk :: proc(perk_id_str: string) -> PerkID {
+parse_perk :: proc(perk_id_str: string) -> (PerkID, bool) {
     str := strings.to_pascal_case(perk_id_str, context.temp_allocator)
-    perk_id, r_err := reflect.enum_from_name(PerkID, str)
-    return perk_id
+    perk_id, ok := reflect.enum_from_name(PerkID, str)
+    if !ok do return .Aim, ok
+    return perk_id, ok
 }
 
-parse_skill :: proc(skill_id_str: string) -> SkillID {
+parse_skill :: proc(skill_id_str: string) -> (SkillID, bool) {
     str := strings.to_pascal_case(skill_id_str, context.temp_allocator)
-    skill_id, r_err := reflect.enum_from_name(SkillID, str)
-    return skill_id
+    skill_id, ok := reflect.enum_from_name(SkillID, str)
+    if !ok do return .Melee, ok
+    return skill_id, ok
 }
 
 run_cli :: proc() {
@@ -209,37 +212,60 @@ run_cli :: proc() {
         if line == "q" {break}
         words := strings.split(line, " ", context.temp_allocator)
 
-        action := parse_action(words[0])
+        action, ok := parse_action(words[0])
+        if !ok do action = .NotRecognized
         args := words[1:]
         // Clear Screen
         fmt.print("\x1b[2J\x1b[H")
 
         switch action {
             case .Refund:
-                buyable := parse_perk(args[0])
+                if len(args)!=1 {fmt.println("Invalid Arguments");break}
+                buyable, ok := parse_perk(args[0])
+                if !ok {fmt.println("Invalid Argument");break}
+
                 refunded, err := refund_perk(buyable)
                 if err != nil do fmt.println(err)
                 else do fmt.println("Refunded:", refunded)
             case .Reduce:
-                buyable := parse_skill(args[0])
+                if len(args)!=1 {fmt.println("Invalid Arguments");break}
+                buyable, ok := parse_skill(args[0])
+                if !ok {fmt.println("Invalid Argument");break}
+
                 refunded, err := reduce_skill(buyable)
                 if err != nil do fmt.println(err)
                 else do fmt.println("Refunded:", refunded)
             case .Blocks:
                 if len(args) == 0 do print_blocks_state()
+                else if args[0] == "all" {
+                    for buyable, _ in DB.buyable_data {fmt.print(buyable,"");print_buyable_blocks(buyable)}
+                }
                 else {
                     for arg in args {
-                        perk := parse_perk(arg)
-                        print_buyable_blocks(perk)
+                        switch strings.to_lower(arg, context.temp_allocator) {
+                            case "perks": for perk in DB.perk_data {fmt.print(perk,);print_buyable_blocks(perk)}; continue
+                            case "skills": for skill, level in DB.owned_skills {if level != 0 {fmt.print(skill,level,"");print_buyable_blocks(LeveledSkill{skill, level})}}; continue
+                        }
+                        perk, ok := parse_perk(arg)
+                        if ok {print_buyable_blocks(perk);continue}
+                        skill_id, s_ok := parse_skill(arg)
+                        skill := LeveledSkill{skill_id, DB.owned_skills[skill_id]+1}
+                        if s_ok {print_buyable_blocks(skill);continue}
                     }
                 }
             case .Raise:
-                buyable := parse_skill(args[0])
+                if len(args)!=1 {fmt.println("Invalid Arguments");break}
+                buyable, ok := parse_skill(args[0])
+                if !ok {fmt.println("Invalid Argument");break}
+
                 spent, err := raise_skill(buyable)
                 if err != nil do fmt.println(err)
                 else do fmt.println("Cost:", spent)
             case .Buy:
-                buyable := parse_perk(args[0])
+                if len(args)!=1 {fmt.println("Invalid Arguments");break}
+                buyable, ok := parse_perk(args[0])
+                if !ok {fmt.println("Invalid Argument");break}
+
                 spent, err := buy_perk(buyable)
                 if err != nil do fmt.println(err)
                 else do fmt.println("Cost:", spent)

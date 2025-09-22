@@ -11,7 +11,7 @@ PERK :: enum u8 {
 	Trip,
 	Aim,
 	Sight,
-	Knife_Master,
+	KnifeMaster,
 }
 
 SkillID :: SKILL
@@ -57,20 +57,24 @@ load_db :: proc() {
 	BuildSkill(.Finesse, proc(i: BlocksSize) -> BlocksSize{return i}) 
 	BuildSkill(.Athletics, proc(i: BlocksSize) -> BlocksSize{return i}) 
 
-	BuildPerk(.Trip, 100, {.Knife_Master, .Sight, .Aim}, {{.Melee, 1}})
-	BuildPerk(.Aim, 110, {.Knife_Master,.Sight}, {{.Melee, 1}})
-	BuildPerk(.Sight, 110, {.Knife_Master}, {{.Melee, 1}})
-	BuildPerk(.Knife_Master, 100, {}, {{.Melee, 1}})
+	BuildPerk(.Trip, 100, {}, {{.Melee, 1}})
+	BuildPerk(.Aim, 100, {}, {{.Melee, 1}})
+	BuildPerk(.Sight, 100, {}, {{.Melee, 1}})
+	BuildPerk(.KnifeMaster, 100, {}, {{.Melee, 1}})
 	// Perk(.Sight, 10, {}, {{.Melee, 1}})
 
-	Contains(SKILL.Melee, 1, PERK.Trip)
+	// Contains(SKILL.Melee, 1, PERK.Trip)
 	// Contains(PERK.Trip, SKILL.Melee, 1)
 	// Share(LeveledSkill{.Melee, 1}, .Trip, 100)
 	// Drags(.Melee, .Endurance, 1)
 	
-	Overlap(.Melee, .Endurance, NORMAL)
+	// Overlap(.Melee, .Endurance, NORMAL)
 	
 	// Contains(LeveledSkill{.Melee, 10}, LeveledSkill{.Logic, 1})
-	Share(SKILL.Melee, 1, PERK.Sight, NORMAL)
-	Share(.Trip, .Sight, NORMAL)
+	Share(.Trip, .Aim, 100)
+	Share(.Aim, .Sight, 100)
+	Share(.Sight, .Trip, 100)
+	// Share(SKILL.Melee, 1, PERK.Sight, NORMAL)
+	// Share(SKILL.Melee, 1, PERK.Sight, NORMAL)
+	// Share(.Trip, .Sight, NORMAL)
 }

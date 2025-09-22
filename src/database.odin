@@ -140,7 +140,7 @@ DynBuyables :: [dynamic]Buyable
 
 BuyableData :: struct {
 	assigned_blocks_amount 	: BlocksSize,
-	owned_amount			: BlocksSize,
+	bought_blocks_amount	: BlocksSize,
 	is_owned				: bool,
 	is_upgradeable			: bool,
 	spent					: BlocksSize,

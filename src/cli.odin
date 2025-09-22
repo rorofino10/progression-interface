@@ -26,18 +26,18 @@ print_buyable_blocks :: proc(buyable: Buyable) {
     fmt.println(owned_blocks)
     defer free_all(query_system_alloc)
     owned_block_amount := buyable_data.assigned_blocks_amount
-    fmt.print(f32(buyable_data.owned_amount)/f32(owned_block_amount)*100, "%", " ", sep="")
-    fmt.print(buyable_data.owned_amount, "/", owned_block_amount, " ", sep="")
+    fmt.print(f32(buyable_data.bought_blocks_amount)/f32(owned_block_amount)*100, "%", " ", sep="")
+    fmt.print(buyable_data.bought_blocks_amount, "/", owned_block_amount, " ", sep="")
     switch {
         // Already Bought
         case buyable_data.is_owned:
             for block in owned_blocks do fmt.print("\x1b[44m \x1b[0m")
         // Free
-        case owned_block_amount == buyable_data.owned_amount:
+        case owned_block_amount == buyable_data.bought_blocks_amount:
             for block in owned_blocks do fmt.print("\x1b[43m \x1b[0m")
         case:
             for block in owned_blocks {
-                if block.bought do fmt.printf("\x1b[42m%f\x1b[0m", len(block.owned_by))
+                if block.bought do fmt.printf("\x1b[42m%d\x1b[0m", len(block.owned_by))
                 else do fmt.printf("\x1b[41m%d\x1b[0m", len(block.owned_by))
             }
     }
@@ -70,8 +70,8 @@ print_skill_progress :: proc(skillID: SkillID, level_cap: LEVEL) {
     for level in level_cap+1..=MAX_SKILL_LEVEL do fmt.print(" ")
     fmt.print("\x1b[0m")
 
-    fmt.print(f32(buyable_data.owned_amount)/f32(owned_block_amount)*100, "%", " ", sep="")
-    fmt.print(buyable_data.owned_amount, "/", owned_block_amount, " \n", sep="")
+    fmt.print(f32(buyable_data.bought_blocks_amount)/f32(owned_block_amount)*100, "%", " ", sep="")
+    fmt.print(buyable_data.bought_blocks_amount, "/", owned_block_amount, " \n", sep="")
 }
 
 print_blocks_state :: proc() {
@@ -165,7 +165,7 @@ print_player_state :: proc() {
                 
                 buyable_data := DB.buyable_data[perk]
                 owned_block_amount := buyable_data.assigned_blocks_amount
-                fmt.printfln("%.0f%%",f32(buyable_data.owned_amount)/f32(owned_block_amount)*100)
+                fmt.printfln("%.0f%%",f32(buyable_data.bought_blocks_amount)/f32(owned_block_amount)*100)
         }
     }
 }

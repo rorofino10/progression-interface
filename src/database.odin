@@ -216,7 +216,7 @@ BuildExtraSkillLambda :: proc(skillID: SkillID, blockProc: DefineBlockProc){
 	BuildExtraSkill(skillID, blocks_list)
 }
 
-Perk :: proc(perkID: PerkID, blocks: BlocksSize, pre_reqs: Perks, skill_reqs: [dynamic]LeveledSkill) {
+BuildPerk :: proc(perkID: PerkID, blocks: BlocksSize, pre_reqs: Perks, skill_reqs: [dynamic]LeveledSkill) {
 	defer delete(skill_reqs)
 
     assert(len(skill_reqs) <= MAX_SKILL_REQS)
@@ -264,32 +264,27 @@ init_db :: proc() -> Error{
 create_buyables :: proc() -> BuyableCreationError {
 	{ // Check for cycles in pre_reqs
 		
-		@static seen : Perks
-		@static curr_path_stack : [dynamic]PerkID
-		defer delete(curr_path_stack)
 
-		check_for_cycles :: proc(perk: PerkID, curr_path: Perks) -> Maybe(PerkID) {
-			append(&curr_path_stack, perk)
+		check_for_cycles :: proc(perk: PerkID, curr_path: Perks, seen: Perks, curr_path_stack: ^[dynamic]PerkID) -> Maybe(PerkID) {
+			append(curr_path_stack, perk)
 			if perk in curr_path do return perk
 			if perk in seen do return nil
-			seen |= {perk}
+			new_seen := seen | {perk}
 			new_curr_path := curr_path | {perk}
 			for req_perk in DB.perk_data[perk].prereqs {
-				repeated_perk := check_for_cycles(req_perk, new_curr_path)
+				repeated_perk := check_for_cycles(req_perk, new_curr_path, new_seen, curr_path_stack)
 				if repeated_perk != nil do return repeated_perk
-				pop(&curr_path_stack)
+				pop(curr_path_stack)
 			}
 			return nil
 		}
 
-		@static redundant : Perks
-		check_for_redundancy :: proc(perk: PerkID) -> Maybe(PerkID) {
-			append(&curr_path_stack, perk)
+		check_for_redundancy :: proc(perk: PerkID, seen: Perks, redundant: Perks) -> Maybe(PerkID) {
 			if perk in redundant do return perk
 			if perk in seen do return nil
-			seen |= {perk}
+			new_seen := seen | {perk}
 			for req_perk in DB.perk_data[perk].prereqs {
-				redundant_perk := check_for_redundancy(req_perk)
+				redundant_perk := check_for_redundancy(req_perk, new_seen, redundant)
 				if redundant_perk != nil do return redundant_perk
 			}
 			return nil
@@ -297,17 +292,21 @@ create_buyables :: proc() -> BuyableCreationError {
 		for perk in PerkID {
 			pre_reqs := DB.perk_data[perk].prereqs
 			{ // Check redundancy
-				seen = {}
+
 				for req_perk in pre_reqs {
-					redundant = pre_reqs - {req_perk}
-					redundant_perk, is_redundant := check_for_redundancy(perk).?
+					curr_path_stack : [dynamic]PerkID
+					defer delete(curr_path_stack)
+					redundant := pre_reqs - {req_perk}
+					redundant_perk, is_redundant := check_for_redundancy(req_perk, {perk}, redundant).?
 					if is_redundant do fmt.println("[WARN]:", perk, "has redundant", redundant_perk)
 				}
 			}
 			{ // Check for cycles
 
-				seen = {}
-				repeated_perk, ok := check_for_cycles(perk, {}).?
+				curr_path_stack : [dynamic]PerkID
+				defer delete(curr_path_stack)
+
+				repeated_perk, ok := check_for_cycles(perk, {}, {}, &curr_path_stack).?
 				
 				if ok {
 					i:=0

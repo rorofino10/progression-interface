@@ -216,6 +216,8 @@ reduce_skill :: proc(skill_id: SkillID) -> (u32, ReduceError) {
 	DB.unused_points += refunded
 	b_data.owned_amount = 0
 	DB.owned_skills[skill_id] = skill_level - 1
+	
+	recalc_buyable_states()
 	return refunded, .None
 }
 
@@ -239,6 +241,7 @@ refund_perk :: proc(perk_id: PerkID) -> (u32, RefundError) {
 	DB.unused_points += refunded
 	b_data.owned_amount = 0
 	DB.owned_perks -= {perk_id}
+	recalc_buyable_states()
 	return refunded, .None
 }
 

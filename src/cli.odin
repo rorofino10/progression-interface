@@ -23,6 +23,7 @@ Action :: enum {
 print_buyable_blocks :: proc(buyable: Buyable) {
     buyable_data := DB.buyable_data[buyable]
     owned_blocks := query_all_blocks_from_buyable(buyable)
+    fmt.println(owned_blocks)
     defer free_all(query_system_alloc)
     owned_block_amount := buyable_data.assigned_blocks_amount
     fmt.print(f32(buyable_data.owned_amount)/f32(owned_block_amount)*100, "%", " ", sep="")
@@ -30,15 +31,14 @@ print_buyable_blocks :: proc(buyable: Buyable) {
     switch {
         // Already Bought
         case buyable_data.is_owned:
-            for _ in 0..<owned_block_amount do fmt.print("\x1b[44m \x1b[0m")
+            for block in owned_blocks do fmt.print("\x1b[44m \x1b[0m")
         // Free
         case owned_block_amount == buyable_data.owned_amount:
-            fmt.print("FREE! ")
-            for _ in 0..<owned_block_amount do fmt.print("\x1b[43m \x1b[0m")
+            for block in owned_blocks do fmt.print("\x1b[43m \x1b[0m")
         case:
             for block in owned_blocks {
-                if block.bought do fmt.print("\x1b[42m \x1b[0m")
-                else do fmt.print("\x1b[31m█\x1b[0m")
+                if block.bought do fmt.printf("\x1b[42m%f\x1b[0m", len(block.owned_by))
+                else do fmt.printf("\x1b[41m%d\x1b[0m", len(block.owned_by))
             }
     }
 
@@ -68,7 +68,10 @@ print_skill_progress :: proc(skillID: SkillID, level_cap: LEVEL) {
     for level in skill_level+1..=level_cap do fmt.print(" ")
     fmt.print("\x1b[45m")
     for level in level_cap+1..=MAX_SKILL_LEVEL do fmt.print(" ")
-    fmt.print("\x1b[0m\n")
+    fmt.print("\x1b[0m")
+
+    fmt.print(f32(buyable_data.owned_amount)/f32(owned_block_amount)*100, "%", " ", sep="")
+    fmt.print(buyable_data.owned_amount, "/", owned_block_amount, " \n", sep="")
 }
 
 print_blocks_state :: proc() {
@@ -140,7 +143,9 @@ print_player_state :: proc() {
             fmt.print(skill_id_str)
             for pad in len(skill_id_str)..<SKILL_NAME_LENGTH+1 do fmt.print(' ')
             fmt.print(level)
-            fmt.print("\t\x1b[0m\n")
+            fmt.print(" \x1b[0m ")
+            print_skill_progress(skill_id, extra_slot_cap)
+
         }
     }
 

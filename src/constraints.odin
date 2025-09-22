@@ -13,7 +13,22 @@ TOverlap :: struct {
 	strength: STRENGTH,
 }
 
-Contains :: proc(buyableA, buyableB: Buyable) {
+Contains :: proc{_contains_skill_skill, _contains_skill_perk, _contains_perk_skill, _contains_perk_perk}
+
+_contains_skill_skill :: proc(skill_id_a: SkillID, level_a: LEVEL, skill_id_b: SkillID, level_b: LEVEL) {
+	_build_contains(LeveledSkill{skill_id_a, level_a}, LeveledSkill{skill_id_b, level_b})
+}
+_contains_skill_perk :: proc(skill_id_a: SkillID, level_a: LEVEL, perk: PerkID) {
+	_build_contains(LeveledSkill{skill_id_a, level_a}, perk)
+}
+_contains_perk_skill :: proc(perk: PerkID, skill_id_a: SkillID, level_a: LEVEL) {
+	_build_contains(perk, LeveledSkill{skill_id_a, level_a})
+}
+_contains_perk_perk :: proc(perkA, perkB: PerkID) {
+	_build_contains(perkA, perkB)
+}
+
+_build_contains :: proc(buyableA, buyableB: Buyable) {
 	_, ok := DB.contains_constraint[buyableA]
 	if !ok {
 		DB.contains_constraint[buyableA] = make(DynBuyables, 0)
@@ -34,7 +49,19 @@ Drags :: proc(skillA, skillB: SkillID, drag: LEVEL) {
 	drag_constraint_from[skillB] = drag
 }
 
-Share :: proc(buyableA, buyableB: Buyable, strength: STRENGTH) {
+Share :: proc{_share_skill_perk, _share_perk_skill, _share_perk_perk}
+
+_share_skill_perk :: proc(skill_id_a: SkillID, level_a: LEVEL, perk: PerkID, strength: STRENGTH) {
+	_build_share(LeveledSkill{skill_id_a, level_a}, perk, strength)
+}
+_share_perk_skill :: proc(perk: PerkID, skill_id_a: SkillID, level_a: LEVEL,  strength: STRENGTH) {
+	_build_share(perk, LeveledSkill{skill_id_a, level_a}, strength)
+}
+_share_perk_perk :: proc(perkA, perkB: PerkID, strength: STRENGTH) {
+	_build_share(perkA, perkB, strength)
+}
+
+_build_share :: proc(buyableA, buyableB: Buyable, strength: STRENGTH) {
     append(&DB.share_constraints, TShare{buyableA, buyableB, strength})
 }
 
@@ -95,16 +122,6 @@ check_constraints :: proc() -> Error {
 	}
 	{ // Check Share Constraints
 		for share in DB.share_constraints {
-			has_one_perk := false
-			#partial switch _ in share.buyableA {
-			case PerkID:
-				has_one_perk = true
-			}
-			#partial switch _ in share.buyableB {
-			case PerkID:
-				has_one_perk = true
-			}
-			if !has_one_perk do return .ShareMissingPerk
 			if share.strength > 100 do return .StrengthIsNotPercentage
 		}
 	}

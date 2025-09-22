@@ -5,15 +5,18 @@ WEAK :: 25
 NORMAL :: 50
 STRONG :: 75
 
+PerkID :: PERK
 
-PerkID :: enum u8 {
+PERK :: enum u8 {
 	Trip,
 	Aim,
 	Sight,
 	Knife_Master,
 }
 
-SkillID :: enum u8 {
+SkillID :: SKILL
+
+SKILL :: enum u8 {
 	Melee,
 	Endurance,
 	Sorcery,
@@ -43,17 +46,16 @@ load_db :: proc() {
 	// BuildMainSkillLambda(.Melee, { 10, 20, 30 })
 
 	// Lambda
-	BuildMainSkillLambda(.Melee, proc(i: BlocksSize) -> BlocksSize{return 10*i})
-	BuildMainSkillLambda(.Endurance, proc(i: BlocksSize) -> BlocksSize{return 10*i})
-	BuildMainSkillLambda(.Sorcery, proc(i: BlocksSize) -> BlocksSize{return i})
-	BuildMainSkillLambda(.Mana, proc(i: BlocksSize) -> BlocksSize{return i})
-	BuildMainSkillLambda(.Ranged, proc(i: BlocksSize) -> BlocksSize{return i})
-	BuildMainSkillLambda(.Perception, proc(i: BlocksSize) -> BlocksSize{return i})
-
-	BuildExtraSkillLambda(.Medicine, proc(i: BlocksSize) -> BlocksSize{return i}) 
-	BuildExtraSkillLambda(.Logic, proc(i: BlocksSize) -> BlocksSize{return i}) 
-	BuildExtraSkillLambda(.Finesse, proc(i: BlocksSize) -> BlocksSize{return i}) 
-	BuildExtraSkillLambda(.Athletics, proc(i: BlocksSize) -> BlocksSize{return i}) 
+	BuildSkill(.Melee, proc(i: BlocksSize) -> BlocksSize{return 100*i})
+	BuildSkill(.Endurance, proc(i: BlocksSize) -> BlocksSize{return 100*i})
+	BuildSkill(.Sorcery, proc(i: BlocksSize) -> BlocksSize{return i})
+	BuildSkill(.Mana, proc(i: BlocksSize) -> BlocksSize{return i})
+	BuildSkill(.Ranged, proc(i: BlocksSize) -> BlocksSize{return i})
+	BuildSkill(.Perception, proc(i: BlocksSize) -> BlocksSize{return i})
+	BuildSkill(.Medicine, proc(i: BlocksSize) -> BlocksSize{return i}) 
+	BuildSkill(.Logic, proc(i: BlocksSize) -> BlocksSize{return i}) 
+	BuildSkill(.Finesse, proc(i: BlocksSize) -> BlocksSize{return i}) 
+	BuildSkill(.Athletics, proc(i: BlocksSize) -> BlocksSize{return i}) 
 
 	BuildPerk(.Trip, 100, {.Knife_Master, .Sight, .Aim}, {{.Melee, 1}})
 	BuildPerk(.Aim, 110, {.Knife_Master,.Sight}, {{.Melee, 1}})
@@ -61,13 +63,14 @@ load_db :: proc() {
 	BuildPerk(.Knife_Master, 100, {}, {{.Melee, 1}})
 	// Perk(.Sight, 10, {}, {{.Melee, 1}})
 
-	Contains(LeveledSkill{.Melee, 1}, .Trip)
-	Contains(.Trip, LeveledSkill{.Melee, 1})
+	Contains(SKILL.Melee, 1, PERK.Trip)
+	// Contains(PERK.Trip, SKILL.Melee, 1)
 	// Share(LeveledSkill{.Melee, 1}, .Trip, 100)
 	// Drags(.Melee, .Endurance, 1)
 	
 	Overlap(.Melee, .Endurance, NORMAL)
 	
 	// Contains(LeveledSkill{.Melee, 10}, LeveledSkill{.Logic, 1})
+	Share(SKILL.Melee, 1, PERK.Sight, NORMAL)
 	Share(.Trip, .Sight, NORMAL)
 }

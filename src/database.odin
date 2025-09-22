@@ -190,6 +190,28 @@ BuildMainSkillDefault :: proc(skillID: SkillID, skill_data_arr: [MAX_SKILL_LEVEL
 	DB.owned_main_skills_amount += 1
 }
 
+_build_skill_default :: proc(skillID: SkillID, skill_data_arr: [MAX_SKILL_LEVEL]BlocksSize) {
+	if DB.owned_main_skills_amount < MAIN_SKILLS_AMOUNT {
+		DB.owned_main_skills[DB.owned_main_skills_amount] = skillID
+		DB.skill_id_data[skillID] = {blocks = skill_data_arr, type = .Main, idx = DB.owned_main_skills_amount}
+		DB.owned_main_skills_amount += 1
+	}
+	else {
+		DB.skill_id_data[skillID] = {blocks = skill_data_arr, type = .Extra, idx = u32(len(DB.owned_extra_skills))}
+		append(&DB.owned_extra_skills, skillID)
+	}
+	DB.owned_skills[skillID] = 0
+}
+
+_build_skill_lambda :: proc(skillID: SkillID, blockProc: DefineBlockProc){
+	blocks_list : [MAX_SKILL_LEVEL]BlocksSize
+	for idx in 1..=MAX_SKILL_LEVEL {
+		blocks_list[idx-1] = blockProc(BlocksSize(idx))
+	}
+	_build_skill_default(skillID, blocks_list)
+}
+BuildSkill :: proc{_build_skill_default, _build_skill_lambda}
+
 BuildMainSkill :: proc{BuildMainSkillDefault, BuildMainSkillStartingLevel}
 
 BuildExtraSkill :: proc(skillID: SkillID, skill_data_arr: [MAX_SKILL_LEVEL]BlocksSize) {

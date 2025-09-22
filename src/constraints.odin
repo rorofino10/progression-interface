@@ -74,7 +74,25 @@ handle_overlap :: proc(overlap: TOverlap) -> BuyableCreationError {
 	return nil
 }
 
+
+
 check_constraints :: proc() -> Error {
+	{ // Check Contains
+		check_if_contains :: proc(buyableA,buyableB: Buyable) -> bool {
+			if buyableA == buyableB do return true
+			contraints_arr, ok := DB.contains_constraint[buyableA]
+			if !ok do return false
+			for containee in contraints_arr {
+				if check_if_contains(containee, buyableB) do return true
+			}
+			return false
+		}
+		for container, containee_arr in DB.contains_constraint {
+			for containee in containee_arr {
+				if check_if_contains(containee, container) do panic(fmt.tprint("Containee:", containee, "unlocks Container:", container))
+			}
+		}	
+	}
 	{ // Check Share Constraints
 		for share in DB.share_constraints {
 			has_one_perk := false

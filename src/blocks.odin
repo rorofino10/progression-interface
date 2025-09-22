@@ -123,7 +123,6 @@ buyable_in_list :: proc(list: [dynamic]Buyable, buyable: Buyable) -> bool {
 }
 
 block_system_assign_share :: proc(buyableA, buyableB: Buyable, blocks_to_share : BlocksSize) {
-    fmt.println("Assigning", buyableA, buyableB, blocks_to_share)
     {// Create a new Shared Group
         query_a := query_blocks_indices_from_buyable(buyableA, blocks_to_share)
         query_b := query_blocks_indices_from_buyable(buyableB, blocks_to_share)

@@ -7,8 +7,8 @@ import "base:runtime"
 import "core:mem"
 
 MAX_BLOCKS_AMOUNT :: 10_000
-BLOCK_SYSTEM_ALLOCATED_MEM :: runtime.Megabyte
-QUERY_SYSTEM_ALLOCATED_MEM :: runtime.Megabyte
+BLOCK_SYSTEM_ALLOCATED_MEM :: 10 * runtime.Megabyte
+QUERY_SYSTEM_ALLOCATED_MEM :: 10 * runtime.Megabyte
 
 block_system_alloc: mem.Allocator
 block_system_arena: mem.Arena
@@ -91,10 +91,13 @@ query_all_blocks_from_buyable :: proc(buyable: Buyable) -> BlocksQuery {
 }
 
 block_system_assign_share :: proc(buyableA, buyableB: Buyable, blocks_to_share : BlocksSize) {
+    fmt.println("Assigning", blocks_to_share)
+    print_blocks_state()
     context.allocator = block_system_alloc
     {// Create a new Shared Group
         query_a := query_blocks_from_buyable(buyableA, blocks_to_share)
         query_b := query_blocks_from_buyable(buyableB, blocks_to_share)
+
         defer free_all(query_system_alloc)
         
         for relative_block_idx in 0..<blocks_to_share {
@@ -105,6 +108,7 @@ block_system_assign_share :: proc(buyableA, buyableB: Buyable, blocks_to_share :
                 delete(query_block_b.owned_by)
                 query_block_b.owned_by = nil
                 query_block_a.owned_by = nil
+                fmt.println(query_block_a, query_block_b, relative_block_idx)
             }
             new_block : Block
             for owner in query_block_b.owned_by do append(&new_block.owned_by, owner)
@@ -112,4 +116,5 @@ block_system_assign_share :: proc(buyableA, buyableB: Buyable, blocks_to_share :
             append(&block_system.blocks, new_block)
         }          
     }
+    print_blocks_state()
 }

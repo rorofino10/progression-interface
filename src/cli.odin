@@ -112,7 +112,7 @@ print_player_state :: proc() {
             fmt.print(skill_id_str)
             for pad in len(skill_id_str)..<SKILL_NAME_LENGTH+1 do fmt.print(' ')
             fmt.print(level)
-            fmt.print("\t\x1b[0m ")
+            fmt.print(" \x1b[0m ")
             // fmt.print("", skill_slot_name[slot], ":" ,"CAP:", slot_cap, skill_id, level, ": ")
             // fmt.print(skill_id_data.raisable_state)
             print_skill_progress(skill_id, slot_cap)

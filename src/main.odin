@@ -74,6 +74,8 @@ recalc_skill_id_raisable_state :: proc() {
 		
 		curr_level := DB.owned_skills[skillID]
 
+		if curr_level == MAX_SKILL_LEVEL do return .Capped
+
 
 		{ // Check If Enough Points
 			skill := LeveledSkill{skillID, curr_level}
@@ -245,12 +247,9 @@ raise_skill :: proc(skill_id: SkillID) -> (u32, BuyError) {
 	skill := LeveledSkill{skill_id, skill_level}
 	next_skill := LeveledSkill{skill_id, skill_level+1}
 
+
 	skill_id_data := &DB.skill_id_data[skill_id]
 
-	b_data := &DB.buyable_data[next_skill]
-
-    owned_block_amount := b_data.assigned_blocks_amount
-	blocks_to_buy := owned_block_amount - b_data.owned_amount
 	{ // Check points
 		if skill_id_data.raisable_state == .NotEnoughPoints do return 0, .NotEnoughPoints 
 	}
@@ -291,6 +290,12 @@ raise_skill :: proc(skill_id: SkillID) -> (u32, BuyError) {
 			}
 		}
 	}	
+
+	b_data := &DB.buyable_data[next_skill]
+
+    owned_block_amount := b_data.assigned_blocks_amount
+	blocks_to_buy := owned_block_amount - b_data.owned_amount
+	
 
 	{ // Set as bought
 		DB.unused_points -= blocks_to_buy

@@ -23,11 +23,16 @@ SkillID :: enum u8 {
 
 load_db :: proc() {
 
-	BuildPlayer({30, 120, 120}, {
-		{6,5,3,2,1,1,0},
-		{7,6,4,3,2,2,1},
-		{8,7,5,4,3,3,1}
-	})
+	BuildPlayer(
+		points_gain = {300, 300, 300, 300, 300},
+		rank_caps = {
+			{6,5,3,2,1,1,0},
+			{7,6,4,3,2,2,1},
+			{8,7,5,4,3,3,1},
+			{9,8,6,5,4,4,2},
+			{10,9,7,6,5,5,2},
+			}
+	)
 
     // Literal
 	// BuildMainSkillLambda(.Melee, { 10, 20, 30 })
@@ -45,19 +50,21 @@ load_db :: proc() {
 	BuildExtraSkillLambda(.Finesse, proc(i: BlocksSize) -> BlocksSize{return i}) 
 	BuildExtraSkillLambda(.Athletics, proc(i: BlocksSize) -> BlocksSize{return i}) 
 
-	Perk(.Trip, 90, {}, {{.Melee, 1}})
+	Perk(.Trip, 100, {}, {{.Melee, 1}})
 	Perk(.Aim, 100, {}, {{.Melee, 1}})
+	Perk(.Sight, 100, {}, {{.Melee, 1}})
 	// Perk(.Sight, 10, {}, {{.Melee, 1}})
-	// Perk(.Knife_Master, 2, {}, {{.Melee, 1}})
+	Perk(.Knife_Master, 100, {}, {{.Melee, 1}})
 
 	// Contains(LeveledSkill{.Melee, 1}, .Trip)
-	// Contains(LeveledSkill{.Melee, 3}, LeveledSkill{.Endurance, 1})
+	Contains(LeveledSkill{.Melee, 10}, LeveledSkill{.Logic, 1})
 	// Share(LeveledSkill{.Melee, 1}, .Trip, 100)
 	// Drags(.Melee, .Endurance, 1)
 
 
-	Share(.Trip, .Aim, 50)
-	// Share(.Aim, .Sight, 50)
+	Share(.Trip, .Aim, 100)
+	// Share(.Aim, .Sight, 100)
+	// Share(.Sight, .Knife_Master, 100)
 	// Share(.Sight, .Aim, 50)
 	// Share(.Aim, .Knife_Master, 100)
 	// Overlap(.Melee, .Athletics, 50)

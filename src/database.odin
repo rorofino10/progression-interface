@@ -274,16 +274,15 @@ BuildPlayer :: proc(points_gain: [dynamic]u32, rank_caps: [dynamic][MAIN_SKILLS_
 
 init_db :: proc() -> Error{
 	load_db()
-	if DB.owned_main_skills_amount != MAIN_SKILLS_AMOUNT do return DatabaseError.MissingMainSkills
 	assert(DB.owned_main_skills_amount == MAIN_SKILLS_AMOUNT)
-	check_constraints() or_return
-	block_system_allocate() or_return
+	check_constraints()
+	block_system_allocate()
 	init_query_system_alloc() or_return
-	create_buyables() or_return
+	create_buyables()
 	return nil
 }
 
-create_buyables :: proc() -> BuyableCreationError {
+create_buyables :: proc() {
 	{ // Check for cycles in pre_reqs
 		
 
@@ -328,9 +327,9 @@ create_buyables :: proc() -> BuyableCreationError {
 				curr_path_stack : [dynamic]PerkID
 				defer delete(curr_path_stack)
 
-				repeated_perk, ok := check_for_cycles(perk, {}, {}, &curr_path_stack).?
+				repeated_perk, has_cycle := check_for_cycles(perk, {}, {}, &curr_path_stack).?
 				
-				if ok {
+				if has_cycle {
 					i:=0
 					for ; i<len(curr_path_stack); i+=1 {
 						if curr_path_stack[i] == repeated_perk do break
@@ -341,7 +340,7 @@ create_buyables :: proc() -> BuyableCreationError {
 					}
 					last_path_perk := curr_path_stack[len(curr_path_stack)-1]
 					fmt.println(last_path_perk)
-					return CycleInPreReqsError{repeated_perk}
+					panic(fmt.tprint("Cycle in PreReqs", repeated_perk))
 				}
 			}
 		}
@@ -367,7 +366,7 @@ create_buyables :: proc() -> BuyableCreationError {
 		block_system_assign(buyable, buyable_data.assigned_blocks_amount)
 	}
 	
-	handle_constraints() or_return
+	handle_constraints()
 
 	// for buyable, &buyable_data in DB.buyable_data {
 	// 	buyable_data.owned_blocks = slice.clone(query_all_blocks_from_buyable(buyable))
@@ -375,6 +374,5 @@ create_buyables :: proc() -> BuyableCreationError {
 	// }
 	
 	recalc_buyable_states()
-	return nil
 }
 

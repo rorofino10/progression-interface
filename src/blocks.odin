@@ -45,16 +45,13 @@ init_query_system_alloc :: proc() -> Error {
 	query_system_buffer = make([]byte, QUERY_SYSTEM_ALLOCATED_MEM) or_return
 	mem.arena_init(&query_system_arena, query_system_buffer)
 	query_system_alloc = mem.arena_allocator(&query_system_arena)
-
     return nil
 }
 
-block_system_allocate :: proc() -> Error {
+block_system_allocate :: proc() {
     context.allocator = block_system_alloc
 
     block_system = new(BlockSystem)
-
-    return nil
 }
 
 block_system_assign :: proc(buyable: Buyable, blocks_to_assign: BlocksSize) {

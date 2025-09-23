@@ -12,8 +12,10 @@ SKILL_NAME_LENGTH :: 13
 Action :: enum {
     NotRecognized,
     Raise,
+    RaiseTo,
     Buy,
     Refund,
+    ReduceTo,
     Reduce,
     Blocks,
     LevelUp,
@@ -190,11 +192,20 @@ parse_perk :: proc(perk_id_str: string) -> (PerkID, bool) {
     return perk_id, ok
 }
 
-parse_skill :: proc(skill_id_str: string) -> (SkillID, bool) {
+parse_skill_id :: proc(skill_id_str: string) -> (SkillID, bool) {
     str := strings.to_pascal_case(skill_id_str, context.temp_allocator)
     skill_id, ok := reflect.enum_from_name(SkillID, str)
     if !ok do return .Melee, ok
     return skill_id, ok
+}
+
+parse_skill :: proc(skill_id_str, skill_level_str: string, ) -> (LeveledSkill, bool) {
+    str := strings.to_pascal_case(skill_id_str, context.temp_allocator)
+    skill_id, id_ok := reflect.enum_from_name(SkillID, str)
+    if !id_ok do return {}, id_ok
+    level, level_ok := strconv.parse_uint(skill_level_str)
+    if !level_ok do return {}, level_ok
+    return LeveledSkill{skill_id, LEVEL(level)}, true
 }
 
 run_cli :: proc() {
@@ -234,10 +245,18 @@ run_cli :: proc() {
                 else do fmt.println("Refunded:", refunded)
             case .Reduce:
                 if len(args)!=1 {fmt.println("Invalid Arguments");break}
-                buyable, ok := parse_skill(args[0])
+                buyable, ok := parse_skill_id(args[0])
                 if !ok {fmt.println("Invalid Argument");break}
 
                 refunded, err := reduce_skill(buyable)
+                if err != nil do fmt.println(err)
+                else do fmt.println("Refunded:", refunded)
+            case .ReduceTo:
+                if len(args)!=2 {fmt.println("Invalid Arguments");break}
+                buyable, ok := parse_skill(args[0], args[1])
+                if !ok {fmt.println("Could not parse Skill");break}
+
+                refunded, err := reduce_to_skill(buyable)
                 if err != nil do fmt.println(err)
                 else do fmt.println("Refunded:", refunded)
             case .Blocks:
@@ -253,17 +272,25 @@ run_cli :: proc() {
                         }
                         perk, ok := parse_perk(arg)
                         if ok {print_buyable_blocks(perk);continue}
-                        skill_id, s_ok := parse_skill(arg)
+                        skill_id, s_ok := parse_skill_id(arg)
                         skill := LeveledSkill{skill_id, DB.owned_skills[skill_id]+1}
                         if s_ok {print_buyable_blocks(skill);continue}
                     }
                 }
             case .Raise:
                 if len(args)!=1 {fmt.println("Invalid Arguments");break}
-                buyable, ok := parse_skill(args[0])
+                buyable, ok := parse_skill_id(args[0])
                 if !ok {fmt.println("Invalid Argument");break}
 
                 spent, err := raise_skill(buyable)
+                if err != nil do fmt.println(err)
+                else do fmt.println("Cost:", spent)
+            case .RaiseTo:
+                if len(args)!=2 {fmt.println("Invalid Arguments");break}
+                buyable, ok := parse_skill(args[0], args[1])
+                if !ok {fmt.println("Could not parse Skill");break}
+
+                spent, err := raise_to_skill(buyable)
                 if err != nil do fmt.println(err)
                 else do fmt.println("Cost:", spent)
             case .Buy:

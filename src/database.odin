@@ -94,6 +94,8 @@ ReduceError :: enum {
 	None,
 	CannotReduceSkill,
 	RequiredByAnotherBuyable,
+	ContainsAnotherBuyable,
+	DragsAnotherBuyable,
 }
 
 CycleInPreReqsError :: struct {
@@ -246,21 +248,6 @@ BuildPlayer :: proc(states: [dynamic]PlayerLevelState) {
 
 	for state, idx in states do DB.player_states[idx] = state
 }
-// BuildPlayer :: proc(points_gain: [dynamic]u32, rank_caps: [dynamic][MAIN_SKILLS_AMOUNT+1]LEVEL) {
-// 	defer delete(points_gain)
-// 	defer delete(rank_caps)
-
-// 	assert(len(points_gain) <= MAX_UNIT_LEVEL)
-// 	assert(len(points_gain) == len(rank_caps))
-
-// 	DB.unit_level = 1
-// 	DB.unit_level_cap = LEVEL(len(points_gain))
-
-// 	for gain, idx in points_gain do DB.points_gain[idx] = gain
-// 	for caps, level in rank_caps do DB.skill_rank_cap[level] = caps
-
-// 	DB.unused_points = points_gain[0]
-// }
 
 init_db :: proc() -> Error{
 	load_db()

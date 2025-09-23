@@ -181,6 +181,18 @@ lock_buyable :: proc(buyable: Buyable) {
 }
 
 
+reduce_to_skill :: proc(skill: LeveledSkill) -> (u32, ReduceError) {
+	curr_skill_level := DB.owned_skills[skill.id]
+	refund : u32 = 0
+
+	for level in skill.level..<curr_skill_level {
+		reduce_refund, reduce_err := reduce_skill(skill.id)
+		refund += reduce_refund
+		if reduce_err != nil do return refund, reduce_err
+	}
+
+	return refund, nil
+}
 
 reduce_skill :: proc(skill_id: SkillID) -> (u32, ReduceError) {
 	skill_level := DB.owned_skills[skill_id]
@@ -190,6 +202,16 @@ reduce_skill :: proc(skill_id: SkillID) -> (u32, ReduceError) {
 	b_data := &DB.buyable_data[skill]
 	owned_blocks_amount := b_data.assigned_blocks_amount
 
+
+	{ // Check if it contains another buyable
+		containees, contains := DB.contains_constraint[skill]
+		if contains && len(containees)>0 do return 0, .ContainsAnotherBuyable
+	}
+
+	{ // Check if it drags another buyable
+		_, drags := DB.drag_constraint[skill_id]
+		if drags do return 0, .DragsAnotherBuyable
+	}
 
 	{ // Check if it is required in another owned buyable
 		for owned_perk in DB.owned_perks {
@@ -234,6 +256,19 @@ refund_perk :: proc(perk_id: PerkID) -> (u32, RefundError) {
 	DB.owned_perks -= {perk_id}
 	recalc_buyable_states()
 	return refunded, .None
+}
+
+raise_to_skill :: proc(skill: LeveledSkill) -> (u32, BuyError) {
+	curr_skill_level := DB.owned_skills[skill.id]
+	cost : u32 = 0
+
+	for level in curr_skill_level..<skill.level {
+		raise_cost, raise_err := raise_skill(skill.id)
+		cost += raise_cost
+		if raise_err != nil do return cost, raise_err
+	}
+
+	return cost, nil
 }
 
 raise_skill :: proc(skill_id: SkillID) -> (u32, BuyError) {

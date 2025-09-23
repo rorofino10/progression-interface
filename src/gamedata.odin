@@ -33,11 +33,11 @@ load_db :: proc() {
 
 	BuildPlayer(
 		{
-			0 = {300,{6,5,3,2,1,1}, 0},
-			1 = {300,{7,6,4,3,2,2}, 1},
-			2 = {300,{8,7,5,4,3,3}, 1},
-			3 = {300,{9,8,6,5,4,4}, 2},
-			4 = {300,{10,9,7,6,5,5}, 2},
+			0 = {1500,{6,5,3,2,1,1}, 0},
+			1 = {1500,{7,6,4,3,2,2}, 1},
+			2 = {1500,{8,7,5,4,3,3}, 1},
+			3 = {1500,{9,8,6,5,4,4}, 2},
+			4 = {1500,{10,9,7,6,5,5}, 2},
 		}
 	)
 
@@ -45,27 +45,28 @@ load_db :: proc() {
 	// BuildMainSkillLambda(.Melee, { 10, 20, 30 })
 
 	// Lambda
-	Skill(.Melee, proc(i: BlocksSize) -> BlocksSize{return 100*i})
-	Skill(.Endurance, proc(i: BlocksSize) -> BlocksSize{return i})
-	Skill(.Sorcery, proc(i: BlocksSize) -> BlocksSize{return i})
-	Skill(.Mana, proc(i: BlocksSize) -> BlocksSize{return i})
-	Skill(.Ranged, proc(i: BlocksSize) -> BlocksSize{return i})
-	Skill(.Perception, proc(i: BlocksSize) -> BlocksSize{return i})
-	Skill(.Medicine, proc(i: BlocksSize) -> BlocksSize{return i}) 
-	Skill(.Logic, proc(i: BlocksSize) -> BlocksSize{return i}) 
-	Skill(.Finesse, proc(i: BlocksSize) -> BlocksSize{return i}) 
-	Skill(.Athletics, proc(i: BlocksSize) -> BlocksSize{return i}) 
+	Skill(.Melee, 		proc(i: BlocksSize) -> BlocksSize{return 100+10*i})
+	Skill(.Endurance, 	proc(i: BlocksSize) -> BlocksSize{return 100+10*i})
+	Skill(.Sorcery, 	proc(i: BlocksSize) -> BlocksSize{return 100+10*i})
+	Skill(.Mana, 		proc(i: BlocksSize) -> BlocksSize{return 100+10*i})
+	Skill(.Ranged, 		proc(i: BlocksSize) -> BlocksSize{return 100+10*i})
+	Skill(.Perception, 	proc(i: BlocksSize) -> BlocksSize{return 100+10*i})
+	Skill(.Medicine, 	proc(i: BlocksSize) -> BlocksSize{return 100+10*i}) 
+	Skill(.Logic, 		proc(i: BlocksSize) -> BlocksSize{return 100+10*i}) 
+	Skill(.Finesse, 	proc(i: BlocksSize) -> BlocksSize{return 100+10*i}) 
+	Skill(.Athletics, 	proc(i: BlocksSize) -> BlocksSize{return 100+10*i}) 
 
-	Perk(.Trip, 100, {}, {{.Melee, 1}})
-	Perk(.Aim, 100, {}, {{.Melee, 1}})
-	Perk(.Sight, 100, {}, {{.Melee, 1}})
-	Perk(.KnifeMaster, 100, {}, {{.Melee, 1}})
+	Perk(.Trip, 50, {}, {{.Melee, 1}})
+	Perk(.Aim, 50, {}, {{.Melee, 1}})
+	Perk(.Sight, 50, {}, {{.Melee, 1}})
+	Perk(.KnifeMaster, 50, {}, {{.Melee, 1}})
 	// Perk(.Sight, 10, {}, {{.Melee, 1}})
 
 	// Contains(SKILL.Melee, 1, PERK.Trip)
 	// Contains(PERK.Trip, SKILL.Melee, 1)
-	// Share(LeveledSkill{.Melee, 1}, .Trip, 100)
-	Drags(.Melee, .Endurance, 1)
+	Share(SKILL.Melee, 1, PERK.Trip, 50)
+	// Drags(.Melee, .Endurance, 3)
+	// Drags(.Endurance, .Melee, 3)
 	
 	// Overlap(.Melee, .Endurance, 100)
 	// Overlap(.Endurance, .Athletics, 100)
@@ -75,8 +76,8 @@ load_db :: proc() {
 	// Share(.Trip, .Aim, 100)
 	// Share(.Aim, .Sight, 100)
 	// Share(.Sight, .Trip, 100)
-	Share(SKILL.Melee, 1, PERK.Sight, 100)
-	Share(PERK.Sight, SKILL.Melee, 2, 100)
+	// Share(SKILL.Melee, 1, PERK.Sight, 100)
+	// Share(PERK.Sight, SKILL.Melee, 2, 100)
 	// Share(SKILL.Melee, 1, PERK.Sight, NORMAL)
 	// Share(.Trip, .Sight, NORMAL)
 }

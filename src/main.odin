@@ -72,6 +72,10 @@ recalc_perks_buyable_state :: proc() {
 				perk_val.buyable_state = .UnmetRequirements
 				continue
 			}
+			if blocks_to_buy == 0 {
+				perk_val.buyable_state = .Free
+				continue
+			}
 		}
 
 		perk_val.buyable_state = .Buyable
@@ -204,13 +208,11 @@ reduce_skill :: proc(skill_id: SkillID) -> (u32, ReduceError) {
 
 
 	{ // Check if it contains another buyable
-		containees, contains := DB.contains_constraint[skill]
-		if contains && len(containees)>0 do return 0, .ContainsAnotherBuyable
+		for contains in DB.contains_constraint do if contains.container == skill do return 0, .ContainsAnotherBuyable
 	}
 
 	{ // Check if it drags another buyable
-		_, drags := DB.drag_constraint[skill_id]
-		if drags do return 0, .DragsAnotherBuyable
+		for drag in DB.drag_constraint do if drag.skillA == skill_id do return 0, .DragsAnotherBuyable
 	}
 
 	{ // Check if it is required in another owned buyable
@@ -335,18 +337,18 @@ raise_skill :: proc(skill_id: SkillID) -> (u32, BuyError) {
 		DB.owned_skills[next_skill.id] = next_skill.level
 	}
 	
-	{ 	// Handle Contains
-		containees, ok := DB.contains_constraint[next_skill]
-		if ok do for buyable in containees do unlock_buyable(buyable)
-	}
+	// { 	// Handle Contains
+	// 	containees, ok := DB.contains_constraint[next_skill]
+	// 	if ok do for buyable in containees do unlock_buyable(buyable)
+	// }
 
-	{ 	// Handle Drag
-		drags := DB.drag_constraint[next_skill.id]
-		for dragged_skill, drag in drags {
-			if next_skill.level <= drag do continue
-			unlock_buyable(LeveledSkill{dragged_skill, next_skill.level - drag})
-		}
-	}
+	// { 	// Handle Drag
+	// 	drags := DB.drag_constraint[next_skill.id]
+	// 	for dragged_skill, drag in drags {
+	// 		if next_skill.level <= drag do continue
+	// 		unlock_buyable(LeveledSkill{dragged_skill, next_skill.level - drag})
+	// 	}
+	// }
 
 	recalc_buyable_states()
 
@@ -390,10 +392,10 @@ buy_perk :: proc(perk: PerkID) -> (u32, BuyError) {
 		DB.owned_perks |= {perk}
 	}
 
-	{ 	// Handle Contains
-		containees, ok := DB.contains_constraint[perk]
-		if ok do for buyable in containees do unlock_buyable(buyable)
-	}
+	// { 	// Handle Contains
+	// 	containees, ok := DB.contains_constraint[perk]
+	// 	if ok do for buyable in containees do unlock_buyable(buyable)
+	// }
 
 	recalc_buyable_states()
 

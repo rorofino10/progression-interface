@@ -10,7 +10,7 @@ LEVEL :: distinct u32
 STRENGTH :: distinct u8
 
 // CONSTANT
-MAX_SKILL_LEVEL :: 10
+MAX_SKILL_LEVEL :: 13
 MAX_UNIT_LEVEL :: 30
 MAIN_SKILLS_AMOUNT :: 6
 // Artificial list size limits
@@ -54,6 +54,7 @@ Perks :: bit_set[PerkID]
 PerkBuyableState :: enum {
 	UnmetRequirements,
 	Buyable,
+	Free,
 	Owned,
 }
 
@@ -160,8 +161,9 @@ Database :: struct {
 	buyable_data 	: map[Buyable]BuyableData,
 
 	// Constraint
-	contains_constraint : map[Buyable]DynBuyables,
-	drag_constraint		: map[SkillID]map[SkillID]LEVEL,
+	contains_constraint : [dynamic]TContains,
+	// drag_constraint		: map[SkillID]map[SkillID]LEVEL,
+	drag_constraint		: [dynamic]TDrag,
 	share_constraints	: [dynamic]TShare,
 	overlap_constraints : [dynamic]TOverlap,
 

@@ -161,6 +161,8 @@ print_player_state :: proc() {
                         fmt.print("\x1b[41m")
                     case .Owned:
                         fmt.print("\x1b[44m")
+                    case .Free:
+                        fmt.print("\x1b[43m")
                 }
                 fmt.print(perk)
                 fmt.print("\x1b[0m ")
@@ -221,11 +223,9 @@ run_cli :: proc() {
     for {
         
         fmt.printf("> ")
-        if !bufio.scanner_scan(&scanner) {
-            break
-        }
+        if !bufio.scanner_scan(&scanner) do break
         line := bufio.scanner_text(&scanner)
-        if line == "q" {break}
+        if line == "q" do break
         words := strings.split(line, " ", context.temp_allocator)
 
         action, ok := parse_action(words[0])

@@ -108,9 +108,9 @@ recalc_skill_id_raisable_state :: proc() {
 			skill_id_data := &DB.skill_id_data[skillID]
 			switch skill_id_data.type {
 				case .Main:
-					cap = DB.skill_rank_cap[DB.unit_level-1][skill_id_data.idx]
+					cap = DB.player_states[DB.unit_level].main_skill_caps[skill_id_data.idx]
 				case .Extra:
-					cap = DB.skill_rank_cap[DB.unit_level-1][MAIN_SKILLS_AMOUNT]
+					cap = DB.player_states[DB.unit_level].extra_skill_cap
 			}
 			if curr_level >= cap do return .Capped
 		}

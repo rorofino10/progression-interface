@@ -146,7 +146,11 @@ BuyableData :: struct {
 	spent					: BlocksSize,
 }
 
-
+PlayerLevelState :: struct{
+	skill_points_on_level	: BlocksSize,
+	main_skill_caps			: [MAIN_SKILLS_AMOUNT]LEVEL,
+	extra_skill_cap			: LEVEL,
+}
 
 Database :: struct {
 	skill_id_data	: map[SkillID]SkillData,
@@ -167,9 +171,8 @@ Database :: struct {
 	owned_extra_skills		: [dynamic]SkillID,
 	owned_perks				: Perks,
 	owned_skills			: map[SkillID]LEVEL,
-	points_gain				: [MAX_UNIT_LEVEL]u32,
 	unit_level_cap			: LEVEL,
-	skill_rank_cap			: [MAX_UNIT_LEVEL][MAIN_SKILLS_AMOUNT+1]LEVEL
+	player_states			: [MAX_UNIT_LEVEL]PlayerLevelState,
 }
 
 DB : Database
@@ -210,35 +213,11 @@ _build_skill_lambda :: proc(skillID: SkillID, blockProc: DefineBlockProc){
 	}
 	_build_skill_default(skillID, blocks_list)
 }
-BuildSkill :: proc{_build_skill_default, _build_skill_lambda}
-
-BuildMainSkill :: proc{BuildMainSkillDefault, BuildMainSkillStartingLevel}
-
-BuildExtraSkill :: proc(skillID: SkillID, skill_data_arr: [MAX_SKILL_LEVEL]BlocksSize) {
-	DB.skill_id_data[skillID] = {blocks = skill_data_arr, type = .Extra, idx = u32(len(DB.owned_extra_skills))}
-	append(&DB.owned_extra_skills, skillID)
-	DB.owned_skills[skillID] = 0
-}
+Skill :: proc{_build_skill_default, _build_skill_lambda}
 
 DefineBlockProc :: proc(blockIdx: BlocksSize) -> BlocksSize
 
-BuildMainSkillLambda :: proc(skillID: SkillID, blockProc: DefineBlockProc){
-	blocks_list : [MAX_SKILL_LEVEL]BlocksSize
-	for idx in 1..=MAX_SKILL_LEVEL {
-		blocks_list[idx-1] = blockProc(BlocksSize(idx))
-	}
-	BuildMainSkill(skillID, blocks_list)
-}
-
-BuildExtraSkillLambda :: proc(skillID: SkillID, blockProc: DefineBlockProc){
-	blocks_list : [MAX_SKILL_LEVEL]BlocksSize
-	for idx in 1..=MAX_SKILL_LEVEL {
-		blocks_list[idx-1] = blockProc(BlocksSize(idx))
-	}
-	BuildExtraSkill(skillID, blocks_list)
-}
-
-BuildPerk :: proc(perkID: PerkID, blocks: BlocksSize, pre_reqs: Perks, skill_reqs: [dynamic]LeveledSkill) {
+Perk :: proc(perkID: PerkID, blocks: BlocksSize, pre_reqs: Perks, skill_reqs: [dynamic]LeveledSkill) {
 	defer delete(skill_reqs)
 
     assert(len(skill_reqs) <= MAX_SKILL_REQS)
@@ -248,29 +227,40 @@ BuildPerk :: proc(perkID: PerkID, blocks: BlocksSize, pre_reqs: Perks, skill_req
 }
 
 level_up :: proc() -> LevelUpError {
-	if DB.unit_level >= DB.unit_level_cap do return .MAX_LEVEL_REACHED
+	if DB.unit_level+1 >= DB.unit_level_cap do return .MAX_LEVEL_REACHED
+	DB.unused_points += DB.player_states[DB.unit_level].skill_points_on_level
 	DB.unit_level += 1
-	DB.unused_points += DB.points_gain[DB.unit_level-1]
 	
 	recalc_buyable_states()
 	return nil
 }
 
-BuildPlayer :: proc(points_gain: [dynamic]u32, rank_caps: [dynamic][MAIN_SKILLS_AMOUNT+1]LEVEL) {
-	defer delete(points_gain)
-	defer delete(rank_caps)
+BuildPlayer :: proc(states: [dynamic]PlayerLevelState) {
+	defer delete(states)
 
-	assert(len(points_gain) <= MAX_UNIT_LEVEL)
-	assert(len(points_gain) == len(rank_caps))
+	assert(len(states) <= MAX_UNIT_LEVEL)
 
-	DB.unit_level = 1
-	DB.unit_level_cap = LEVEL(len(points_gain))
+	DB.unused_points = 0
+	DB.unit_level = 0
+	DB.unit_level_cap = LEVEL(len(states))
 
-	for gain, idx in points_gain do DB.points_gain[idx] = gain
-	for caps, level in rank_caps do DB.skill_rank_cap[level] = caps
-
-	DB.unused_points = points_gain[0]
+	for state, idx in states do DB.player_states[idx] = state
 }
+// BuildPlayer :: proc(points_gain: [dynamic]u32, rank_caps: [dynamic][MAIN_SKILLS_AMOUNT+1]LEVEL) {
+// 	defer delete(points_gain)
+// 	defer delete(rank_caps)
+
+// 	assert(len(points_gain) <= MAX_UNIT_LEVEL)
+// 	assert(len(points_gain) == len(rank_caps))
+
+// 	DB.unit_level = 1
+// 	DB.unit_level_cap = LEVEL(len(points_gain))
+
+// 	for gain, idx in points_gain do DB.points_gain[idx] = gain
+// 	for caps, level in rank_caps do DB.skill_rank_cap[level] = caps
+
+// 	DB.unused_points = points_gain[0]
+// }
 
 init_db :: proc() -> Error{
 	load_db()

@@ -65,9 +65,9 @@ print_skill_progress :: proc(skillID: SkillID, level_cap: LEVEL) {
     }
     for level in 1..=skill_level do fmt.print(" ")
     fmt.print("\x1b[100m")
-    for level in skill_level+1..=level_cap do fmt.print(" ")
+    for level in skill_level+1..=min(level_cap, MAX_SKILL_LEVEL) do fmt.print(" ")
     fmt.print("\x1b[45m")
-    for level in level_cap+1..=MAX_SKILL_LEVEL do fmt.print(" ")
+    for level in min(level_cap, MAX_SKILL_LEVEL)+1..=MAX_SKILL_LEVEL do fmt.print(" ")
     fmt.print("\x1b[0m")
 
     fmt.print(f32(buyable_data.bought_blocks_amount)/f32(owned_block_amount)*100, "%", " ", sep="")
@@ -98,8 +98,8 @@ print_player_state :: proc() {
         for skill_id, slot in DB.owned_main_skills {
             skill_id_data := DB.skill_id_data[skill_id]
             level := DB.owned_skills[skill_id]
-            slot_cap := DB.skill_rank_cap[DB.unit_level-1][slot]
-
+            slot_cap := DB.player_states[DB.unit_level].main_skill_caps[slot]
+            
             fmt.print("[",skill_slot_name[slot],"]\t", sep="")
             switch skill_id_data.raisable_state {
                 case .Free:
@@ -123,7 +123,7 @@ print_player_state :: proc() {
         }
 
         // Extra Skills
-        extra_slot_cap := DB.skill_rank_cap[DB.unit_level-1][MAIN_SKILLS_AMOUNT]
+        extra_slot_cap := DB.player_states[DB.unit_level].extra_skill_cap
         for skill_id in DB.owned_extra_skills {
             skill_id_data := DB.skill_id_data[skill_id]
             level := DB.owned_skills[skill_id]

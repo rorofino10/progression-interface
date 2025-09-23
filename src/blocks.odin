@@ -116,6 +116,20 @@ query_all_blocks_from_buyable :: proc(buyable: Buyable) -> BlocksQuery {
 
 buyable_in_list :: proc(list: [dynamic]Buyable, buyable: Buyable) -> bool {
     for elem in list do if elem == buyable do return true
+
+    // Check if same Skill Id Shared
+    {
+        #partial switch b in buyable {
+            case LeveledSkill:
+                for elem in list {
+                    #partial switch e in elem {
+                        case LeveledSkill:
+                            if e.id == b.id && e.level != b.level do panic(fmt.tprint("Found", buyable, "and", elem, "sharing same block."))
+                    }
+                }
+        }
+    }
+
     return false
 }
 

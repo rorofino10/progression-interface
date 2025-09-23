@@ -45,8 +45,8 @@ load_db :: proc() {
 	// BuildMainSkillLambda(.Melee, { 10, 20, 30 })
 
 	// Lambda
-	Skill(.Melee, proc(i: BlocksSize) -> BlocksSize{return i})
-	Skill(.Endurance, proc(i: BlocksSize) -> BlocksSize{return 100*i})
+	Skill(.Melee, proc(i: BlocksSize) -> BlocksSize{return 100*i})
+	Skill(.Endurance, proc(i: BlocksSize) -> BlocksSize{return i})
 	Skill(.Sorcery, proc(i: BlocksSize) -> BlocksSize{return i})
 	Skill(.Mana, proc(i: BlocksSize) -> BlocksSize{return i})
 	Skill(.Ranged, proc(i: BlocksSize) -> BlocksSize{return i})
@@ -67,13 +67,16 @@ load_db :: proc() {
 	// Share(LeveledSkill{.Melee, 1}, .Trip, 100)
 	Drags(.Melee, .Endurance, 1)
 	
-	// Overlap(.Melee, .Endurance, NORMAL)
+	// Overlap(.Melee, .Endurance, 100)
+	// Overlap(.Endurance, .Athletics, 100)
+	// Overlap(.Athletics, .Melee, 100)
 	
 	// Contains(LeveledSkill{.Melee, 10}, LeveledSkill{.Logic, 1})
-	Share(.Trip, .Aim, 100)
-	Share(.Aim, .Sight, 100)
+	// Share(.Trip, .Aim, 100)
+	// Share(.Aim, .Sight, 100)
 	// Share(.Sight, .Trip, 100)
-	// Share(SKILL.Melee, 1, PERK.Sight, NORMAL)
+	Share(SKILL.Melee, 1, PERK.Sight, 100)
+	Share(PERK.Sight, SKILL.Melee, 2, 100)
 	// Share(SKILL.Melee, 1, PERK.Sight, NORMAL)
 	// Share(.Trip, .Sight, NORMAL)
 }

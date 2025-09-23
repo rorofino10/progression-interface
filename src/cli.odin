@@ -25,7 +25,7 @@ Action :: enum {
 print_buyable_blocks :: proc(buyable: Buyable) {
     buyable_data := DB.buyable_data[buyable]
     owned_blocks := query_all_blocks_from_buyable(buyable)
-    fmt.println(owned_blocks)
+    // fmt.println(owned_blocks)
     defer free_all(query_system_alloc)
     owned_block_amount := buyable_data.assigned_blocks_amount
     fmt.print(f32(buyable_data.bought_blocks_amount)/f32(owned_block_amount)*100, "%", " ", sep="")
@@ -33,18 +33,18 @@ print_buyable_blocks :: proc(buyable: Buyable) {
     switch {
         // Already Bought
         case buyable_data.is_owned:
-            for block in owned_blocks do fmt.print("\x1b[44m \x1b[0m")
+            for block in owned_blocks do fmt.printf("\x1b[44m%d\x1b[0m", len(block.owned_by))
         // Free
         case owned_block_amount == buyable_data.bought_blocks_amount:
-            for block in owned_blocks do fmt.print("\x1b[43m \x1b[0m")
+            for block in owned_blocks do fmt.print("\x1b[43m%d\x1b[0m", len(block.owned_by))
         case:
             for block in owned_blocks {
-                if block.bought do fmt.printf("\x1b[42m%d\x1b[0m", len(block.owned_by))
-                else do fmt.printf("\x1b[41m%d\x1b[0m", len(block.owned_by))
+                if block.bought do fmt.printf("\x1b[42m%d", len(block.owned_by))
+                else do fmt.printf("\x1b[41m%d", len(block.owned_by))
             }
     }
 
-    fmt.print('\n')
+    fmt.print("\x1b[0m\n")
 }
 
 print_skill_progress :: proc(skillID: SkillID, level_cap: LEVEL) {
@@ -264,8 +264,8 @@ run_cli :: proc() {
                 else if args[0] == "all" {
                     for buyable, _ in DB.buyable_data {fmt.print(buyable,"");print_buyable_blocks(buyable)}
                 }
-                else {
-                    for arg in args {
+                else if args[0] == "list" {
+                    for arg in args[1:] {
                         switch strings.to_lower(arg, context.temp_allocator) {
                             case "perks": for perk in DB.perk_data {fmt.print(perk,);print_buyable_blocks(perk)}; continue
                             case "skills": for skill, level in DB.owned_skills {if level != 0 {fmt.print(skill,level,"");print_buyable_blocks(LeveledSkill{skill, level})}}; continue
@@ -275,6 +275,21 @@ run_cli :: proc() {
                         skill_id, s_ok := parse_skill_id(arg)
                         skill := LeveledSkill{skill_id, DB.owned_skills[skill_id]+1}
                         if s_ok {print_buyable_blocks(skill);continue}
+                    }
+                }
+                else {
+                    if len(args) == 1 {
+                        perk, ok := parse_perk(args[0])
+                        if ok do print_buyable_blocks(perk)
+                        else {
+                            skill_id, s_ok := parse_skill_id(args[0])
+                            skill := LeveledSkill{skill_id, DB.owned_skills[skill_id]+1}
+                            if s_ok do print_buyable_blocks(skill)
+                        }
+                    }
+                    else {
+                        skill, s_ok := parse_skill(args[0], args[1])
+                        if s_ok do print_buyable_blocks(skill)                        
                     }
                 }
             case .Raise:

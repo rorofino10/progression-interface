@@ -25,21 +25,46 @@ Action :: enum {
 
 print_buyable_blocks :: proc(buyable: Buyable) {
     buyable_data := DB.buyable_data[buyable]
-    owned_blocks := query_all_blocks_from_buyable(buyable)
-    // fmt.println(owned_blocks)
-    defer free_all(query_system_alloc)
+    assigned_blocks := buyable_data.assigned_blocks
+
     owned_block_amount := buyable_data.assigned_blocks_amount
+    fmt.print(buyable, ": ", sep="")
     fmt.print(f32(buyable_data.bought_blocks_amount)/f32(owned_block_amount)*100, "%", " ", sep="")
     fmt.print(buyable_data.bought_blocks_amount, "/", owned_block_amount, " ", sep="")
     switch {
         // Already Bought
         case buyable_data.is_owned:
-            for block in owned_blocks do fmt.printf("\x1b[44m%d\x1b[0m", len(block.owned_by))
+            for block in assigned_blocks do fmt.printf("\x1b[44m%d\x1b[0m", len(block.owned_by))
         // Free
         case owned_block_amount == buyable_data.bought_blocks_amount:
-            for block in owned_blocks do fmt.print("\x1b[43m%d\x1b[0m", len(block.owned_by))
+            for block in assigned_blocks do fmt.print("\x1b[43m%d\x1b[0m", len(block.owned_by))
         case:
-            for block in owned_blocks {
+            for block in assigned_blocks {
+                if block.bought do fmt.printf("\x1b[42m%d", len(block.owned_by))
+                else do fmt.printf("\x1b[41m%d", len(block.owned_by))
+            }
+    }
+
+    fmt.print("\x1b[0m\n")
+}
+print_buyable_blocks_by_query :: proc(buyable: Buyable) {
+    buyable_data := DB.buyable_data[buyable]
+    assigned_blocks := query_all_blocks_from_buyable(buyable)
+    defer free_all(query_system_alloc)
+
+    owned_block_amount := buyable_data.assigned_blocks_amount
+    fmt.print(buyable, ": ", sep="")
+    fmt.print(f32(buyable_data.bought_blocks_amount)/f32(owned_block_amount)*100, "%", " ", sep="")
+    fmt.print(buyable_data.bought_blocks_amount, "/", owned_block_amount, " ", sep="")
+    switch {
+        // Already Bought
+        case buyable_data.is_owned:
+            for block in assigned_blocks do fmt.printf("\x1b[44m%d\x1b[0m", len(block.owned_by))
+        // Free
+        case owned_block_amount == buyable_data.bought_blocks_amount:
+            for block in assigned_blocks do fmt.print("\x1b[43m%d\x1b[0m", len(block.owned_by))
+        case:
+            for block in assigned_blocks {
                 if block.bought do fmt.printf("\x1b[42m%d", len(block.owned_by))
                 else do fmt.printf("\x1b[41m%d", len(block.owned_by))
             }
@@ -177,12 +202,14 @@ print_player_state :: proc() {
 
 print_state :: proc(){
 	print_player_state()
+    fmt.println("Blocks total:", len(block_system.blocks))
     fmt.println("Unused points:", DB.unused_points)
     fmt.println("Level:", DB.unit_level)
 }
 
 parse_action :: proc(action_str: string) -> (Action, bool) {
-    str := strings.to_pascal_case(action_str, context.temp_allocator)
+    str := strings.to_lower(action_str, context.temp_allocator)
+    str = strings.to_pascal_case(str, context.temp_allocator)
     action, ok := reflect.enum_from_name(Action, str)
     if !ok do return .NotRecognized, ok
     return action, ok

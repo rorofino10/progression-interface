@@ -10,7 +10,7 @@ LEVEL :: distinct u32
 STRENGTH :: distinct u8
 
 // CONSTANT
-MAX_SKILL_LEVEL :: 50
+MAX_SKILL_LEVEL :: 5
 MAX_UNIT_LEVEL :: 100
 MAIN_SKILLS_AMOUNT :: 6
 // Artificial list size limits
@@ -143,6 +143,7 @@ DynBuyables :: [dynamic]Buyable
 
 BuyableData :: struct {
 	assigned_blocks_amount 	: BlocksSize,
+	assigned_blocks			: [dynamic]^Block,
 	bought_blocks_amount	: BlocksSize,
 	is_owned				: bool,
 	is_upgradeable			: bool,
@@ -180,6 +181,16 @@ Database :: struct {
 }
 
 DB : Database
+
+Relationship :: proc(A, B: SKILL)
+SKILL_TUPLE :: struct {
+	a: SKILL,
+	b: SKILL,
+}
+ListOf :: proc(relationship: Relationship, list: [dynamic]SKILL_TUPLE) {
+	defer delete(list)
+	for tuple in list do relationship(tuple.a, tuple.b)
+}
 
 BuildSkills :: proc() {
 	for skill_id in SkillID do Skill(skill_id, proc(i: BlocksSize) -> BlocksSize{return 100+10*i})
@@ -227,15 +238,16 @@ level_up :: proc() -> LevelUpError {
 	return nil
 }
 level_up_to :: proc(to_level: LEVEL) -> LevelUpError {
+	err : LevelUpError = nil
 	for level in DB.unit_level..<to_level {
-		if DB.unit_level+1 >= DB.unit_level_cap do return .MAX_LEVEL_REACHED
+		if DB.unit_level+1 >= DB.unit_level_cap {err = .MAX_LEVEL_REACHED; break}
 		DB.unused_points += DB.player_states[DB.unit_level+1].skill_points_on_level
 		DB.unit_level += 1
 	}
 
 	// Recalc only once
 	recalc_buyable_states()
-	return nil
+	return err
 }
 
 BuildPlayer :: proc(states: [dynamic]PlayerLevelState) {
@@ -325,7 +337,8 @@ create_buyables :: proc() {
 	}
 	for perk, perk_data in DB.perk_data {
    		DB.buyable_data[perk] = BuyableData {
-			assigned_blocks_amount = perk_data.blocks, 
+			assigned_blocks_amount = perk_data.blocks,
+			assigned_blocks = make([dynamic]^Block, 0)
         }				
 	}
 	
@@ -346,10 +359,7 @@ create_buyables :: proc() {
 	
 	handle_constraints()
 
-	// for buyable, &buyable_data in DB.buyable_data {
-	// 	buyable_data.owned_blocks = slice.clone(query_all_blocks_from_buyable(buyable))
-	// 	free_all(query_system_alloc)
-	// }
+	assign_all_blocks_to_buyables()
 	
 	recalc_buyable_states()
 }

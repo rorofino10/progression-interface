@@ -6,8 +6,8 @@ import "core:fmt"
 import "base:runtime"
 import "core:mem"
 
-BLOCK_SYSTEM_ALLOCATED_MEM :: 2 * runtime.Megabyte
-QUERY_SYSTEM_ALLOCATED_MEM :: 2 * runtime.Megabyte
+BLOCK_SYSTEM_ALLOCATED_MEM :: 10 * runtime.Megabyte
+QUERY_SYSTEM_ALLOCATED_MEM :: 10 * runtime.Megabyte
 
 block_system_alloc: mem.Allocator
 block_system_arena: mem.Arena
@@ -100,6 +100,15 @@ query_blocks_from_buyable :: proc(buyable: Buyable, query_amount: BlocksSize) ->
     return query
 }
 
+assign_all_blocks_to_buyables :: proc() {
+    for &block in block_system.blocks {
+        for block_owner in block.owned_by {
+            assigned_blocks := &(&DB.buyable_data[block_owner]).assigned_blocks
+            append(assigned_blocks, &block)
+        }
+    }
+}
+ 
 query_all_blocks_from_buyable :: proc(buyable: Buyable) -> BlocksQuery {
     context.allocator = query_system_alloc
     query := make([dynamic]^Block, 0)
@@ -124,7 +133,7 @@ buyable_in_list :: proc(list: [dynamic]Buyable, buyable: Buyable) -> bool {
                 for elem in list {
                     #partial switch e in elem {
                         case LeveledSkill:
-                            if e.id == b.id && e.level != b.level do panic(fmt.tprint("Found", buyable, "and", elem, "sharing same block."))
+                            if e.id == b.id && e.level != b.level do panic(fmt.tprint("Found", buyable, "and", elem, "sharing same block. List:", list))
                     }
                 }
         }
@@ -144,14 +153,16 @@ block_system_assign_share :: proc(buyableA, buyableB: Buyable, blocks_to_share :
             query_block_a := &block_system.blocks[query_a[relative_block_idx]]
             query_block_b := &block_system.blocks[query_b[relative_block_idx]]
             defer {
-                query_block_b.owned_by = {}
-                query_block_a.owned_by = {}
+                unordered_remove(&block_system.blocks, query_a[relative_block_idx])
+                unordered_remove(&block_system.blocks, query_b[relative_block_idx])
             }
             new_block : Block
 
-            for owner in query_block_a.owned_by do if !buyable_in_list(new_block.owned_by, owner) do append(&new_block.owned_by, owner)
+            for owner in query_block_a.owned_by do append(&new_block.owned_by, owner)
             for owner in query_block_b.owned_by do if !buyable_in_list(new_block.owned_by, owner) do append(&new_block.owned_by, owner)
             append(&block_system.blocks, new_block)
         }          
     }
+    // print_buyable_blocks_by_query(buyableA)
+    // print_buyable_blocks_by_query(buyableB)
 }

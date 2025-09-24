@@ -25,7 +25,7 @@ player_has_buyable :: proc(buyable: Buyable) -> bool {
 recalc_perks_buyable_state :: proc() {
 	for perk, &perk_val in DB.perk_data {
 		b_data := &DB.buyable_data[perk]
-		query := query_all_blocks_from_buyable(perk)
+		query := b_data.assigned_blocks
 		defer free_all(query_system_alloc)
 		
 		bought_blocks_amount : BlocksSize =  0
@@ -94,7 +94,7 @@ recalc_skill_id_raisable_state :: proc() {
 			next_skill := LeveledSkill{skillID, curr_level+1}
 			
 			b_data := &DB.buyable_data[next_skill]
-			query := query_all_blocks_from_buyable(next_skill)
+			query := b_data.assigned_blocks
 			defer free_all(query_system_alloc)
 			
 			bought_blocks_amount : BlocksSize =  0
@@ -172,16 +172,14 @@ recalc_buyable_states :: proc() {
 }
 
 unlock_buyable :: proc(buyable: Buyable) {
-	owned_blocks := query_all_blocks_from_buyable(buyable)
-	defer free_all(query_system_alloc)
-	for &block in owned_blocks do block.bought = true
+	assigned_blocks := DB.buyable_data[buyable].assigned_blocks
+	for &block in assigned_blocks do block.bought = true
 }
 
 
 lock_buyable :: proc(buyable: Buyable) {
-	owned_blocks := query_all_blocks_from_buyable(buyable)
-	defer free_all(query_system_alloc)
-	for &block in owned_blocks do block.bought = false
+	assigned_blocks := DB.buyable_data[buyable].assigned_blocks
+	for &block in assigned_blocks do block.bought = false
 }
 
 

@@ -82,14 +82,31 @@ load_db :: proc() {
 
 	BuildSkills()
 
-	Perk(.Flurry, {{.Melee, 9}, {.Ranged, 9}, {.Finesse, 4}}, {}, 50)
-	Share(PERK.Flurry, SKILL.Finesse, 9, 50)
+	// Perk(.Flurry, {{.Melee, 9}, {.Ranged, 9}, {.Finesse, 4}}, {}, 50)
+	// Share(PERK.Flurry, SKILL.Finesse, 9, 50)
 	// Perk(.Trip, 50, {}, {{.Melee, 1}})
 	// Perk(.Aim, 50, {}, {{.Melee, 1}})
 	// Perk(.Sight, 50, {}, {{.Melee, 1}})
 	// Perk(.KnifeMaster, 50, {}, {{.Melee, 1}})
 	// Perk(.Sight, 10, {}, {{.Melee, 1}})
-
+	
+	// Overlap(.Melee, .Athletics, 100)
+	// CloseSkills(.Melee, .Athletics)
+	ListOf(
+		DistantSkills, {
+		{.Influence, .Composure},
+		{.Acting, .Composure},
+		{.Endurance, .Composure},
+		{.Endurance, .Athletics},
+		{.Athletics, .Finesse},
+		{.Logic, .Perception},
+		{.Arts, .Influence},
+		{.Arts, .Acting},
+		{.Ranged, .Perception},
+		{.Melee, .Perception},
+		{.Survival, .Perception},
+		{.Survival, .Construction},
+	})
 	// Contains(SKILL.Melee, 1, PERK.Trip)
 	// Contains(PERK.Trip, SKILL.Melee, 1)
 	// Share(SKILL.Melee, 1, PERK.Trip, 50)
@@ -97,7 +114,6 @@ load_db :: proc() {
 	// Drags(.Endurance, .Melee, 3)
 	
 	// Overlap(.Melee, .Endurance, 100)
-	// CloseSkills(.Melee,.Endurance)
 	// Overlap(.Endurance, .Athletics, 100)
 	// Overlap(.Athletics, .Melee, 100)
 	

@@ -10,8 +10,8 @@ LEVEL :: distinct u32
 STRENGTH :: distinct u8
 
 // CONSTANT
-MAX_SKILL_LEVEL :: 13
-MAX_UNIT_LEVEL :: 30
+MAX_SKILL_LEVEL :: 50
+MAX_UNIT_LEVEL :: 100
 MAIN_SKILLS_AMOUNT :: 6
 // Artificial list size limits
 MAX_SKILL_REQS :: 10
@@ -181,20 +181,8 @@ Database :: struct {
 
 DB : Database
 
-BuildMainSkillStartingLevel :: proc(skillID: SkillID, starting_level: LEVEL, skill_data_arr: [MAX_SKILL_LEVEL]BlocksSize) {
-	assert(DB.owned_main_skills_amount < MAIN_SKILLS_AMOUNT)
-	DB.owned_main_skills[DB.owned_main_skills_amount] = skillID
-	DB.skill_id_data[skillID] = {blocks = skill_data_arr, type = .Main, idx = DB.owned_main_skills_amount}
-	DB.owned_skills[skillID] = starting_level
-	DB.owned_main_skills_amount += 1
-}
-
-BuildMainSkillDefault :: proc(skillID: SkillID, skill_data_arr: [MAX_SKILL_LEVEL]BlocksSize) {
-	assert(DB.owned_main_skills_amount < MAIN_SKILLS_AMOUNT)
-	DB.owned_main_skills[DB.owned_main_skills_amount] = skillID
-	DB.skill_id_data[skillID] = {blocks = skill_data_arr, type = .Main, idx = DB.owned_main_skills_amount}
-	DB.owned_skills[skillID] = 0
-	DB.owned_main_skills_amount += 1
+BuildSkills :: proc() {
+	for skill_id in SkillID do Skill(skill_id, proc(i: BlocksSize) -> BlocksSize{return 100+10*i})
 }
 
 _build_skill_default :: proc(skillID: SkillID, skill_data_arr: [MAX_SKILL_LEVEL]BlocksSize) {
@@ -221,7 +209,7 @@ Skill :: proc{_build_skill_default, _build_skill_lambda}
 
 DefineBlockProc :: proc(blockIdx: BlocksSize) -> BlocksSize
 
-Perk :: proc(perkID: PerkID, blocks: BlocksSize, pre_reqs: Perks, skill_reqs: [dynamic]LeveledSkill) {
+Perk :: proc(perkID: PerkID, skill_reqs: [dynamic]LeveledSkill, pre_reqs: Perks, blocks: BlocksSize) {
 	defer delete(skill_reqs)
 
     assert(len(skill_reqs) <= MAX_SKILL_REQS)
@@ -232,9 +220,20 @@ Perk :: proc(perkID: PerkID, blocks: BlocksSize, pre_reqs: Perks, skill_reqs: [d
 
 level_up :: proc() -> LevelUpError {
 	if DB.unit_level+1 >= DB.unit_level_cap do return .MAX_LEVEL_REACHED
-	DB.unused_points += DB.player_states[DB.unit_level].skill_points_on_level
+	DB.unused_points += DB.player_states[DB.unit_level+1].skill_points_on_level
 	DB.unit_level += 1
 	
+	recalc_buyable_states()
+	return nil
+}
+level_up_to :: proc(to_level: LEVEL) -> LevelUpError {
+	for level in DB.unit_level..<to_level {
+		if DB.unit_level+1 >= DB.unit_level_cap do return .MAX_LEVEL_REACHED
+		DB.unused_points += DB.player_states[DB.unit_level+1].skill_points_on_level
+		DB.unit_level += 1
+	}
+
+	// Recalc only once
 	recalc_buyable_states()
 	return nil
 }
@@ -244,8 +243,8 @@ BuildPlayer :: proc(states: [dynamic]PlayerLevelState) {
 
 	assert(len(states) <= MAX_UNIT_LEVEL)
 
-	DB.unused_points = 0
-	DB.unit_level = 0
+	DB.unit_level = 1
+	DB.unused_points = states[DB.unit_level].skill_points_on_level
 	DB.unit_level_cap = LEVEL(len(states))
 
 	for state, idx in states do DB.player_states[idx] = state

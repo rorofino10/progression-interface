@@ -12,14 +12,15 @@ SKILL_NAME_LENGTH :: 13
 Action :: enum {
     NotRecognized,
     Raise,
-    RaiseTo,
+    Raiseto,
     Buy,
     Refund,
-    ReduceTo,
+    Reduceto,
     Reduce,
     Blocks,
-    LevelUp,
-    SetPoints,
+    Levelup,
+    Levelupto,
+    Setpoints,
 }
 
 print_buyable_blocks :: proc(buyable: Buyable) {
@@ -190,14 +191,14 @@ parse_action :: proc(action_str: string) -> (Action, bool) {
 parse_perk :: proc(perk_id_str: string) -> (PerkID, bool) {
     str := strings.to_pascal_case(perk_id_str, context.temp_allocator)
     perk_id, ok := reflect.enum_from_name(PerkID, str)
-    if !ok do return .Aim, ok
+    if !ok do return nil, ok
     return perk_id, ok
 }
 
 parse_skill_id :: proc(skill_id_str: string) -> (SkillID, bool) {
     str := strings.to_pascal_case(skill_id_str, context.temp_allocator)
     skill_id, ok := reflect.enum_from_name(SkillID, str)
-    if !ok do return .Melee, ok
+    if !ok do return nil, ok
     return skill_id, ok
 }
 
@@ -251,7 +252,7 @@ run_cli :: proc() {
                 refunded, err := reduce_skill(buyable)
                 if err != nil do fmt.println(err)
                 else do fmt.println("Refunded:", refunded)
-            case .ReduceTo:
+            case .Reduceto:
                 if len(args)!=2 {fmt.println("Invalid Arguments");break}
                 buyable, ok := parse_skill(args[0], args[1])
                 if !ok {fmt.println("Could not parse Skill");break}
@@ -300,7 +301,7 @@ run_cli :: proc() {
                 spent, err := raise_skill(buyable)
                 if err != nil do fmt.println(err)
                 else do fmt.println("Cost:", spent)
-            case .RaiseTo:
+            case .Raiseto:
                 if len(args)!=2 {fmt.println("Invalid Arguments");break}
                 buyable, ok := parse_skill(args[0], args[1])
                 if !ok {fmt.println("Could not parse Skill");break}
@@ -316,10 +317,16 @@ run_cli :: proc() {
                 spent, err := buy_perk(buyable)
                 if err != nil do fmt.println(err)
                 else do fmt.println("Cost:", spent)
-            case .LevelUp:
+            case .Levelup:
                 err := level_up()
                 if err != nil do fmt.println(err)
-            case .SetPoints:
+            case .Levelupto:
+                if len(args) != 1 {fmt.println("Invalid Arguments");break}
+                level_to, ok := strconv.parse_uint(args[0])
+                if !ok {fmt.println("Not a number."); break}
+                err := level_up_to(LEVEL(level_to))
+                if err != nil do fmt.println(err)
+            case .Setpoints:
                 points, ok := strconv.parse_int(args[0])
                 if !ok do fmt.println("Error parsing Int")
                 else do DB.unused_points = u32(points)

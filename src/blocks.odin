@@ -1,6 +1,7 @@
 #+feature dynamic-literals
 package main
 
+import "core:sort"
 import "core:math"
 import "core:fmt"
 import "base:runtime"
@@ -49,9 +50,8 @@ init_query_system_alloc :: proc() -> Error {
 }
 
 block_system_allocate :: proc() {
-    context.allocator = block_system_alloc
-
     block_system = new(BlockSystem)
+    block_system.blocks = make([dynamic]Block, 0, 500_000)
 }
 
 block_system_assign :: proc(buyable: Buyable, blocks_to_assign: BlocksSize) {
@@ -78,6 +78,7 @@ query_blocks_indices_from_buyable :: proc(buyable: Buyable, query_amount: Blocks
             }
         }
     }
+    assert(query_curr_idx == query_amount, fmt.tprint(query_curr_idx, query_amount, buyable))
     return query
 }
 
@@ -147,21 +148,29 @@ block_system_assign_share :: proc(buyableA, buyableB: Buyable, blocks_to_share :
         query_a := query_blocks_indices_from_buyable(buyableA, blocks_to_share)
         query_b := query_blocks_indices_from_buyable(buyableB, blocks_to_share)
 
+        removal_list := make([dynamic]int, 0)
+        defer delete(removal_list)
         defer free_all(query_system_alloc)
         
         for relative_block_idx in 0..<blocks_to_share {
             query_block_a := &block_system.blocks[query_a[relative_block_idx]]
             query_block_b := &block_system.blocks[query_b[relative_block_idx]]
             defer {
-                unordered_remove(&block_system.blocks, query_a[relative_block_idx])
-                unordered_remove(&block_system.blocks, query_b[relative_block_idx])
+                // add to removal list
+                append(&removal_list, query_a[relative_block_idx])
+                append(&removal_list, query_b[relative_block_idx])
             }
             new_block : Block
 
-            for owner in query_block_a.owned_by do append(&new_block.owned_by, owner)
+            for owner in query_block_a.owned_by do if !buyable_in_list(new_block.owned_by, owner) do append(&new_block.owned_by, owner)
             for owner in query_block_b.owned_by do if !buyable_in_list(new_block.owned_by, owner) do append(&new_block.owned_by, owner)
             append(&block_system.blocks, new_block)
         }          
+        sort.quick_sort(removal_list[:])
+        #reverse for idx_to_remove in removal_list {
+            delete(block_system.blocks[idx_to_remove].owned_by)
+            unordered_remove(&block_system.blocks, idx_to_remove)
+        }
     }
     // print_buyable_blocks_by_query(buyableA)
     // print_buyable_blocks_by_query(buyableB)

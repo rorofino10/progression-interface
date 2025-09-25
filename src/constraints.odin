@@ -104,7 +104,6 @@ handle_drag :: proc(drag: TDrag) {
 	for level in drag.differential..=MAX_SKILL_LEVEL {
 		skillA, skillB := LeveledSkill{drag.skillA, LEVEL(level)}, LeveledSkill{drag.skillB, LEVEL(level)-drag.differential}
 		
-		fmt.println(skillA, skillB)
 		handle_contains(TContains{skillA, skillB})
 	}
 }

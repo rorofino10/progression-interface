@@ -93,6 +93,13 @@ load_db :: proc() {
 	// Overlap(.Melee, .Athletics, 100)
 	// CloseSkills(.Melee, .Athletics)
 	ListOf(
+		CloseSkills, {
+		{.Melee, .Athletics},
+		{.Ranged, .Finesse},
+		{.Influence, .Acting},
+		}
+	)
+	ListOf(
 		DistantSkills, {
 		{.Influence, .Composure},
 		{.Acting, .Composure},
@@ -107,6 +114,31 @@ load_db :: proc() {
 		{.Survival, .Perception},
 		{.Survival, .Construction},
 	})
+	ListOf(
+		CloseDerivativeSkills, {
+		{.Computers, .Logic},
+		{.Medicine, .Logic},
+		{.Thievery, .Finesse},
+		{.Construction, .Athletics},
+		{.Engineering, .Logic},
+		{.Geology, .Logic},
+		{.Physics, .Logic},
+		{.Piloting, .Finesse},
+		{.Influence, .Language},
+		{.Arts, .Acting},
+		}
+	)
+	ListOf(
+		DistantDerivativeSkills,{
+		{.Sorcery, .Arcana},
+		{.Arcana, .Logic},
+		{.Engineering, .Physics},
+		{.Biology, .Chemistry},
+		{.Chemistry, .Physics},
+		{.Geology, .Physics},
+		{.Arts, .Language},
+		}
+	)
 	// Contains(SKILL.Melee, 1, PERK.Trip)
 	// Contains(PERK.Trip, SKILL.Melee, 1)
 	// Share(SKILL.Melee, 1, PERK.Trip, 50)
@@ -128,21 +160,21 @@ load_db :: proc() {
 }
 
 CloseSkills :: proc(A, B: SKILL) {
-	Contains(A, 4, B, 1)
-	Contains(B, 4, A, 1)
-	Overlap(A, B, 60)
+	// Contains(A, 4, B, 1)
+	// Contains(B, 4, A, 1)
+	// Overlap(A, B, 60)
 }
 
 DistantSkills :: proc(A, B: SKILL) {
-	Overlap(A, B, 40)
+	// Overlap(A, B, 40)
 }
 
 CloseDerivativeSkills :: proc(A, B: SKILL) {
 	Drags(A, B, 5)
-	Overlap(A, B, 20)
+	// Overlap(A, B, 20)
 }
 
 DistantDerivativeSkills :: proc(A, B: SKILL) {
-	Drags(A, B, 8)
-	Overlap(A, B, 20)
+	// Drags(A, B, 8)
+	// Overlap(A, B, 20)
 }

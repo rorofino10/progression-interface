@@ -10,7 +10,7 @@ LEVEL :: distinct u32
 STRENGTH :: distinct u8
 
 // CONSTANT
-MAX_SKILL_LEVEL :: 5
+MAX_SKILL_LEVEL :: 50
 MAX_UNIT_LEVEL :: 100
 MAIN_SKILLS_AMOUNT :: 6
 // Artificial list size limits
@@ -356,6 +356,7 @@ create_buyables :: proc() {
 	for buyable, buyable_data in DB.buyable_data {
 		block_system_assign(buyable, buyable_data.assigned_blocks_amount)
 	}
+	fmt.println("Amount of blocks:", len(block_system.blocks))
 	
 	handle_constraints()
 

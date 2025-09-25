@@ -408,6 +408,11 @@ run :: proc() -> Error {
 	return nil
 }
 
+test :: proc() -> Error {
+	// fmt.println(merge_sorted_slices({1,7,9}, {2,5,8,10, 24}))
+	return nil
+}
+
 main :: proc() {
 	when ODIN_DEBUG {
 		track: mem.Tracking_Allocator

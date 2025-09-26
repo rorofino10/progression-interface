@@ -75,10 +75,8 @@ BuyError :: enum {
 	None,
 	CapReached,
 	NotEnoughPoints,
-	MissingRequiredSkills,
-	MissingRequiredPerks,
-	MissingRequiredUnitLevel,
-	AlreadyHasSkill,
+	UnmetRequirements,
+	AlreadyHasBuyable,
 }
 
 RefundError :: enum {

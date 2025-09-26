@@ -51,7 +51,7 @@ init_query_system_alloc :: proc() -> Error {
 
 block_system_allocate :: proc() {
     block_system = new(BlockSystem)
-    block_system.blocks = make([dynamic]Block, 0, 500_000)
+    block_system.blocks = make([dynamic]Block, 0, 1_000_000)
 }
 
 block_system_assign :: proc(buyable: Buyable, blocks_to_assign: BlocksSize) {
@@ -149,6 +149,7 @@ _contains :: proc(list: []$T, value: T) -> bool {
 }
 
 block_system_assign_share :: proc(buyableA, buyableB: Buyable, blocks_to_share : BlocksSize) {
+    fmt.println("Handling Share", buyableA, buyableB, blocks_to_share)
    
     {// Create a new Shared Group
         query_a := query_blocks_indices_from_buyable(buyableA, blocks_to_share)
@@ -161,25 +162,23 @@ block_system_assign_share :: proc(buyableA, buyableB: Buyable, blocks_to_share :
         for relative_block_idx in 0..<blocks_to_share {
             query_block_a := &block_system.blocks[query_a[relative_block_idx]]
             query_block_b := &block_system.blocks[query_b[relative_block_idx]]
-            defer {
-                // add to removal list
-                append(&removal_list, query_a[relative_block_idx])
-                append(&removal_list, query_b[relative_block_idx])
-            }
+
+            // add to removal list
+            append(&removal_list, query_a[relative_block_idx])
+            append(&removal_list, query_b[relative_block_idx])
             new_block : Block
 
             for owner in query_block_a.owned_by do if _should_add_to_owned(new_block.owned_by, owner) do append(&new_block.owned_by, owner)
             for owner in query_block_b.owned_by do if _should_add_to_owned(new_block.owned_by, owner) do append(&new_block.owned_by, owner)
             append(&block_system.blocks, new_block)
         }          
-        sort.quick_sort(removal_list[:])
-        #reverse for idx_to_remove in removal_list {
+        // sort.merge_sort(removal_list[:])
+        for idx_to_remove in removal_list {
             delete(block_system.blocks[idx_to_remove].owned_by)
-            ordered_remove(&block_system.blocks, idx_to_remove)
+            // unordered_remove(&block_system.blocks, idx_to_remove)
+            block_system.blocks[idx_to_remove].owned_by = nil
         }
     }
-    // print_buyable_blocks_by_query(buyableA)
-    // print_buyable_blocks_by_query(buyableB)
 }
 
 block_system_assign_contains :: proc(buyableA, buyableB: Buyable, blocks_supposed_to_share: BlocksSize){
@@ -205,24 +204,21 @@ block_system_assign_contains :: proc(buyableA, buyableB: Buyable, blocks_suppose
         for relative_block_idx in 0..<blocks_to_share {
             query_block_a := &block_system.blocks[query_a[relative_block_idx]]
             query_block_b := &block_system.blocks[query_b[relative_block_idx]]
-            // fmt.println(query_block_a)
-            // fmt.println(query_block_b)
-            defer {
-                // add to removal list
-                append(&removal_list, query_a[relative_block_idx])
-                append(&removal_list, query_b[relative_block_idx])
-            }
+
+            // add to removal list
+            append(&removal_list, query_a[relative_block_idx])
+            append(&removal_list, query_b[relative_block_idx])
             new_block : Block
 
             for owner in query_block_a.owned_by do if _should_add_to_owned(new_block.owned_by, owner) do append(&new_block.owned_by, owner)
             for owner in query_block_b.owned_by do if _should_add_to_owned(new_block.owned_by, owner) do append(&new_block.owned_by, owner)
             append(&block_system.blocks, new_block)
         }          
-        sort.quick_sort(removal_list[:])
-        #reverse for idx_to_remove in removal_list {
-            // block_system.blocks[idx_to_remove].owned_by = nil
+        // sort.merge_sort(removal_list[:])
+        for idx_to_remove in removal_list {
             delete(block_system.blocks[idx_to_remove].owned_by)
-            ordered_remove(&block_system.blocks, idx_to_remove)
+            // ordered_remove(&block_system.blocks, idx_to_remove)
+            block_system.blocks[idx_to_remove].owned_by = nil
         }
     }
 }

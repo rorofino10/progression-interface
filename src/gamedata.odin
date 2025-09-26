@@ -12,7 +12,7 @@ skill_slot_name := [MAIN_SKILLS_AMOUNT]string{"Primary 1", "Primary 2", "Major 1
 
 PerkID :: PERK
 
-PERK :: enum u8 {
+PERK :: enum {
 	Flurry,
 	PerfectFlurry,
 	Deadeye,
@@ -26,11 +26,53 @@ PERK :: enum u8 {
 	ReignOfTerror,
 	Whirlwind,
 	ImmortalKing,
+	//
+	QuickAttack,
+	Sweep,
+	Skewer,
+	Brutalize,
+	Slam,
+	Setup,
+	Disarm,
+	Hobble,
+	FightMeCoward,
+	HeyListen,	
+	//
+	CoveringFire,
+	Overwatch,
+	Killzone,
+	Bully,
+	Taunt,
+	Feint,
+	Direct,
+	Aim,
+	Predictable,
+	GetItTogether,
+	ZeroIn,
+	Everyone,
+	PerfectlyClear,
+	GrandStrategy,
+	IllTakeYouAllOn,
+	YouDontHaveToDieHere,	
+	//
+	KnifeMaster,
+	Swordmaster,
+	StaffMaster,
+	SpearMaster,
+	Axeman,
+	Hammerer,
+	MasterOfMartialArts,
+	Slinger,
+	Archer,
+	Pistoleer,
+	Marksman,
+	HeavyWeaponsGuy,
+	Beamer,
 }
 
 SkillID :: SKILL
 
-SKILL :: enum u8 {
+SKILL :: enum {
 	// Physical
 	Athletics,
 	Finesse,
@@ -91,7 +133,7 @@ load_db :: proc() {
 
 	BuildSkills(proc(i: BlocksSize) -> BlocksSize{return 100+10*i})
 
-	// Perk(.Flurry, {{.Melee, 9}, {.Ranged, 9}, {.Finesse, 4}}, {}, 50)
+	Perk(.Flurry, {{.Melee, 9}, {.Ranged, 9}, {.Finesse, 4}}, {}, 50)
 	// Share(PERK.Flurry, SKILL.Finesse, 9, 50)
 	// Perk(.Trip, 50, {}, {{.Melee, 1}})
 	// Perk(.Aim, 50, {}, {{.Melee, 1}})
@@ -111,7 +153,7 @@ load_db :: proc() {
 	ListOf(
 		DistantSkills, {
 		{.Influence, .Composure},
-		{.Acting, .Composure},
+		// {.Acting, .Composure},
 		{.Endurance, .Composure},
 		{.Endurance, .Athletics},
 		{.Athletics, .Finesse},
@@ -148,6 +190,24 @@ load_db :: proc() {
 		// {.Arts, .Language},
 		}
 	)
+	Perk(.Flurry,	{{.Melee, 9}, {.Ranged,9}, {.Finesse, 4}}, {},	50)
+	Perk(.PerfectFlurry,	{{.Finesse, 15}}, {},		70)
+	Perk(.Deadeye,	{{.Melee, 9}, {.Ranged, 9}, {.Composure, 4}}, {.Aim}, 50)
+	Perk(.Headshot,	{{.Composure, 12}}, {}, 40)
+	Perk(.Bullseye,	{{.Composure, 15}}, {}, 40)
+	Perk(.SaturationFire,	{{.Ranged, 9}, {.Athletics, 4}}, {}, 50)
+	Perk(.MoreDakka,	{{.Ranged, 15}, {.Athletics, 10}}, {}, 70)
+	Perk(.GrandSlam,	{{.Athletics, 9}, {.Melee, 4}}, {}, 50)
+	Perk(.FullSwing,	{{.Athletics, 15}}, {}, 70)
+	Perk(.Guillotine,	{{.Melee, 9}}, {}, 50)
+	Perk(.ReignOfTerror,	{{.Melee, 15}}, {},	70)
+	Perk(.Whirlwind,	{{.Melee, 9}, {.Ranged, 9}}, {}, 50)
+	Perk(.ImmortalKing,	{{.Melee, 15}, {.Ranged, 15}}, {}, 70)
+
+	Share(SKILL.Finesse, 9, PERK.Flurry, 50)
+	Share(SKILL.Composure, 9, PERK.Deadeye, 50)
+	Share(SKILL.Athletics, 9, PERK.SaturationFire, 50)
+
 	// Contains(SKILL.Melee, 1, PERK.Trip)
 	// Contains(PERK.Trip, SKILL.Melee, 1)
 	// Share(SKILL.Melee, 1, PERK.Trip, 50)

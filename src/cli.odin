@@ -35,9 +35,9 @@ print_buyable_blocks :: proc(buyable: Buyable) {
         if block.bought do fmt.printf("\x1b[42m%d", len(block.owned_by))
         else do fmt.printf("\x1b[41m%d", len(block.owned_by))
     }
-    for block in assigned_blocks do fmt.println(block)
-
+    
     fmt.print("\x1b[0m\n")
+    // for block in assigned_blocks do fmt.println(block)
 }
 print_buyable_blocks_by_query :: proc(buyable: Buyable) {
     buyable_data := DB.buyable_data[buyable]

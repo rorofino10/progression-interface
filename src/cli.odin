@@ -31,19 +31,11 @@ print_buyable_blocks :: proc(buyable: Buyable) {
     fmt.print(buyable, ": ", sep="")
     fmt.print(f32(buyable_data.bought_blocks_amount)/f32(owned_block_amount)*100, "%", " ", sep="")
     fmt.print(buyable_data.bought_blocks_amount, "/", owned_block_amount, " ", sep="")
-    switch {
-        // Already Bought
-        case buyable_data.is_owned:
-            for block in assigned_blocks do fmt.printf("\x1b[44m%d\x1b[0m", len(block.owned_by))
-        // Free
-        case owned_block_amount == buyable_data.bought_blocks_amount:
-            for block in assigned_blocks do fmt.print("\x1b[43m%d\x1b[0m", len(block.owned_by))
-        case:
-            for block in assigned_blocks {
-                if block.bought do fmt.printf("\x1b[42m%d", len(block.owned_by))
-                else do fmt.printf("\x1b[41m%d", len(block.owned_by))
-            }
+    for block in assigned_blocks {
+        if block.bought do fmt.printf("\x1b[42m%d", len(block.owned_by))
+        else do fmt.printf("\x1b[41m%d", len(block.owned_by))
     }
+    for block in assigned_blocks do fmt.println(block)
 
     fmt.print("\x1b[0m\n")
 }

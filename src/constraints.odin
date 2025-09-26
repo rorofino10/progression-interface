@@ -97,11 +97,11 @@ handle_contains :: proc(contains: TContains){
 
 	if containee_blocks_to_own >= container_blocks_to_own do panic(fmt.tprintf("Invalid contains constraint", contains))
 
-	block_system_assign_share(contains.container, contains.containee, containee_blocks_to_own)
+	block_system_assign_contains(contains.container, contains.containee, containee_blocks_to_own)
 }
 
 handle_drag :: proc(drag: TDrag) {
-	for level in drag.differential..=MAX_SKILL_LEVEL {
+	for level in drag.differential+1..=MAX_SKILL_LEVEL {
 		skillA, skillB := LeveledSkill{drag.skillA, LEVEL(level)}, LeveledSkill{drag.skillB, LEVEL(level)-drag.differential}
 		
 		handle_contains(TContains{skillA, skillB})

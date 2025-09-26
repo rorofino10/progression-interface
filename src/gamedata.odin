@@ -5,6 +5,11 @@ WEAK :: 25
 NORMAL :: 50
 STRONG :: 75
 
+MAX_SKILL_LEVEL :: 10
+MAX_SKILL_REQS :: 10
+
+skill_slot_name := [MAIN_SKILLS_AMOUNT]string{"Primary 1", "Primary 2", "Major 1", "Major 2", "Major 3", "Major 4"}
+
 PerkID :: PERK
 
 PERK :: enum u8 {
@@ -30,16 +35,20 @@ SKILL :: enum u8 {
 	Athletics,
 	Finesse,
 	Endurance,
+
 	// Mental
 	Logic,
 	Composure,
 	Perception,
+
 	// Combat
 	Melee,
 	Ranged,
+
 	// Social
 	Influence,
 	Acting,
+
 	// Magic
 	Sorcery,
 	Astral,
@@ -80,7 +89,7 @@ load_db :: proc() {
 		}
 	)
 
-	BuildSkills()
+	BuildSkills(proc(i: BlocksSize) -> BlocksSize{return 100+10*i})
 
 	// Perk(.Flurry, {{.Melee, 9}, {.Ranged, 9}, {.Finesse, 4}}, {}, 50)
 	// Share(PERK.Flurry, SKILL.Finesse, 9, 50)
@@ -119,24 +128,24 @@ load_db :: proc() {
 		{.Computers, .Logic},
 		{.Medicine, .Logic},
 		{.Thievery, .Finesse},
-		{.Construction, .Athletics},
+		// {.Construction, .Athletics},
 		{.Engineering, .Logic},
 		{.Geology, .Logic},
-		{.Physics, .Logic},
+		// {.Physics, .Logic},
 		{.Piloting, .Finesse},
 		{.Influence, .Language},
-		{.Arts, .Acting},
+		// {.Arts, .Acting},
 		}
 	)
 	ListOf(
 		DistantDerivativeSkills,{
 		{.Sorcery, .Arcana},
 		{.Arcana, .Logic},
-		{.Engineering, .Physics},
+		// {.Engineering, .Physics},
 		{.Biology, .Chemistry},
 		{.Chemistry, .Physics},
 		{.Geology, .Physics},
-		{.Arts, .Language},
+		// {.Arts, .Language},
 		}
 	)
 	// Contains(SKILL.Melee, 1, PERK.Trip)
@@ -160,21 +169,21 @@ load_db :: proc() {
 }
 
 CloseSkills :: proc(A, B: SKILL) {
-	// Contains(A, 4, B, 1)
-	// Contains(B, 4, A, 1)
-	// Overlap(A, B, 60)
+	Contains(A, 4, B, 1)
+	Contains(B, 4, A, 1)
+	Overlap(A, B, 60)
 }
 
 DistantSkills :: proc(A, B: SKILL) {
-	// Overlap(A, B, 40)
+	Overlap(A, B, 40)
 }
 
 CloseDerivativeSkills :: proc(A, B: SKILL) {
 	Drags(A, B, 5)
-	// Overlap(A, B, 20)
+	Overlap(A, B, 20)
 }
 
 DistantDerivativeSkills :: proc(A, B: SKILL) {
-	// Drags(A, B, 8)
-	// Overlap(A, B, 20)
+	Drags(A, B, 8)
+	Overlap(A, B, 20)
 }

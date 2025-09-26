@@ -10,13 +10,9 @@ LEVEL :: distinct u32
 STRENGTH :: distinct u8
 
 // CONSTANT
-MAX_SKILL_LEVEL :: 50
 MAX_UNIT_LEVEL :: 100
 MAIN_SKILLS_AMOUNT :: 6
 // Artificial list size limits
-MAX_SKILL_REQS :: 10
-
-skill_slot_name := [MAIN_SKILLS_AMOUNT]string{"Primary 1", "Primary 2", "Major 1", "Major 2", "Major 3", "Major 4"}
 // skill_slot_name := [MAIN_SKILLS_AMOUNT]string{"Primary 1", "Primary 2", "Major 1"}
 
 DatabaseError :: enum {
@@ -192,8 +188,8 @@ ListOf :: proc(relationship: Relationship, list: [dynamic]SKILL_TUPLE) {
 	for tuple in list do relationship(tuple.a, tuple.b)
 }
 
-BuildSkills :: proc() {
-	for skill_id in SkillID do Skill(skill_id, proc(i: BlocksSize) -> BlocksSize{return 100+10*i})
+BuildSkills :: proc(blocks_proc: DefineBlockProc) {
+	for skill_id in SkillID do Skill(skill_id, blocks_proc)
 }
 
 _build_skill_default :: proc(skillID: SkillID, skill_data_arr: [MAX_SKILL_LEVEL]BlocksSize) {
@@ -338,7 +334,6 @@ create_buyables :: proc() {
 	for perk, perk_data in DB.perk_data {
    		DB.buyable_data[perk] = BuyableData {
 			assigned_blocks_amount = perk_data.blocks,
-			assigned_blocks = make([dynamic]^Block, 0)
         }				
 	}
 	

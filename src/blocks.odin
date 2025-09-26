@@ -244,7 +244,7 @@ _is_owned_by_reqs :: proc(block: Block, buyable: Buyable) -> bool {
                             if o.id == id && o.level > level do return true
                         case PerkID:
                             perk_data := DB.perk_data[o]
-                            if _contains(perk_data.skills_reqs[:], b) do return true
+                            // if _contains(perk_data.skills_reqs[:], b) do return true
                     }
                 }
         }
@@ -272,7 +272,7 @@ _is_owner_by_reqs :: proc(block: Block, buyable: Buyable) -> bool {
                             if o.id == id && o.level < level do return true
                         case PerkID:
                             perk_data := DB.perk_data[o]
-                            if _contains(perk_data.skills_reqs[:], b) do return true
+                            // if _contains(perk_data.skills_reqs[:], b) do return true
                     }
                 }
         }

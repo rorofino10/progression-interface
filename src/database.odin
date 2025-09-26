@@ -47,6 +47,13 @@ SkillData :: struct {
 
 Perks :: bit_set[PerkID]
 
+PerkData :: struct {
+	blocks:      BlocksSize,
+	prereqs:     Perks,
+	buyable_state: PerkBuyableState,
+	skills_reqs: [dynamic]SKILL_REQ_ENTRY,
+}
+
 PerkBuyableState :: enum {
 	UnmetRequirements,
 	Buyable,
@@ -54,12 +61,17 @@ PerkBuyableState :: enum {
 	Owned,
 }
 
-PerkData :: struct {
-	blocks:      BlocksSize,
-	prereqs:     Perks,
-	buyable_state: PerkBuyableState,
-	skills_reqs: [MAX_SKILL_REQS]LeveledSkill,
+Skill :: LeveledSkill
+
+OR :: SKILL_REQ_OR_GROUP
+
+SKILL_REQ_OR_GROUP :: [dynamic]LeveledSkill
+
+SKILL_REQ_ENTRY :: union {
+	LeveledSkill,
+	SKILL_REQ_OR_GROUP
 }
+
 
 
 void :: struct {}
@@ -186,6 +198,7 @@ ListOf :: proc(relationship: Relationship, list: [dynamic]SKILL_TUPLE) {
 	for tuple in list do relationship(tuple.a, tuple.b)
 }
 
+DefineBlockProc :: proc(blockIdx: BlocksSize) -> BlocksSize
 BuildSkills :: proc(blocks_proc: DefineBlockProc) {
 	for skill_id in SkillID do Skill(skill_id, blocks_proc)
 }
@@ -210,16 +223,10 @@ _build_skill_lambda :: proc(skillID: SkillID, blockProc: DefineBlockProc){
 	}
 	_build_skill_default(skillID, blocks_list)
 }
-Skill :: proc{_build_skill_default, _build_skill_lambda}
+// Skill :: proc{_build_skill_default, _build_skill_lambda}
 
-DefineBlockProc :: proc(blockIdx: BlocksSize) -> BlocksSize
-
-Perk :: proc(perkID: PerkID, skill_reqs: [dynamic]LeveledSkill, pre_reqs: Perks, blocks: BlocksSize) {
-	defer delete(skill_reqs)
-
-    assert(len(skill_reqs) <= MAX_SKILL_REQS)
-	perk_data := PerkData{ blocks = blocks, prereqs = pre_reqs }
-	for skill_req, idx in skill_reqs do perk_data.skills_reqs[idx] = skill_req
+Perk :: proc(perkID: PerkID, skill_reqs: [dynamic]SKILL_REQ_ENTRY, pre_reqs: Perks, blocks: BlocksSize) {
+	perk_data := PerkData{ blocks = blocks, prereqs = pre_reqs, skills_reqs = skill_reqs }
 	DB.perk_data[perkID] = perk_data
 }
 

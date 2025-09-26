@@ -49,14 +49,24 @@ recalc_perks_buyable_state :: proc() {
 		}
 
 		{ 	// check skills_reqs
-			has_reqs := false
-			fmt.println(perk_val.skills_reqs)
-			for skill_req in perk_val.skills_reqs {
-				if skill_req.level == 0 do break
-				if player_has_skill(skill_req) {
-					has_reqs = true
-					break
+			_skill_req_or_group_satisfied :: proc(or_group: SKILL_REQ_OR_GROUP) -> bool {
+				satisfied := false
+				for req in or_group {
+					if player_has_skill(req) {satisfied = true; break}
 				}
+				return satisfied
+			}
+			has_reqs := true
+			// fmt.println(perk_val.skills_reqs)
+			for skill_req in perk_val.skills_reqs {
+				if !has_reqs do break
+				switch req in skill_req {
+					case LeveledSkill:
+						if !player_has_skill(req) do has_reqs = false
+					case SKILL_REQ_OR_GROUP:
+						if !_skill_req_or_group_satisfied(req) do has_reqs = false
+				}
+
 			}
 			if !has_reqs { 
 				perk_val.buyable_state = .UnmetRequirements
@@ -214,10 +224,21 @@ reduce_skill :: proc(skill_id: SkillID) -> (u32, ReduceError) {
 	}
 
 	{ // Check if it is required in another owned buyable
+		_skill_in_or_group :: proc(skill: LeveledSkill, group: SKILL_REQ_OR_GROUP) -> bool {
+			for entry in group {
+				if entry == skill do return true
+			}
+			return false
+		}
 		for owned_perk in DB.owned_perks {
 			owned_perk_data := DB.perk_data[owned_perk]	
 			for skill_req in owned_perk_data.skills_reqs {
-				if skill == skill_req do return 0, .RequiredByAnotherBuyable
+				switch req in skill_req {
+					case LeveledSkill:
+						if skill == req do return 0, .RequiredByAnotherBuyable
+					case SKILL_REQ_OR_GROUP:
+						if _skill_in_or_group(skill, req) do return 0, .RequiredByAnotherBuyable
+				}
 			} 
 		}
 	}

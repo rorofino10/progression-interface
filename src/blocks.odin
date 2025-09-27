@@ -149,7 +149,7 @@ _contains :: proc(list: []$T, value: T) -> bool {
 }
 
 block_system_assign_share :: proc(buyableA, buyableB: Buyable, blocks_to_share : BlocksSize) {
-    fmt.println("Handling Share", buyableA, buyableB, blocks_to_share)
+    // fmt.println("Handling Share", buyableA, buyableB, blocks_to_share)
    
     {// Create a new Shared Group
         query_a := query_blocks_indices_from_buyable(buyableA, blocks_to_share)
@@ -182,7 +182,9 @@ block_system_assign_share :: proc(buyableA, buyableB: Buyable, blocks_to_share :
 }
 
 block_system_assign_contains :: proc(buyableA, buyableB: Buyable, blocks_supposed_to_share: BlocksSize){
-    fmt.println("Handling containts", buyableA, buyableB, blocks_supposed_to_share)
+    // fmt.println("Handling containts", buyableA, buyableB, blocks_supposed_to_share)
+    // print_buyable_blocks_by_query(buyableA)
+    // print_buyable_blocks_by_query(buyableB)
     query_b := query_blocks_indices_from_buyable(buyableB, blocks_supposed_to_share)
     
     blocks_to_share := blocks_supposed_to_share
@@ -191,7 +193,6 @@ block_system_assign_contains :: proc(buyableA, buyableB: Buyable, blocks_suppose
         if _is_owner_by_reqs(query_block_b, buyableA) do blocks_to_share -= 1
     }
     free_all(query_system_alloc)
-    
     // fmt.println(blocks_to_share, blocks_supposed_to_share)
     {// Create a new Shared Group
         query_a := query_blocks_indices_from_buyable_not_owned_by_reqs(buyableA, buyableB, blocks_to_share)

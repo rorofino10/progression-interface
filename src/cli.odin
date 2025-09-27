@@ -37,7 +37,7 @@ print_buyable_blocks :: proc(buyable: Buyable) {
     }
     
     fmt.print("\x1b[0m\n")
-    // for block in assigned_blocks do fmt.println(block)
+    for block in assigned_blocks do fmt.println(block)
 }
 print_buyable_blocks_by_query :: proc(buyable: Buyable) {
     buyable_data := DB.buyable_data[buyable]
@@ -61,8 +61,9 @@ print_buyable_blocks_by_query :: proc(buyable: Buyable) {
                 else do fmt.printf("\x1b[41m%d", len(block.owned_by))
             }
     }
-
+    
     fmt.print("\x1b[0m\n")
+    for block in assigned_blocks do fmt.println(block)
 }
 
 print_skill_progress :: proc(skillID: SkillID, level_cap: LEVEL) {

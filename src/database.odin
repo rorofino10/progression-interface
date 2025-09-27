@@ -200,7 +200,7 @@ ListOf :: proc(relationship: Relationship, list: [dynamic]SKILL_TUPLE) {
 
 DefineBlockProc :: proc(blockIdx: BlocksSize) -> BlocksSize
 BuildSkills :: proc(blocks_proc: DefineBlockProc) {
-	for skill_id in SkillID do Skill(skill_id, blocks_proc)
+	for skill_id in SkillID do _build_skill_lambda(skill_id, blocks_proc)
 }
 
 _build_skill_default :: proc(skillID: SkillID, skill_data_arr: [MAX_SKILL_LEVEL]BlocksSize) {

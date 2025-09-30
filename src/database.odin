@@ -149,6 +149,8 @@ DynBuyables :: [dynamic]Buyable
 
 BuyableData :: struct {
 	assigned_blocks_amount 	: BlocksSize,
+	blocks_left_to_assign	: BlocksSize,
+	blocks_to_be_assigned 	: BlocksSize,
 	assigned_blocks			: [dynamic]^Block,
 	bought_blocks_amount	: BlocksSize,
 	is_owned				: bool,
@@ -338,7 +340,8 @@ create_buyables :: proc() {
 	}
 	for perk, perk_data in DB.perk_data {
    		DB.buyable_data[perk] = BuyableData {
-			assigned_blocks_amount = perk_data.blocks,
+			blocks_left_to_assign = perk_data.blocks,
+			blocks_to_be_assigned = perk_data.blocks
         }				
 	}
 	
@@ -347,18 +350,23 @@ create_buyables :: proc() {
 			level := level_indexed_from_0 + 1
 			skill := LeveledSkill{skill_id, LEVEL(level)}
 			DB.buyable_data[skill] = BuyableData {
-				assigned_blocks_amount = blocks_to_assign, 
+				blocks_left_to_assign = blocks_to_assign, 
+				blocks_to_be_assigned = blocks_to_assign
 			}			
 		}
 	}
 	
 	
+
+	handle_constraints()
+
 	for buyable, buyable_data in DB.buyable_data {
-		block_system_assign(buyable, buyable_data.assigned_blocks_amount)
+		fmt.println("Assigning", buyable_data.blocks_left_to_assign, buyable)
+		block_system_assign(buyable, buyable_data.blocks_left_to_assign)
+		fmt.println("Assigned", buyable_data.assigned_blocks_amount, buyable)
+
 	}
 	fmt.println("Amount of blocks:", len(block_system.blocks))
-	
-	handle_constraints()
 
 	assign_all_blocks_to_buyables()
 	

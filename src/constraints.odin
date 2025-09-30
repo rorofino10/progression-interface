@@ -71,8 +71,8 @@ Overlap :: proc(skillA, skillB : SkillID, strength: STRENGTH) {
 handle_share :: proc(share: TShare){
 	// fmt.println("Handling", share)
 	blocks_to_share : BlocksSize
-	buyable_a_blocks_to_own := DB.buyable_data[share.buyableA].assigned_blocks_amount
-	buyable_b_blocks_to_own := DB.buyable_data[share.buyableB].assigned_blocks_amount
+	buyable_a_blocks_to_own := DB.buyable_data[share.buyableA].blocks_to_be_assigned
+	buyable_b_blocks_to_own := DB.buyable_data[share.buyableB].blocks_to_be_assigned
 
 	if share.fudged {
 		blocks_to_share = BlocksSize(2 * (f64(share.strength) / 100) * f64(buyable_a_blocks_to_own*buyable_b_blocks_to_own) / f64(buyable_a_blocks_to_own+buyable_b_blocks_to_own))
@@ -93,12 +93,12 @@ handle_share :: proc(share: TShare){
 
 handle_contains :: proc(contains: TContains){
 	// fmt.println("Handling", share)
-	container_blocks_to_own := DB.buyable_data[contains.container].assigned_blocks_amount
-	containee_blocks_to_own := DB.buyable_data[contains.containee].assigned_blocks_amount
+	container_blocks_to_own := DB.buyable_data[contains.container].blocks_to_be_assigned
+	containee_blocks_to_own := DB.buyable_data[contains.containee].blocks_to_be_assigned
 
 	if containee_blocks_to_own >= container_blocks_to_own do panic(fmt.tprintf("Invalid contains constraint", contains))
 
-	block_system_assign_contains(contains.container, contains.containee, containee_blocks_to_own)
+	block_system_assign_contains(contains.container, contains.containee)
 }
 
 handle_drag :: proc(drag: TDrag) {

@@ -60,6 +60,8 @@ block_system_assign :: proc(buyable: Buyable, blocks_to_assign: BlocksSize) {
 
     for block_idx in 0..<blocks_to_assign {
         new_block := Block{owned_by={buyable}}
+        b_data.blocks_left_to_assign -= 1
+        b_data.assigned_blocks_amount += 1
         append(&block_system.blocks, new_block)
     }
 }
@@ -97,6 +99,16 @@ query_blocks_indices_from_buyable_not_owned_by_reqs :: proc(buyable, owner: Buya
     }
     assert(u32(len(query)) == query_amount, fmt.tprint(len(query), query_amount, buyable))
     return query[:]
+}
+
+query__all_blocks_indices_from_buyable_not_owner_by_reqs :: proc(buyable, owner: Buyable) -> BlocksIndexQuery {
+    context.allocator = query_system_alloc
+    query := make([dynamic]int, 0)
+    for &block, block_idx in block_system.blocks {
+        if _is_owned_by_reqs(block, owner) do continue
+        if _contains(block.owned_by[:], buyable) do append(&query, block_idx)
+    }
+    return query[:]    
 }
 
 query_all_blocks_indices_from_buyable :: proc(buyable: Buyable) -> BlocksIndexQuery {
@@ -150,59 +162,50 @@ _contains :: proc(list: []$T, value: T) -> bool {
 
 block_system_assign_share :: proc(buyableA, buyableB: Buyable, blocks_to_share : BlocksSize) {
     // fmt.println("Handling Share", buyableA, buyableB, blocks_to_share)
-   
-    {// Create a new Shared Group
-        query_a := query_blocks_indices_from_buyable(buyableA, blocks_to_share)
-        query_b := query_blocks_indices_from_buyable(buyableB, blocks_to_share)
+    b_data_a := &DB.buyable_data[buyableA]
+    b_data_b := &DB.buyable_data[buyableB]
+
+    {   // Query Blocks of A, assign them B.
+        blocks_of_a_to_be_shared_amount := min(b_data_a.assigned_blocks_amount, blocks_to_share)
+        query_a := query_blocks_indices_from_buyable(buyableA, blocks_of_a_to_be_shared_amount)
         defer free_all(query_system_alloc)
 
-        removal_list := make([dynamic]int, 0)
-        defer delete(removal_list)
-        
-        for relative_block_idx in 0..<blocks_to_share {
-            query_block_a := &block_system.blocks[query_a[relative_block_idx]]
-            query_block_b := &block_system.blocks[query_b[relative_block_idx]]
-
-            // add to removal list
-            append(&removal_list, query_a[relative_block_idx])
-            append(&removal_list, query_b[relative_block_idx])
+        for assigned_block_of_a_idx in query_a {
+            query_block_a := &block_system.blocks[assigned_block_of_a_idx]
+         
+            if _should_add_to_owned(query_block_a.owned_by, buyableB) {
+                append(&query_block_a.owned_by, buyableB)
+                b_data_b.blocks_left_to_assign -= 1
+                b_data_b.assigned_blocks_amount += 1
+            }
+        }
+        left_over_blocks_to_share : BlocksSize = 0
+        if blocks_to_share > b_data_a.assigned_blocks_amount do left_over_blocks_to_share = blocks_to_share - b_data_a.assigned_blocks_amount
+        for relative_block_idx in 0..<left_over_blocks_to_share {
             new_block : Block
 
-            for owner in query_block_a.owned_by do if _should_add_to_owned(new_block.owned_by, owner) do append(&new_block.owned_by, owner)
-            for owner in query_block_b.owned_by do if _should_add_to_owned(new_block.owned_by, owner) do append(&new_block.owned_by, owner)
+            append(&new_block.owned_by, buyableA)
+            append(&new_block.owned_by, buyableB)
+            b_data_b.blocks_left_to_assign -= 1
+            b_data_b.assigned_blocks_amount += 1
+            b_data_a.blocks_left_to_assign -= 1
+            b_data_a.assigned_blocks_amount += 1
             append(&block_system.blocks, new_block)
         }          
-        // sort.merge_sort(removal_list[:])
-        for idx_to_remove in removal_list {
-            delete(block_system.blocks[idx_to_remove].owned_by)
-            // unordered_remove(&block_system.blocks, idx_to_remove)
-            block_system.blocks[idx_to_remove].owned_by = nil
-        }
     }
 }
 
-block_system_assign_contains :: proc(buyableA, buyableB: Buyable, blocks_supposed_to_share: BlocksSize){
-    // fmt.println("Handling containts", buyableA, buyableB, blocks_supposed_to_share)
-    // print_buyable_blocks_by_query(buyableA)
-    // print_buyable_blocks_by_query(buyableB)
-    query_b := query_blocks_indices_from_buyable(buyableB, blocks_supposed_to_share)
-    
-    blocks_to_share := blocks_supposed_to_share
-    for relative_block_idx in 0..<blocks_supposed_to_share {
-        query_block_b := block_system.blocks[query_b[relative_block_idx]]
-        if _is_owner_by_reqs(query_block_b, buyableA) do blocks_to_share -= 1
-    }
-    free_all(query_system_alloc)
-    // fmt.println(blocks_to_share, blocks_supposed_to_share)
-    {// Create a new Shared Group
-        query_a := query_blocks_indices_from_buyable_not_owned_by_reqs(buyableA, buyableB, blocks_to_share)
-        query_b := query_blocks_indices_from_buyable_not_owner_by_reqs(buyableB, buyableA, blocks_to_share)
+block_system_assign_contains :: proc(buyableA, buyableB: Buyable){
+    {//
+        query_b := query__all_blocks_indices_from_buyable_not_owner_by_reqs(buyableB, buyableA)
+        blocks_to_contain := BlocksSize(len(query_b))
+        query_a := query_blocks_indices_from_buyable_not_owned_by_reqs(buyableA, buyableB, blocks_to_contain)
         defer free_all(query_system_alloc)
 
         removal_list := make([dynamic]int, 0)
         defer delete(removal_list)
         
-        for relative_block_idx in 0..<blocks_to_share {
+        for relative_block_idx in 0..<blocks_to_contain {
             query_block_a := &block_system.blocks[query_a[relative_block_idx]]
             query_block_b := &block_system.blocks[query_b[relative_block_idx]]
 
@@ -226,26 +229,33 @@ block_system_assign_contains :: proc(buyableA, buyableB: Buyable, blocks_suppose
 
 _is_owned_by_reqs :: proc(block: Block, buyable: Buyable) -> bool {
     { // Check if a req is already owned
-        // if _contains(block.owned_by[:], buyable) do return true
         switch b in buyable {
             case PerkID:
+                b_perk_data := DB.perk_data[b]
                 for owner in block.owned_by {
                     #partial switch o in owner {
                         case PerkID:
-                            perk_data := DB.perk_data[o]
-                            if b in perk_data.prereqs do return true
+                            if o in b_perk_data.prereqs do return true
+                        case LeveledSkill:
+                            for req_entry in b_perk_data.skills_reqs {
+                                switch r_entry in req_entry {
+                                    case LeveledSkill:
+                                        if r_entry == buyable do return true
+                                    case SKILL_REQ_OR_GROUP:
+                                        for req_in_or_group in r_entry {
+                                            if req_in_or_group == buyable do return true
+                                        }
+                                }
+                            }
                     }
                 }
             case LeveledSkill:
                 id := b.id
                 level := b.level
                 for owner in block.owned_by {
-                    switch o in owner {
+                    #partial switch o in owner {
                         case LeveledSkill:
                             if o.id == id && o.level > level do return true
-                        case PerkID:
-                            perk_data := DB.perk_data[o]
-                            // if _contains(perk_data.skills_reqs[:], b) do return true
                     }
                 }
         }
@@ -268,12 +278,9 @@ _is_owner_by_reqs :: proc(block: Block, buyable: Buyable) -> bool {
                 id := b.id
                 level := b.level
                 for owner in block.owned_by {
-                    switch o in owner {
+                    #partial switch o in owner {
                         case LeveledSkill:
                             if o.id == id && o.level < level do return true
-                        case PerkID:
-                            perk_data := DB.perk_data[o]
-                            // if _contains(perk_data.skills_reqs[:], b) do return true
                     }
                 }
         }

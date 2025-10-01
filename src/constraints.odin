@@ -98,7 +98,7 @@ handle_contains :: proc(contains: TContains){
 
 	if containee_blocks_to_own >= container_blocks_to_own do panic(fmt.tprintf("Invalid contains constraint", contains))
 
-	block_system_assign_contains(contains.container, contains.containee, containee_blocks_to_own)
+	block_system_assign_contains(contains.container, contains.containee)
 }
 
 handle_drag :: proc(drag: TDrag) {
@@ -110,6 +110,8 @@ handle_drag :: proc(drag: TDrag) {
 }
 
 handle_overlap :: proc(overlap: TOverlap) {
+	fmt.println("Handling", overlap)
+
 	for level in 1..=MAX_SKILL_LEVEL {
 		skillA, skillB := LeveledSkill{overlap.skillA, LEVEL(level)}, LeveledSkill{overlap.skillB, LEVEL(level)}
 		

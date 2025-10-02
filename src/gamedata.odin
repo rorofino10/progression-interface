@@ -5,7 +5,7 @@ WEAK :: 25
 NORMAL :: 50
 STRONG :: 75
 
-MAX_SKILL_LEVEL :: 10
+MAX_SKILL_LEVEL :: 5
 MAX_SKILL_REQS :: 10
 
 skill_slot_name := [MAIN_SKILLS_AMOUNT]string{"Primary 1", "Primary 2", "Major 1", "Major 2", "Major 3", "Major 4"}
@@ -135,7 +135,11 @@ load_db :: proc() {
 
 	BuildSkills(proc(i: BlocksSize) -> BlocksSize{return 10*i})
 
-	
+	// ListOf(
+	// 	TestRelation, {
+	// 		{.Melee, .Athletics}
+	// 	}
+	// )
 	ListOf(
 		CloseSkills, {
 		// {.Melee, .Athletics},
@@ -147,7 +151,7 @@ load_db :: proc() {
 		DistantSkills, {
 		{.Influence, .Composure},
 		{.Acting, .Composure},
-		// {.Endurance, .Composure},
+		{.Endurance, .Composure},
 		// {.Endurance, .Athletics},
 		// {.Athletics, .Finesse},
 		// {.Logic, .Perception},
@@ -215,9 +219,15 @@ load_db :: proc() {
 
 }
 
+TestRelation :: proc(A, B: SKILL) {
+	Contains(A, 4, B, 1)
+	Contains(B, 4, A, 1)
+	Overlap(A, B, 60)
+}
+
 CloseSkills :: proc(A, B: SKILL) {
-	// Contains(A, 4, B, 1)
-	// Contains(B, 4, A, 1)
+	Contains(A, 4, B, 1)
+	Contains(B, 4, A, 1)
 	Overlap(A, B, 60)
 }
 

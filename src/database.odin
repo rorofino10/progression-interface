@@ -360,13 +360,9 @@ create_buyables :: proc() {
 
 	handle_constraints()
 
-	for buyable, buyable_data in DB.buyable_data {
-		fmt.println("Assigning", buyable_data.blocks_left_to_assign, buyable)
-		block_system_assign(buyable, buyable_data.blocks_left_to_assign)
-		fmt.println("Assigned", buyable_data.assigned_blocks_amount, buyable)
-
+	for buyable, &buyable_data in DB.buyable_data {
+		block_system_assign_leftover(buyable)
 	}
-	fmt.println("Amount of blocks:", len(block_system.blocks))
 
 	assign_all_blocks_to_buyables()
 	

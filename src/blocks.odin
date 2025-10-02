@@ -65,35 +65,45 @@ query_blocks_indices_from_buyable :: proc(buyable: Buyable, query_amount: Blocks
     assert(u32(len(query)) == query_amount, fmt.tprint(len(query), query_amount, buyable))
     return query[:]
 }
-query_blocks_from_buyable_that_arent_already_owned_by :: proc(buyableA, buyableB: Buyable, query_amount: BlocksSize) -> BlocksIndexQuery {
+query_blocks_from_buyable_that_dont_require_buyable :: proc(buyableA, buyableB: Buyable, query_amount: BlocksSize) -> BlocksIndexQuery {
     context.allocator = query_system_alloc
     query := make([dynamic]int, 0, query_amount)
     for &block, block_idx in block_system.blocks {
         if u32(len(query)) == query_amount do break
 
-        if _contains(block.owned_by[:], buyableA) && _buyable_already_owns_block(block, buyableB) do append(&query, block_idx)
+        if _contains(block.owned_by[:], buyableA) && _block_requires_buyable(block, buyableB) do append(&query, block_idx)
     }
     assert(u32(len(query)) == query_amount, fmt.tprint(len(query), query_amount, buyableA))
     return query[:]
 }
-query_blocks_indices_from_buyable_that_dont_own :: proc(buyableA, buyableB: Buyable, query_amount: BlocksSize) -> BlocksIndexQuery {
+query_blocks_indices_from_buyable_that_buyable_doesnt_require :: proc(buyableA, buyableB: Buyable, query_amount: BlocksSize) -> BlocksIndexQuery {
     context.allocator = query_system_alloc
     query := make([dynamic]int, 0, query_amount)
     for &block, block_idx in block_system.blocks {
         if u32(len(query)) == query_amount do break
 
-        if _contains(block.owned_by[:], buyableA) && !_block_owns_buyable(block, buyableB) do append(&query, block_idx)
+        if _contains(block.owned_by[:], buyableA) && !_buyable_requires_block(block, buyableB) do append(&query, block_idx)
+    }
+    assert(u32(len(query)) == query_amount, fmt.tprint(len(query), query_amount, buyableA))
+    return query[:]
+}
+query_blocks_indices_from_buyable_not_assigned_to_buyable :: proc(buyableA, buyableB: Buyable, query_amount: BlocksSize) -> BlocksIndexQuery {
+    context.allocator = query_system_alloc
+    query := make([dynamic]int, 0, query_amount)
+    for &block, block_idx in block_system.blocks {
+        if u32(len(query)) == query_amount do break
+
+        if _contains(block.owned_by[:], buyableA) && !_contains(block.owned_by[:], buyableB) do append(&query, block_idx)
     }
     assert(u32(len(query)) == query_amount, fmt.tprint(len(query), query_amount, buyableA))
     return query[:]
 }
 
-query_all_blocks_from_buyable_that_arent_already_owned_by :: proc(buyable, owner: Buyable) -> BlocksIndexQuery {
+query_all_blocks_indices_from_buyable_that_buyable_doesnt_require :: proc(buyable, owner: Buyable) -> BlocksIndexQuery {
     context.allocator = query_system_alloc
     query := make([dynamic]int, 0)
     for &block, block_idx in block_system.blocks {
-        if _block_owns_buyable(block, owner) do continue
-        if _contains(block.owned_by[:], buyable) do append(&query, block_idx)
+        if _contains(block.owned_by[:], buyable) && !_buyable_requires_block(block, owner) do append(&query, block_idx)
     }
     return query[:]    
 }
@@ -141,13 +151,6 @@ query_all_blocks_from_buyable :: proc(buyable: Buyable) -> BlocksQuery {
     return query[:]
 }
 
-
-_contains :: proc(list: []$T, value: T) -> bool {
-    for elem in list do if elem == value do return true
-    return false
-}
-
-
 block_system_assign_leftover :: proc(buyable: Buyable) {
 
     buyable_data := &DB.buyable_data[buyable]
@@ -163,6 +166,18 @@ block_system_assign_leftover :: proc(buyable: Buyable) {
 
 }
 
+_create_new_block_with_owners :: proc(buyables: ..Buyable) {
+    new_block : Block
+    for buyable in buyables {
+        _assert_buyable_wont_clash_in_block(&new_block, buyable)
+        buyable_data := &DB.buyable_data[buyable]
+        buyable_data.blocks_left_to_assign -= 1
+        buyable_data.assigned_blocks_amount += 1
+        append(&new_block.owned_by, buyable)
+    }
+    append(&block_system.blocks, new_block)
+}
+
 _add_buyables_as_owner_of_block :: proc(block: ^Block, buyables: ..Buyable) {
     for buyable in buyables {
         _assert_buyable_wont_clash_in_block(block, buyable)
@@ -173,12 +188,33 @@ _add_buyables_as_owner_of_block :: proc(block: ^Block, buyables: ..Buyable) {
     }
 }
 
-block_system_assign_share :: proc(buyableA, buyableB: Buyable, blocks_to_share : BlocksSize) {
-    // fmt.println("Handling Share", buyableA, buyableB, blocks_to_share)
+_assign_share_minimizing_overlap :: proc(buyableA, buyableB: Buyable, blocks_to_share: BlocksSize) {
+    b_data_a := &DB.buyable_data[buyableA]
+    b_data_b := &DB.buyable_data[buyableB]
+    already_shared_blocks_amount : BlocksSize
+    {   // Calc already_shared_blocks_amount
+        query_b := query_all_blocks_indices_from_buyable(buyableB)
+        defer free_all(query_system_alloc)
+        for assigned_block_idx in query_b {
+            queried_block := block_system.blocks[assigned_block_idx]
+            if _contains(queried_block.owned_by[:], buyableA) do already_shared_blocks_amount += 1
+        }
+    }
+    amount_of_blocks_left_to_share := blocks_to_share - already_shared_blocks_amount
+    {   // Try to create the maximum amount of new blocks
+        max_amount_of_blocks_to_create := min(amount_of_blocks_left_to_share, b_data_a.blocks_left_to_assign, b_data_b.blocks_left_to_assign)
+        for _ in 0..<max_amount_of_blocks_to_create {
+            _create_new_block_with_owners(buyableA, buyableB)
+            amount_of_blocks_left_to_share -= 1
+        }
+    }
+    if amount_of_blocks_left_to_share > 0 do panic(fmt.tprintln("No blocks left", amount_of_blocks_left_to_share, blocks_to_share))
+}
+_assign_share_maximizing_overlap :: proc(buyableA, buyableB: Buyable, blocks_to_share: BlocksSize) {
     b_data_a := &DB.buyable_data[buyableA]
     b_data_b := &DB.buyable_data[buyableB]
 
-    {   // Query Blocks of A, assign them B.
+    {   // Query Blocks of A, assign them to B.
         blocks_of_a_to_be_shared_amount := min(b_data_a.assigned_blocks_amount, blocks_to_share)
         query_a := query_blocks_indices_from_buyable(buyableA, blocks_of_a_to_be_shared_amount)
         defer free_all(query_system_alloc)
@@ -193,22 +229,35 @@ block_system_assign_share :: proc(buyableA, buyableB: Buyable, blocks_to_share :
     {   // Create new blocks for both
         left_over_blocks_to_share : BlocksSize = 0
         if blocks_to_share > b_data_a.assigned_blocks_amount do left_over_blocks_to_share = blocks_to_share - b_data_a.assigned_blocks_amount
-        for relative_block_idx in 0..<left_over_blocks_to_share {
-            new_block : Block
-
-            _add_buyables_as_owner_of_block(&new_block, buyableA, buyableB)
-            append(&block_system.blocks, new_block)
-        }          
+        for _ in 0..<left_over_blocks_to_share do _create_new_block_with_owners(buyableA, buyableB)
     }
 }
 
+block_system_assign_share :: proc(first_buyable, second_buyable: Buyable, blocks_to_share : BlocksSize, strategy: ShareStrategy) {
+    
+    buyableA, buyableB : Buyable
+    {   // Assign correct ordering, first goes the most partially assigned buyable
+        data_from_first := &DB.buyable_data[first_buyable]
+        data_from_second := &DB.buyable_data[second_buyable]
+        if data_from_first.assigned_blocks_amount >= data_from_second.assigned_blocks_amount do buyableA, buyableB = first_buyable, second_buyable
+        else do buyableA, buyableB = second_buyable, first_buyable
+    }
+    switch strategy {
+        case .MinimizingOverlap:
+            _assign_share_minimizing_overlap(buyableA, buyableB, blocks_to_share)
+        case .MaximizingOverlap:
+            _assign_share_maximizing_overlap(buyableA, buyableB, blocks_to_share)
+    }
+
+}
+
 block_system_assign_contains :: proc(buyableA, buyableB: Buyable){
-    fmt.println("Handling", buyableA, "contains", buyableB)
+    // fmt.println("Handling", buyableA, "contains", buyableB)
     b_data_a := &DB.buyable_data[buyableA]
     b_data_b := &DB.buyable_data[buyableB]
     {   // Give already assigned blocks from B a block of A 
         // assignable_blocks_from_a := query_blocks_indices_from_buyable_that_dont_already_own(buyableA, buyableB)
-        partial_assignment_b := query_all_blocks_from_buyable_that_arent_already_owned_by(buyableB, buyableA)
+        partial_assignment_b := query_all_blocks_indices_from_buyable_that_buyable_doesnt_require(buyableB, buyableA)
         defer free_all(query_system_alloc)
         partial_assignment_b_amount := BlocksSize(len(partial_assignment_b))
         if b_data_a.blocks_left_to_assign < partial_assignment_b_amount do panic(fmt.tprintln("Not enough blocks to assign contains between", buyableA, "->", buyableB))
@@ -218,7 +267,6 @@ block_system_assign_contains :: proc(buyableA, buyableB: Buyable){
             // fmt.println("Partial assigning", block, buyableA)
             _add_buyables_as_owner_of_block(&block, buyableA)
         }
-        print_buyable_blocks_by_query(buyableA)
     }
     {   // Create new blocks for B that are to be owned by A, prioritizing new blocks of A
         new_blocks_to_assign, old_blocks_to_assign : BlocksSize
@@ -237,7 +285,7 @@ block_system_assign_contains :: proc(buyableA, buyableB: Buyable){
             append(&block_system.blocks, new_block)
         }
 
-        partial_assignment_a := query_blocks_indices_from_buyable_that_dont_own(buyableA, buyableB, old_blocks_to_assign)
+        partial_assignment_a := query_blocks_indices_from_buyable_that_buyable_doesnt_require(buyableA, buyableB, old_blocks_to_assign)
         defer free_all(query_system_alloc)
 
         for assigned_block_idx_of_a in partial_assignment_a {
@@ -247,7 +295,7 @@ block_system_assign_contains :: proc(buyableA, buyableB: Buyable){
     }
 }
 
-_block_owns_buyable :: proc(block: Block, buyable: Buyable) -> bool {
+_buyable_requires_block :: proc(block: Block, buyable: Buyable) -> bool {
     { // Check if a req is already owned
         switch b in buyable {
             case PerkID:
@@ -282,9 +330,9 @@ _block_owns_buyable :: proc(block: Block, buyable: Buyable) -> bool {
     }
     return false
 }
-_buyable_already_owns_block :: proc(block: Block, buyable: Buyable) -> bool {
+
+_block_requires_buyable :: proc(block: Block, buyable: Buyable) -> bool {
     { // Check if a req is already owned
-        // if _contains(block.owned_by[:], buyable) do return true
         switch b in buyable {
             case PerkID:
                 for owner in block.owned_by {
@@ -322,4 +370,9 @@ _assert_buyable_wont_clash_in_block :: proc(block: ^Block, buyable: Buyable) {
                     }
                 }
         }   
+}
+
+_contains :: proc(list: []$T, value: T) -> bool {
+    for elem in list do if elem == value do return true
+    return false
 }

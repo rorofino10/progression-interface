@@ -9,6 +9,11 @@ TShare :: struct {
 	fudged: bool,
 }
 
+ShareStrategy :: enum {
+	MinimizingOverlap,
+	MaximizingOverlap,
+}
+
 TContains :: struct {
 	container: Buyable,
 	containee: Buyable,
@@ -88,7 +93,7 @@ handle_share :: proc(share: TShare){
 		if blocks_to_share >= buyable_a_blocks_to_own do panic(fmt.tprintf("Cannot assign", share))
 	}
 
-	block_system_assign_share(share.buyableA, share.buyableB, blocks_to_share)
+	block_system_assign_share(share.buyableA, share.buyableB, blocks_to_share, .MinimizingOverlap)
 }
 
 handle_contains :: proc(contains: TContains){

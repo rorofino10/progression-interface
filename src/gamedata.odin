@@ -135,33 +135,34 @@ load_db :: proc() {
 
 	BuildSkills(proc(i: BlocksSize) -> BlocksSize{return 10*i})
 
-	// ListOf(
-	// 	TestRelation, {
-	// 		{.Melee, .Athletics}
-	// 	}
-	// )
 	ListOf(
-		CloseSkills, {
-		// {.Melee, .Athletics},
-		// {.Ranged, .Finesse},
-		{.Influence, .Acting},
+		TestRelation, {
+			{.Melee, .Athletics},
+			{.Melee, .Ranged}
 		}
 	)
-	ListOf(
-		DistantSkills, {
-		{.Influence, .Composure},
-		{.Acting, .Composure},
-		{.Endurance, .Composure},
-		// {.Endurance, .Athletics},
-		// {.Athletics, .Finesse},
-		// {.Logic, .Perception},
-		// {.Arts, .Influence},
-		// {.Arts, .Acting},
-		// {.Ranged, .Perception},
-		// {.Melee, .Perception},
-		// {.Survival, .Perception},
-		// {.Survival, .Construction},
-	})
+	// ListOf(
+	// 	CloseSkills, {
+	// 	{.Melee, .Athletics},
+	// 	{.Ranged, .Finesse},
+	// 	{.Influence, .Acting},
+	// 	}
+	// )
+	// ListOf(
+	// 	DistantSkills, {
+	// 	{.Influence, .Composure},
+	// 	{.Acting, .Composure},
+	// 	{.Endurance, .Composure},
+	// 	// {.Endurance, .Athletics},
+	// 	// {.Athletics, .Finesse},
+	// 	// {.Logic, .Perception},
+	// 	// {.Arts, .Influence},
+	// 	// {.Arts, .Acting},
+	// 	// {.Ranged, .Perception},
+	// 	// {.Melee, .Perception},
+	// 	// {.Survival, .Perception},
+	// 	// {.Survival, .Construction},
+	// })
 	// ListOf(
 	// 	CloseDerivativeSkills, {
 	// 	{.Computers, .Logic},
@@ -220,9 +221,7 @@ load_db :: proc() {
 }
 
 TestRelation :: proc(A, B: SKILL) {
-	Contains(A, 4, B, 1)
-	Contains(B, 4, A, 1)
-	Overlap(A, B, 60)
+	Overlap(A, B, 50)
 }
 
 CloseSkills :: proc(A, B: SKILL) {

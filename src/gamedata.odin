@@ -5,7 +5,7 @@ WEAK :: 25
 NORMAL :: 50
 STRONG :: 75
 
-MAX_SKILL_LEVEL :: 5
+MAX_SKILL_LEVEL :: 1
 MAX_SKILL_REQS :: 10
 
 skill_slot_name := [MAIN_SKILLS_AMOUNT]string{"Primary 1", "Primary 2", "Major 1", "Major 2", "Major 3", "Major 4"}
@@ -137,8 +137,10 @@ load_db :: proc() {
 
 	ListOf(
 		TestRelation, {
+			{.Melee, .Composure},
 			{.Melee, .Athletics},
-			{.Melee, .Ranged}
+			{.Melee, .Ranged},
+			{.Athletics, .Ranged },
 		}
 	)
 	// ListOf(

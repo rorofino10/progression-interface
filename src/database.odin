@@ -269,6 +269,7 @@ init_db :: proc() -> Error{
 	load_db()
 	assert(DB.owned_main_skills_amount == MAIN_SKILLS_AMOUNT)
 	check_constraints()
+	pre_process_share_constraints()
 	block_system_allocate()
 	init_query_system_alloc() or_return
 	create_buyables()

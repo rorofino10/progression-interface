@@ -189,6 +189,8 @@ _add_buyables_as_owner_of_block :: proc(block: ^Block, buyables: ..Buyable) {
 }
 
 _assign_share_minimizing_overlap :: proc(buyableA, buyableB: Buyable, blocks_to_share: BlocksSize) {
+    fmt.println("Assigning Minimizing Overlap", buyableA, buyableB)
+
     b_data_a := &DB.buyable_data[buyableA]
     b_data_b := &DB.buyable_data[buyableB]
     already_shared_blocks_amount : BlocksSize
@@ -201,9 +203,11 @@ _assign_share_minimizing_overlap :: proc(buyableA, buyableB: Buyable, blocks_to_
         }
     }
     amount_of_blocks_left_to_share := blocks_to_share - already_shared_blocks_amount
+    // FIXME: First add the minimum amount of overlap
     {   // Try to create the maximum amount of new blocks
         max_amount_of_blocks_to_create := min(amount_of_blocks_left_to_share, b_data_a.blocks_left_to_assign, b_data_b.blocks_left_to_assign)
         for _ in 0..<max_amount_of_blocks_to_create {
+            fmt.println("Assigned new block")
             _create_new_block_with_owners(buyableA, buyableB)
             amount_of_blocks_left_to_share -= 1
         }

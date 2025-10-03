@@ -7,6 +7,7 @@ TShare :: struct {
 	buyableB: Buyable,
 	strength: STRENGTH,
 	fudged: bool,
+	strategy: ShareStrategy,
 }
 
 ShareStrategy :: enum {
@@ -66,11 +67,16 @@ _share_perk_perk :: proc(perkA, perkB: PerkID, strength: STRENGTH) {
 }
 
 _build_share :: proc(buyableA, buyableB: Buyable, strength: STRENGTH, fudged: bool) {
-    append(&DB.share_constraints, TShare{buyableA, buyableB, strength, fudged})
+    append(&DB.share_constraints, TShare{buyableA, buyableB, strength, fudged, .MinimizingOverlap})
 }
 
 Overlap :: proc(skillA, skillB : SkillID, strength: STRENGTH) {
-    append(&DB.overlap_constraints, TOverlap{skillA, skillB, strength})
+    // append(&DB.overlap_constraints, TOverlap{skillA, skillB, strength})
+	for level in 1..=MAX_SKILL_LEVEL {
+		leveled_skillA, leveled_skillB := LeveledSkill{skillA, LEVEL(level)}, LeveledSkill{skillB, LEVEL(level)}
+		
+		append(&DB.share_constraints, TShare{leveled_skillA, leveled_skillB, strength, true, .MinimizingOverlap})
+	}
 }
 
 handle_share :: proc(share: TShare){
@@ -93,7 +99,7 @@ handle_share :: proc(share: TShare){
 		if blocks_to_share >= buyable_a_blocks_to_own do panic(fmt.tprintf("Cannot assign", share))
 	}
 
-	block_system_assign_share(share.buyableA, share.buyableB, blocks_to_share, .MinimizingOverlap)
+	block_system_assign_share(share.buyableA, share.buyableB, blocks_to_share, share.strategy)
 }
 
 handle_contains :: proc(contains: TContains){
@@ -114,33 +120,79 @@ handle_drag :: proc(drag: TDrag) {
 	}
 }
 
-handle_overlap :: proc(overlap: TOverlap) {
-	for level in 1..=MAX_SKILL_LEVEL {
-		skillA, skillB := LeveledSkill{overlap.skillA, LEVEL(level)}, LeveledSkill{overlap.skillB, LEVEL(level)}
-		
-		handle_share(TShare{skillA, skillB, overlap.strength, true})
+pre_process_share_constraints :: proc() {
+	@static share_graph : map[Buyable][dynamic]Buyable
+	defer delete(share_graph)
+	{ // Build Share Graph
+		for share in DB.share_constraints {
+			_, ok_a := share_graph[share.buyableA]
+			if !ok_a do share_graph[share.buyableA] = make([dynamic]Buyable, 0)
+			append(&share_graph[share.buyableA], share.buyableB)
+
+			_, ok_b:= share_graph[share.buyableB]
+			if !ok_b do share_graph[share.buyableB] = make([dynamic]Buyable, 0)
+			append(&share_graph[share.buyableB], share.buyableA)
+		}
 	}
+	@static seen : map[Buyable]void
+	@static curr_path : [dynamic]Buyable
+	@static share_cycle_id : map[Buyable]int
+	@static last_share_cycle_id := 0
+	defer {
+		delete(curr_path)
+		delete(share_cycle_id)
+	}
+	{ // Give every buyable a different share_cycle_id
+		for buyable, _ in share_graph {
+			share_cycle_id[buyable] = last_share_cycle_id
+			last_share_cycle_id += 1
+		}
+	}
+
+	{	// Assign Share Cycle ids
+		// I need to keep track of parent because this is an undirected graph
+		_share_cycle_finder :: proc(start, curr, parent: Buyable) {
+			fmt.println("Call:", start, curr, parent, curr_path)
+			seen[curr] = void{}
+			append(&curr_path, curr)
+			defer pop(&curr_path)
+
+			for neighbour in share_graph[curr] {
+				if neighbour == parent do continue
+				if neighbour == start {
+					for buyable_in_cycle in curr_path {
+						buyable_in_cycle_curr_id := share_cycle_id[buyable_in_cycle]
+						share_cycle_id[buyable_in_cycle] = last_share_cycle_id 
+						for buyable, id in share_cycle_id {
+							if id == buyable_in_cycle_curr_id do share_cycle_id[buyable] = last_share_cycle_id
+						}
+					}
+				}
+				if _, already_seen := seen[neighbour]; !already_seen {
+					_share_cycle_finder(start, neighbour, curr)
+				}
+			}
+		}
+
+		for buyable, _ in share_graph {
+			seen := map[Buyable]void{}
+			_share_cycle_finder(buyable, buyable, nil)
+			delete(seen)
+		}
+	}
+
+	{	// Assign Strategy to Share
+		for &share in DB.share_constraints {
+			if share_cycle_id[share.buyableA] == share_cycle_id[share.buyableB] do share.strategy = .MaximizingOverlap
+		}
+	}
+
+	for share in DB.share_constraints do fmt.println(share.buyableA, "share with", share.buyableB, share.strategy)
+	// fmt.println(share_graph)
 }
 
 
-
 check_constraints :: proc() {
-	{ // Check Contains
-		// check_if_contains :: proc(buyableA,buyableB: Buyable) -> bool {
-		// 	if buyableA == buyableB do return true
-		// 	contraints_arr, ok := DB.contains_constraint[buyableA]
-		// 	if !ok do return false
-		// 	for containee in contraints_arr {
-		// 		if check_if_contains(containee, buyableB) do return true
-		// 	}
-		// 	return false
-		// }
-		// for container, containee_arr in DB.contains_constraint {
-		// 	for containee in containee_arr {
-		// 		if check_if_contains(containee, container) do panic(fmt.tprint("Containee:", containee, "unlocks Container:", container))
-		// 	}
-		// }	
-	}
 	{ // Check Share Constraints
 		for share in DB.share_constraints {
 			if share.strength > 100 do panic(fmt.tprint(share, "Strength is not a percentage"))
@@ -156,8 +208,8 @@ check_constraints :: proc() {
 }
 
 handle_constraints :: proc() {
-    for share in DB.share_constraints do handle_share(share)
-	for overlap in DB.overlap_constraints do handle_overlap(overlap)
+    for share in DB.share_constraints do if share.strategy == .MaximizingOverlap do handle_share(share)
+    for share in DB.share_constraints do if share.strategy == .MinimizingOverlap do handle_share(share)
 	for contains in DB.contains_constraint do handle_contains(contains)
 	for drag in DB.drag_constraint do handle_drag(drag)
 }

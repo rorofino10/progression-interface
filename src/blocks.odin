@@ -65,7 +65,20 @@ query_blocks_indices_from_buyable :: proc(buyable: Buyable, query_amount: Blocks
     assert(u32(len(query)) == query_amount, fmt.tprint(len(query), query_amount, buyable))
     return query[:]
 }
-query_blocks_from_buyable_that_dont_require_buyable :: proc(buyableA, buyableB: Buyable, query_amount: BlocksSize) -> BlocksIndexQuery {
+
+query_blocks_indices_from_buyable_that_dont_clash_with_buyable :: proc(buyableA, buyableB: Buyable, query_amount: BlocksSize) -> BlocksIndexQuery {
+    context.allocator = query_system_alloc
+    query := make([dynamic]int, 0, query_amount)
+    for &block, block_idx in block_system.blocks {
+        if u32(len(query)) == query_amount do break
+
+        if _contains(block.owned_by[:], buyableA) && !_block_clashes_with_buyable(block, buyableB) do append(&query, block_idx)
+    }
+    assert(u32(len(query)) == query_amount, fmt.tprint(len(query), query_amount, buyableA))
+    return query[:]
+}
+
+query_blocks_indices_from_buyable_that_dont_require_buyable :: proc(buyableA, buyableB: Buyable, query_amount: BlocksSize) -> BlocksIndexQuery {
     context.allocator = query_system_alloc
     query := make([dynamic]int, 0, query_amount)
     for &block, block_idx in block_system.blocks {
@@ -189,7 +202,7 @@ _add_buyables_as_owner_of_block :: proc(block: ^Block, buyables: ..Buyable) {
 }
 
 _assign_share_minimizing_overlap :: proc(buyableA, buyableB: Buyable, blocks_to_share: BlocksSize) {
-    fmt.println("Assigning Minimizing Overlap", buyableA, buyableB)
+    fmt.println("Assigning Minimizing Overlap", buyableA, buyableB, blocks_to_share)
 
     b_data_a := &DB.buyable_data[buyableA]
     b_data_b := &DB.buyable_data[buyableB]
@@ -203,24 +216,49 @@ _assign_share_minimizing_overlap :: proc(buyableA, buyableB: Buyable, blocks_to_
         }
     }
     amount_of_blocks_left_to_share := blocks_to_share - already_shared_blocks_amount
-    // FIXME: First add the minimum amount of overlap
     {   // Try to create the maximum amount of new blocks
         max_amount_of_blocks_to_create := min(amount_of_blocks_left_to_share, b_data_a.blocks_left_to_assign, b_data_b.blocks_left_to_assign)
         for _ in 0..<max_amount_of_blocks_to_create {
-            fmt.println("Assigned new block")
             _create_new_block_with_owners(buyableA, buyableB)
             amount_of_blocks_left_to_share -= 1
         }
     }
+    fmt.println("Missing", amount_of_blocks_left_to_share, "to share")
+    {   // Assign obligatory overlap
+        if amount_of_blocks_left_to_share > 0 {
+            query_a := query_blocks_indices_from_buyable_that_dont_clash_with_buyable(buyableA, buyableB, amount_of_blocks_left_to_share)
+            fmt.println(query_a)
+            defer free_all(query_system_alloc)
+            for assigned_block_idx in query_a {
+                queried_block := &block_system.blocks[assigned_block_idx]
+                _add_buyables_as_owner_of_block(queried_block, buyableB)
+                amount_of_blocks_left_to_share -= 1
+            }
+        }
+    }
     if amount_of_blocks_left_to_share > 0 do panic(fmt.tprintln("No blocks left", amount_of_blocks_left_to_share, blocks_to_share))
 }
+
 _assign_share_maximizing_overlap :: proc(buyableA, buyableB: Buyable, blocks_to_share: BlocksSize) {
+    fmt.println("Assigning Maximizing Overlap", buyableA, buyableB)
+
     b_data_a := &DB.buyable_data[buyableA]
     b_data_b := &DB.buyable_data[buyableB]
 
+    already_shared_blocks_amount : BlocksSize
+    {   // Calc already_shared_blocks_amount
+        query_b := query_all_blocks_indices_from_buyable(buyableB)
+        defer free_all(query_system_alloc)
+        for assigned_block_idx in query_b {
+            queried_block := block_system.blocks[assigned_block_idx]
+            if _contains(queried_block.owned_by[:], buyableA) do already_shared_blocks_amount += 1
+        }
+    }
+
+    amount_of_blocks_left_to_share := blocks_to_share - already_shared_blocks_amount
     {   // Query Blocks of A, assign them to B.
-        blocks_of_a_to_be_shared_amount := min(b_data_a.assigned_blocks_amount, blocks_to_share)
-        query_a := query_blocks_indices_from_buyable(buyableA, blocks_of_a_to_be_shared_amount)
+        blocks_of_a_to_be_shared_amount := min(b_data_a.assigned_blocks_amount, amount_of_blocks_left_to_share)
+        query_a := query_blocks_indices_from_buyable_that_dont_clash_with_buyable(buyableA, buyableB, blocks_of_a_to_be_shared_amount)
         defer free_all(query_system_alloc)
 
         for assigned_block_of_a_idx in query_a {
@@ -298,6 +336,32 @@ block_system_assign_contains :: proc(buyableA, buyableB: Buyable){
         }
     }
 }
+
+_block_clashes_with_buyable :: proc(block: Block, buyable: Buyable) -> bool {
+    { // Check if a req is already owned
+        switch b in buyable {
+            case PerkID:
+                b_perk_data := DB.perk_data[b]
+                for owner in block.owned_by {
+                    #partial switch o in owner {
+                        case PerkID:
+                            if o == b do return true
+                    }
+                }
+            case LeveledSkill:
+                id := b.id
+                level := b.level
+                for owner in block.owned_by {
+                    #partial switch o in owner {
+                        case LeveledSkill:
+                            if o.id == id do return true
+                    }
+                }
+        }
+    }  
+    return false
+} 
+
 
 _buyable_requires_block :: proc(block: Block, buyable: Buyable) -> bool {
     { // Check if a req is already owned

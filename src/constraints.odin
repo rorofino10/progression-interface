@@ -121,17 +121,17 @@ handle_drag :: proc(drag: TDrag) {
 }
 
 pre_process_share_constraints :: proc() {
-	@static share_graph : map[Buyable][dynamic]Buyable
-	defer delete(share_graph)
+	// @static share_graph : map[Buyable][dynamic]Buyable
+	// defer delete(share_graph)
 	{ // Build Share Graph
 		for share in DB.share_constraints {
-			_, ok_a := share_graph[share.buyableA]
-			if !ok_a do share_graph[share.buyableA] = make([dynamic]Buyable, 0)
-			append(&share_graph[share.buyableA], share.buyableB)
+			_, ok_a := DB.share_graph[share.buyableA]
+			if !ok_a do DB.share_graph[share.buyableA] = make([dynamic]Buyable, 0)
+			append(&DB.share_graph[share.buyableA], share.buyableB)
 
-			_, ok_b:= share_graph[share.buyableB]
-			if !ok_b do share_graph[share.buyableB] = make([dynamic]Buyable, 0)
-			append(&share_graph[share.buyableB], share.buyableA)
+			_, ok_b:= DB.share_graph[share.buyableB]
+			if !ok_b do DB.share_graph[share.buyableB] = make([dynamic]Buyable, 0)
+			append(&DB.share_graph[share.buyableB], share.buyableA)
 		}
 	}
 	@static seen : map[Buyable]void
@@ -143,7 +143,7 @@ pre_process_share_constraints :: proc() {
 		delete(share_cycle_id)
 	}
 	{ // Give every buyable a different share_cycle_id
-		for buyable, _ in share_graph {
+		for buyable, _ in DB.share_graph {
 			share_cycle_id[buyable] = last_share_cycle_id
 			last_share_cycle_id += 1
 		}
@@ -152,12 +152,12 @@ pre_process_share_constraints :: proc() {
 	{	// Assign Share Cycle ids
 		// I need to keep track of parent because this is an undirected graph
 		_share_cycle_finder :: proc(start, curr, parent: Buyable) {
-			fmt.println("Call:", start, curr, parent, curr_path)
+			// fmt.println("Call:", start, curr, parent, curr_path)
 			seen[curr] = void{}
 			append(&curr_path, curr)
 			defer pop(&curr_path)
 
-			for neighbour in share_graph[curr] {
+			for neighbour in DB.share_graph[curr] {
 				if neighbour == parent do continue
 				if neighbour == start {
 					for buyable_in_cycle in curr_path {
@@ -174,8 +174,8 @@ pre_process_share_constraints :: proc() {
 			}
 		}
 
-		for buyable, _ in share_graph {
-			seen := map[Buyable]void{}
+		for buyable, _ in DB.share_graph {
+			seen = map[Buyable]void{}
 			_share_cycle_finder(buyable, buyable, nil)
 			delete(seen)
 		}
@@ -207,9 +207,51 @@ check_constraints :: proc() {
 	}
 }
 
+_handle_shares :: proc() {
+	@static shares_as_edges_graph : map[TShare][dynamic]TShare
+	defer delete(shares_as_edges_graph)
+	{	// Build minimizing_share_graph
+		for share in DB.share_constraints {
+			shares_as_edges_graph[share] = make([dynamic]TShare, 0)
+			for other_share in DB.share_constraints {
+				if share == other_share do continue
+				if share.buyableA == other_share.buyableA || share.buyableA == other_share.buyableB || share.buyableB == other_share.buyableA || share.buyableB == other_share.buyableB {
+					append(&shares_as_edges_graph[share], other_share)
+				}
+			}
+		}
+	}
+
+
+	// {	// Print share graph
+	// 	fmt.println("Printing Share Graph")
+	// 	for share, related_shares in shares_as_edges_graph {
+	// 		fmt.println(share.buyableA, share.buyableB)
+	// 		fmt.println('\t', related_shares[:])
+	// 	}
+	// }
+	{	// Traverse through the graph
+		_handle_share_in_graph :: proc(share: TShare) {
+			fmt.println(share)
+			if share in seen do return
+			seen[share] = void{}
+			handle_share(share)
+			for related_share in shares_as_edges_graph[share] {
+				_handle_share_in_graph(related_share)
+			}
+		}
+		@static seen : map[TShare]void
+		defer delete(seen)
+		
+		for share in DB.share_constraints do if share.strategy == .MaximizingOverlap do _handle_share_in_graph(share)
+
+		for share in DB.share_constraints do if share.strategy == .MinimizingOverlap do _handle_share_in_graph(share)
+
+	}
+}
+
 handle_constraints :: proc() {
-    for share in DB.share_constraints do if share.strategy == .MaximizingOverlap do handle_share(share)
-    for share in DB.share_constraints do if share.strategy == .MinimizingOverlap do handle_share(share)
+	_handle_shares()
 	for contains in DB.contains_constraint do handle_contains(contains)
 	for drag in DB.drag_constraint do handle_drag(drag)
 }

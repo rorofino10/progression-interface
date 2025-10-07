@@ -5,7 +5,7 @@ WEAK :: 25
 NORMAL :: 50
 STRONG :: 75
 
-MAX_SKILL_LEVEL :: 1
+MAX_SKILL_LEVEL :: 30
 MAX_SKILL_REQS :: 10
 
 skill_slot_name := [MAIN_SKILLS_AMOUNT]string{"Primary 1", "Primary 2", "Major 1", "Major 2", "Major 3", "Major 4"}
@@ -91,30 +91,30 @@ SKILL :: enum {
 	Influence,
 	Acting,
 
-	// // Magic
-	// Sorcery,
-	// Astral,
-	// Mana,	
+	// Magic
+	Sorcery,
+	Astral,
+	Mana,	
 
-	// // Professional (Operative)
-	// Medicine,
-	// Survival,
-	// Thievery,
+	// Professional (Operative)
+	Medicine,
+	Survival,
+	Thievery,
 
-	// // Professional (Operative Sometimes)
-	// Arcana,
-	// Computers,
-	// Construction,
-	// Piloting,
+	// Professional (Operative Sometimes)
+	Arcana,
+	Computers,
+	Construction,
+	Piloting,
 
-	// // Professional (Noncombat)
-	// Arts,
-	// Biology,
-	// Chemistry,
-	// Geology,
-	// Engineering,
-	// Language,
-	// Physics,
+	// Professional (Noncombat)
+	Arts,
+	Biology,
+	Chemistry,
+	Geology,
+	Engineering,
+	Language,
+	Physics,
 }
 
 load_db :: proc() {
@@ -122,7 +122,7 @@ load_db :: proc() {
 	BuildPlayer(
 		// Level = Skill Points on Level, Major Skill Caps, Extra Skill Cap
 		{
-			1 = {500,{6,5,3,2,2,2},		1},
+			1 = {10000,{6,5,3,2,2,2},		1},
 			2 = {500,{7,6,4,3,2,2},		1},
 			3 = {500,{8,7,5,4,3,3},		1},
 			4 = {500,{9,8,6,5,4,4},		2},
@@ -133,98 +133,98 @@ load_db :: proc() {
 		}
 	)
 
-	BuildSkills(proc(i: BlocksSize) -> BlocksSize{return 10*i})
+	BuildSkills(proc(i: BlocksSize) -> BlocksSize{return 100+10*i})
 
 	// ListOf(
 	// 	TestRelation, {
 	// 		{.Melee, .Composure},
 	// 		{.Melee, .Athletics},
-	// 		{.Melee, .Ranged},
-	// 		{.Athletics, .Ranged },
+	// 		// {.Melee, .Ranged},
+	// 		// {.Athletics, .Ranged },
 	// 	}
 	// )
-	// ListOf(
-	// 	CloseSkills, {
-	// 	{.Melee, .Athletics},
-	// 	{.Ranged, .Finesse},
-	// 	{.Influence, .Acting},
-	// 	}
-	// )
+	ListOf(
+		CloseSkills, {
+		{.Melee, .Athletics},
+		{.Ranged, .Finesse},
+		{.Influence, .Acting},
+		}
+	)
 	ListOf(
 		DistantSkills, {
 		{.Influence, .Composure},
 		{.Acting, .Composure},
 		{.Influence, .Acting},
 		{.Endurance, .Composure},
-		// {.Endurance, .Athletics},
-		// {.Athletics, .Finesse},
-		// {.Logic, .Perception},
-		// {.Arts, .Influence},
-		// {.Arts, .Acting},
-		// {.Ranged, .Perception},
-		// {.Melee, .Perception},
-		// {.Survival, .Perception},
-		// {.Survival, .Construction},
+		{.Endurance, .Athletics},
+		{.Athletics, .Finesse},
+		{.Logic, .Perception},
+		{.Arts, .Influence},
+		{.Arts, .Acting},
+		{.Ranged, .Perception},
+		{.Melee, .Perception},
+		{.Survival, .Perception},
+		{.Survival, .Construction},
 	})
-	// ListOf(
-	// 	CloseDerivativeSkills, {
-	// 	{.Computers, .Logic},
-	// 	{.Medicine, .Logic},
-	// 	{.Thievery, .Finesse},
-	// 	// {.Construction, .Athletics},
-	// 	{.Engineering, .Logic},
-	// 	{.Geology, .Logic},
-	// 	// {.Physics, .Logic},
-	// 	{.Piloting, .Finesse},
-	// 	{.Influence, .Language},
-	// 	// {.Arts, .Acting},
-	// 	}
-	// )
-	// ListOf(
-	// 	DistantDerivativeSkills,{
-	// 	{.Sorcery, .Arcana},
-	// 	{.Arcana, .Logic},
-	// 	// {.Engineering, .Physics},
-	// 	{.Biology, .Chemistry},
-	// 	{.Chemistry, .Physics},
-	// 	{.Geology, .Physics},
-	// 	// {.Arts, .Language},
-	// 	}
-	// )
+	ListOf(
+		CloseDerivativeSkills, {
+		{.Computers, .Logic},
+		{.Medicine, .Logic},
+		{.Thievery, .Finesse},
+		{.Construction, .Athletics},
+		{.Engineering, .Logic},
+		{.Geology, .Logic},
+		// {.Physics, .Logic},
+		{.Piloting, .Finesse},
+		{.Influence, .Language},
+		{.Arts, .Acting},
+		}
+	)
+	ListOf(
+		DistantDerivativeSkills,{
+		{.Sorcery, .Arcana},
+		// {.Arcana, .Logic},
+		// {.Engineering, .Physics},
+		{.Biology, .Chemistry},
+		{.Chemistry, .Physics},
+		// {.Geology, .Physics},
+		// {.Arts, .Language},
+		}
+	)
 
-	// Perk(.Flurry, 			{OR{{.Melee, 9}, {.Ranged, 9}}, Skill{.Finesse, 4}}, {}, 50)
-	// Perk(.PerfectFlurry,	{Skill{.Finesse, 15}}, {},		70)
-	// Perk(.Deadeye,			{OR{{.Melee, 9}, {.Ranged, 9}}, Skill{.Composure, 4}}, {.Aim}, 50)
-	// Perk(.Headshot,			{Skill{.Composure, 12}}, {}, 40)
-	// Perk(.Bullseye,			{Skill{.Composure, 15}}, {}, 40)
-	// Perk(.SaturationFire,	{Skill{.Ranged, 9}, Skill{.Athletics, 4}}, {}, 50)
-	// Perk(.MoreDakka,		{Skill{.Ranged, 15}, Skill{.Athletics, 10}}, {}, 70)
-	// Perk(.GrandSlam,		{Skill{.Athletics, 9}, Skill{.Melee, 4}}, {}, 50)
-	// Perk(.FullSwing,		{Skill{.Athletics, 15}}, {}, 70)
-	// Perk(.Guillotine,		{Skill{.Melee, 9}}, {}, 50)
-	// Perk(.ReignOfTerror,	{Skill{.Melee, 15}}, {},	70)
-	// Perk(.Whirlwind,		{OR{{.Melee, 9}, {.Ranged, 9}}}, {}, 50)
-	// Perk(.ImmortalKing,		{OR{{.Melee, 15}, {.Ranged, 15}}}, {}, 70)
+	Perk(.Flurry, 			{OR{{.Melee, 9}, {.Ranged, 9}}, Skill{.Finesse, 4}}, {}, 50)
+	Perk(.PerfectFlurry,	{Skill{.Finesse, 15}}, {},		70)
+	Perk(.Deadeye,			{OR{{.Melee, 9}, {.Ranged, 9}}, Skill{.Composure, 4}}, {.Aim}, 50)
+	Perk(.Headshot,			{Skill{.Composure, 12}}, {}, 40)
+	Perk(.Bullseye,			{Skill{.Composure, 15}}, {}, 40)
+	Perk(.SaturationFire,	{Skill{.Ranged, 9}, Skill{.Athletics, 4}}, {}, 50)
+	Perk(.MoreDakka,		{Skill{.Ranged, 15}, Skill{.Athletics, 10}}, {}, 70)
+	Perk(.GrandSlam,		{Skill{.Athletics, 9}, Skill{.Melee, 4}}, {}, 50)
+	Perk(.FullSwing,		{Skill{.Athletics, 15}}, {}, 70)
+	Perk(.Guillotine,		{Skill{.Melee, 9}}, {}, 50)
+	Perk(.ReignOfTerror,	{Skill{.Melee, 15}}, {},	70)
+	Perk(.Whirlwind,		{OR{{.Melee, 9}, {.Ranged, 9}}}, {}, 50)
+	Perk(.ImmortalKing,		{OR{{.Melee, 15}, {.Ranged, 15}}}, {}, 70)
 
-	// Perk(.QuickAttack,	{Skill{.Finesse, 9}},					{.Flurry}	,30)
-	// Perk(.Sweep,		{OR{{.Melee,6}, {.Ranged, 6}}},			{}			,30)
-	// Perk(.Skewer,		{Skill{.Melee, 6}}, 					{}			,30)
-	// Perk(.Brutalize,	{Skill{.Melee, 6}},						{}			,30)
-	// Perk(.Slam,			{Skill{.Melee, 6}},						{.Bully}	,30)
-	// Perk(.Setup,		{Skill{.Acting, 6}, Skill{.Perception, 6}}, 	{.Feint}	,30)
-	// Perk(.Disarm,		{OR{{.Melee, 6}, {.Ranged, 6}}},		{.Aim}		,30)
-	// Perk(.Hobble,		{OR{{.Melee, 6}, {.Ranged, 6}}},		{.Aim}		,30)
-	// Perk(.FightMeCoward,{Skill{.Acting, 6}},						{}			,30)
-	// Perk(.HeyListen,	{Skill{.Acting, 6}},						{}			,30)
+	Perk(.QuickAttack,	{Skill{.Finesse, 9}},					{.Flurry}	,30)
+	Perk(.Sweep,		{OR{{.Melee,6}, {.Ranged, 6}}},			{}			,30)
+	Perk(.Skewer,		{Skill{.Melee, 6}}, 					{}			,30)
+	Perk(.Brutalize,	{Skill{.Melee, 6}},						{}			,30)
+	Perk(.Slam,			{Skill{.Melee, 6}},						{.Bully}	,30)
+	Perk(.Setup,		{Skill{.Acting, 6}, Skill{.Perception, 6}}, 	{.Feint}	,30)
+	Perk(.Disarm,		{OR{{.Melee, 6}, {.Ranged, 6}}},		{.Aim}		,30)
+	Perk(.Hobble,		{OR{{.Melee, 6}, {.Ranged, 6}}},		{.Aim}		,30)
+	Perk(.FightMeCoward,{Skill{.Acting, 6}},						{}			,30)
+	Perk(.HeyListen,	{Skill{.Acting, 6}},						{}			,30)
 
-	// Share(SKILL.Finesse, 9, PERK.Flurry, 50)
-	// Share(SKILL.Composure, 9, PERK.Deadeye, 50)
-	// Share(SKILL.Athletics, 9, PERK.SaturationFire, 50)
+	Share(SKILL.Finesse, 9, PERK.Flurry, 50)
+	Share(SKILL.Composure, 9, PERK.Deadeye, 50)
+	Share(SKILL.Athletics, 9, PERK.SaturationFire, 50)
 
 }
 
 TestRelation :: proc(A, B: SKILL) {
-	Overlap(A, B, 50)
+	Overlap(A, B, 100)
 }
 
 CloseSkills :: proc(A, B: SKILL) {
@@ -234,15 +234,15 @@ CloseSkills :: proc(A, B: SKILL) {
 }
 
 DistantSkills :: proc(A, B: SKILL) {
-	Overlap(A, B, 60)
+	Overlap(A, B, 40)
 }
 
 CloseDerivativeSkills :: proc(A, B: SKILL) {
-	// Drags(A, B, 5)
-	// Overlap(A, B, 20)
+	Drags(A, B, 5)
+	Overlap(A, B, 20)
 }
 
 DistantDerivativeSkills :: proc(A, B: SKILL) {
-	// Drags(A, B, 8)
-	// Overlap(A, B, 20)
+	Drags(A, B, 8)
+	Overlap(A, B, 20)
 }

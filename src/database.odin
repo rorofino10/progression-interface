@@ -171,10 +171,12 @@ Database :: struct {
 
 	// Constraint
 	contains_constraint : [dynamic]TContains,
-	// drag_constraint		: map[SkillID]map[SkillID]LEVEL,
 	drag_constraint		: [dynamic]TDrag,
 	share_constraints	: [dynamic]TShare,
 	overlap_constraints : [dynamic]TOverlap,
+
+	//
+	share_graph : map[Buyable][dynamic]Buyable,
 
 	// Unit
 	unit_level				: LEVEL,

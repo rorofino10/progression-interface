@@ -23,6 +23,25 @@ Action :: enum {
     Setpoints,
 }
 
+_print_block :: proc(block: Block) {
+    fmt.printf("\x1b[41m%s", "BLOCK")
+    fmt.print("\x1b[0m ")
+    for owner in block.owned_by {
+        switch o in owner {
+            case LeveledSkill:
+                fmt.print(o.id, " ",o.level, ", ", sep="")
+            case PerkID:
+                fmt.print(o, ", ", sep="")
+        }
+    }
+    fmt.print("\n")
+}
+
+print_blocks_from_indices :: proc(query: BlocksIndexQuery) {
+    for block_idx in query do _print_block(block_system.blocks[block_idx])
+    
+}
+
 print_buyable_blocks :: proc(buyable: Buyable) {
     buyable_data := DB.buyable_data[buyable]
     assigned_blocks := buyable_data.assigned_blocks
@@ -37,7 +56,7 @@ print_buyable_blocks :: proc(buyable: Buyable) {
     }
     
     fmt.print("\x1b[0m\n")
-    for block in assigned_blocks do fmt.println(block)
+    for block in assigned_blocks do _print_block(block^)
 }
 print_buyable_blocks_by_query :: proc(buyable: Buyable) {
     buyable_data := DB.buyable_data[buyable]
@@ -63,7 +82,7 @@ print_buyable_blocks_by_query :: proc(buyable: Buyable) {
     }
     
     fmt.print("\x1b[0m\n")
-    for block in assigned_blocks do fmt.println(block)
+    for block in assigned_blocks do _print_block(block^)
 }
 
 print_skill_progress :: proc(skillID: SkillID, level_cap: LEVEL) {

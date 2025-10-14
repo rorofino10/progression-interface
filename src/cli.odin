@@ -368,7 +368,7 @@ run_cli :: proc() {
             case .Setpoints:
                 points, ok := strconv.parse_int(args[0])
                 if !ok do fmt.println("Error parsing Int")
-                else do DB.unused_points = u32(points)
+                else do DB.unused_points = Points(points)
             case .NotRecognized:
                 fmt.println("Action Not Recognized")
         }

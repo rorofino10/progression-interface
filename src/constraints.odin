@@ -104,11 +104,11 @@ handle_share :: proc(share: TShare){
 		share_a_diff := abs(f64(share.strength)/100 - fudged_strength_a)
 		share_b_diff := abs(f64(share.strength)/100 - fudged_strength_b)
 
-		if !(0 <= fudged_strength_a && fudged_strength_a <= 1.0) || !(0 <= fudged_strength_b && fudged_strength_b <= 1.0) || share_a_diff >= 0.10 || share_b_diff >= 0.10 do panic(fmt.tprint("Cannot fudge", share))		
+		assert((0 <= fudged_strength_a && fudged_strength_a <= 1.0) && (0 <= fudged_strength_b && fudged_strength_b <= 1.0) && share_a_diff < 0.10 && share_b_diff < 0.10, fmt.tprint("Cannot fudge", share))
 	}
 	else {
 		blocks_to_share = BlocksSize(f64(share.strength) / 100 * f64(buyable_b_blocks_to_own))
-		if blocks_to_share >= buyable_a_blocks_to_own do panic(fmt.tprintf("Cannot assign", share))
+		assert(blocks_to_share < buyable_a_blocks_to_own, fmt.tprintf("Cannot assign", share, "because it requires more blocks to share than buyableA can own"))
 	}
 
 	block_system_assign_share(share.buyableA, share.buyableB, blocks_to_share, share.strategy)
@@ -187,8 +187,10 @@ pre_process_share_constraints :: proc() {
 check_shares_are_valid :: proc() {
 	{ // Check Share Constraints
 		for share in DB.share_constraints {
-			if share.strength > 100 do panic(fmt.tprint(share, "Strength is not a percentage"))
-			if share.buyableA == share.buyableB do panic(fmt.tprint(share, "Cannot Share with itself."))
+			assert(share.strength >= 0 && share.strength <= 100, fmt.tprint(share, "Strength is not a percentage"))
+			assert(share.buyableA != share.buyableB, fmt.tprint(share, "Cannot Share with itself."))
+			assert(share.buyableA in DB.buyable_data, fmt.tprintln(share.buyableA, "not built."))
+			assert(share.buyableB in DB.buyable_data, fmt.tprintln(share.buyableB, "not built."))
 		}
 	}
 
@@ -201,6 +203,8 @@ check_contains_are_valid :: proc() {
 			containee_blocks_to_own := DB.buyable_data[contains.containee].blocks_to_be_assigned
 
 			assert(containee_blocks_to_own < container_blocks_to_own, fmt.tprint("Invalid contains constraint", contains, "containee has", containee_blocks_to_own, "blocks and container only has", container_blocks_to_own) )
+			assert(contains.container in DB.buyable_data, fmt.tprintln(contains.container, "not built."))
+			assert(contains.containee in DB.buyable_data, fmt.tprintln(contains.containee, "not built."))
 		}
 	}
 }

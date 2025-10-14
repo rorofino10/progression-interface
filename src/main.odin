@@ -193,9 +193,9 @@ lock_buyable :: proc(buyable: Buyable) {
 }
 
 
-reduce_to_skill :: proc(skill: LeveledSkill) -> (u32, ReduceError) {
+reduce_to_skill :: proc(skill: LeveledSkill) -> (Points, ReduceError) {
 	curr_skill_level := DB.owned_skills[skill.id]
-	refund : u32 = 0
+	refund : Points = 0
 
 	for level in skill.level..<curr_skill_level {
 		reduce_refund, reduce_err := reduce_skill(skill.id)
@@ -206,7 +206,7 @@ reduce_to_skill :: proc(skill: LeveledSkill) -> (u32, ReduceError) {
 	return refund, nil
 }
 
-reduce_skill :: proc(skill_id: SkillID) -> (u32, ReduceError) {
+reduce_skill :: proc(skill_id: SkillID) -> (Points, ReduceError) {
 	skill_level := DB.owned_skills[skill_id]
 	if skill_level == 0 do return 0, .CannotReduceSkill
 
@@ -254,7 +254,7 @@ reduce_skill :: proc(skill_id: SkillID) -> (u32, ReduceError) {
 	return refunded, .None
 }
 
-refund_perk :: proc(perk_id: PerkID) -> (u32, RefundError) {
+refund_perk :: proc(perk_id: PerkID) -> (Points, RefundError) {
 	if !player_has_buyable(perk_id) do return 0, .BuyableNotOwned
 
 	{ // Check if it is required in another owned buyable
@@ -278,9 +278,9 @@ refund_perk :: proc(perk_id: PerkID) -> (u32, RefundError) {
 	return refunded, .None
 }
 
-raise_to_skill :: proc(skill: LeveledSkill) -> (u32, BuyError) {
+raise_to_skill :: proc(skill: LeveledSkill) -> (Points, BuyError) {
 	curr_skill_level := DB.owned_skills[skill.id]
-	cost : u32 = 0
+	cost : Points = 0
 
 	for level in curr_skill_level..<skill.level {
 		raise_cost, raise_err := raise_skill(skill.id)
@@ -291,7 +291,7 @@ raise_to_skill :: proc(skill: LeveledSkill) -> (u32, BuyError) {
 	return cost, nil
 }
 
-raise_skill :: proc(skill_id: SkillID) -> (u32, BuyError) {
+raise_skill :: proc(skill_id: SkillID) -> (Points, BuyError) {
 	skill_level := DB.owned_skills[skill_id]
 	skill := LeveledSkill{skill_id, skill_level}
 	next_skill := LeveledSkill{skill_id, skill_level+1}
@@ -361,7 +361,7 @@ raise_skill :: proc(skill_id: SkillID) -> (u32, BuyError) {
 }
 
 
-buy_perk :: proc(perk: PerkID) -> (u32, BuyError) {
+buy_perk :: proc(perk: PerkID) -> (Points, BuyError) {
 
 	b_data := &DB.buyable_data[perk]
 	perk_val := DB.perk_data[perk]

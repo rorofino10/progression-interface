@@ -30,7 +30,7 @@ Block :: struct {
 }
 
 Blocks :: [dynamic]Block
-BlocksSize :: u32
+BlocksSize :: int
 BlocksQuery :: []^Block
 BlocksIndexQuery :: []int
 
@@ -58,11 +58,11 @@ query_blocks_indices_from_buyable :: proc(buyable: Buyable, query_amount: Blocks
     context.allocator = query_system_alloc
     query := make([dynamic]int, 0, query_amount)
     for &block, block_idx in block_system.blocks {
-        if u32(len(query)) == query_amount do break
+        if BlocksSize(len(query)) == query_amount do break
 
         if _contains(block.owned_by[:], buyable) do append(&query, block_idx)
     }
-    assert(u32(len(query)) == query_amount, fmt.tprint(len(query), query_amount, buyable))
+    assert(BlocksSize(len(query)) == query_amount, fmt.tprint(len(query), query_amount, buyable))
     return query[:]
 }
 
@@ -70,11 +70,11 @@ query_blocks_indices_from_buyable_that_dont_clash_with_buyable :: proc(buyableA,
     context.allocator = query_system_alloc
     query := make([dynamic]int, 0, query_amount)
     for &block, block_idx in block_system.blocks {
-        if u32(len(query)) == query_amount do break
+        if BlocksSize(len(query)) == query_amount do break
 
         if _contains(block.owned_by[:], buyableA) && !_block_clashes_with_buyable(block, buyableB) do append(&query, block_idx)
     }
-    assert(u32(len(query)) == query_amount, fmt.tprint("Queried for", query_amount, "got", len(query), buyableA))
+    assert(BlocksSize(len(query)) == query_amount, fmt.tprint("Queried for", query_amount, "got", len(query), buyableA))
     return query[:]
 }
 
@@ -91,33 +91,33 @@ query_blocks_indices_from_buyable_that_dont_require_buyable :: proc(buyableA, bu
     context.allocator = query_system_alloc
     query := make([dynamic]int, 0, query_amount)
     for &block, block_idx in block_system.blocks {
-        if u32(len(query)) == query_amount do break
+        if BlocksSize(len(query)) == query_amount do break
 
         if _contains(block.owned_by[:], buyableA) && _block_requires_buyable(block, buyableB) do append(&query, block_idx)
     }
-    assert(u32(len(query)) == query_amount, fmt.tprint(len(query), query_amount, buyableA))
+    assert(BlocksSize(len(query)) == query_amount, fmt.tprint(len(query), query_amount, buyableA))
     return query[:]
 }
 query_blocks_indices_from_buyable_that_buyable_doesnt_require :: proc(buyableA, buyableB: Buyable, query_amount: BlocksSize) -> BlocksIndexQuery {
     context.allocator = query_system_alloc
     query := make([dynamic]int, 0, query_amount)
     for &block, block_idx in block_system.blocks {
-        if u32(len(query)) == query_amount do break
+        if BlocksSize(len(query)) == query_amount do break
 
         if _contains(block.owned_by[:], buyableA) && !_buyable_requires_block(block, buyableB) do append(&query, block_idx)
     }
-    assert(u32(len(query)) == query_amount, fmt.tprint(len(query), query_amount, buyableA))
+    assert(BlocksSize(len(query)) == query_amount, fmt.tprint(len(query), query_amount, buyableA))
     return query[:]
 }
 query_blocks_indices_from_buyable_not_assigned_to_buyable :: proc(buyableA, buyableB: Buyable, query_amount: BlocksSize) -> BlocksIndexQuery {
     context.allocator = query_system_alloc
     query := make([dynamic]int, 0, query_amount)
     for &block, block_idx in block_system.blocks {
-        if u32(len(query)) == query_amount do break
+        if BlocksSize(len(query)) == query_amount do break
 
         if _contains(block.owned_by[:], buyableA) && !_contains(block.owned_by[:], buyableB) do append(&query, block_idx)
     }
-    assert(u32(len(query)) == query_amount, fmt.tprint(len(query), query_amount, buyableA))
+    assert(BlocksSize(len(query)) == query_amount, fmt.tprint(len(query), query_amount, buyableA))
     return query[:]
 }
 
@@ -191,7 +191,7 @@ block_system_assign_leftover :: proc(buyable: Buyable) {
 _create_new_block_with_owners :: proc(buyables: ..Buyable) {
     new_block : Block
     for buyable in buyables {
-        if DB.buyable_data[buyable].blocks_left_to_assign <= 0 do panic("No blocks left to assign")
+        assert(DB.buyable_data[buyable].blocks_left_to_assign > 0, "No blocks left to assign")
         _assert_buyable_wont_clash_in_block(&new_block, buyable)
         buyable_data := &DB.buyable_data[buyable]
         buyable_data.blocks_left_to_assign -= 1
@@ -203,7 +203,7 @@ _create_new_block_with_owners :: proc(buyables: ..Buyable) {
 
 _add_buyables_as_owner_of_block_idx :: proc(block_idx: int, buyables: ..Buyable) {
     for buyable in buyables {
-        if DB.buyable_data[buyable].blocks_left_to_assign <= 0 do panic("No blocks left to assign")
+        assert(DB.buyable_data[buyable].blocks_left_to_assign > 0, "No blocks left to assign")
         _assert_buyable_wont_clash_in_block_idx(block_idx, buyable)
         buyable_data := &DB.buyable_data[buyable]
         buyable_data.blocks_left_to_assign -= 1
@@ -308,7 +308,7 @@ block_system_assign_contains :: proc(buyableA, buyableB: Buyable){
         partial_assignment_b := query_all_blocks_indices_from_buyable_that_buyable_doesnt_require(buyableB, buyableA)
         defer free_all(query_system_alloc)
         partial_assignment_b_amount := BlocksSize(len(partial_assignment_b))
-        if b_data_a.blocks_left_to_assign < partial_assignment_b_amount do panic(fmt.tprintln("Not enough blocks to assign contains between", buyableA, "->", buyableB))
+        assert(b_data_a.blocks_left_to_assign >= partial_assignment_b_amount, fmt.tprintln("Not enough blocks to assign contains between", buyableA, "->", buyableB))
 
         for partially_assigned_block_idx in partial_assignment_b {
             _add_buyables_as_owner_of_block_idx(partially_assigned_block_idx, buyableA)
@@ -431,22 +431,14 @@ _assert_buyable_wont_clash_in_block :: proc(block: ^Block, buyable: Buyable) {
                 for block_owner in block.owned_by {
                     #partial switch skill_owner in block_owner {
                         case LeveledSkill:
-                            if skill_owner.id == b.id && skill_owner.level != b.level do panic(fmt.tprint("Found", buyable, "and", block_owner, "sharing same block", block))
+                            assert(skill_owner.id != b.id || skill_owner.level == b.level, fmt.tprint("Found", buyable, "and", block_owner, "sharing same block", block))
                     }
                 }
         }   
 }
 _assert_buyable_wont_clash_in_block_idx :: proc(block_idx: int, buyable: Buyable) {
-    block := block_system.blocks[block_idx]
-        #partial switch b in buyable {
-            case LeveledSkill:
-                for block_owner in block.owned_by {
-                    #partial switch skill_owner in block_owner {
-                        case LeveledSkill:
-                            if skill_owner.id == b.id && skill_owner.level != b.level do panic(fmt.tprint("Found", buyable, "and", block_owner, "sharing same block", block))
-                    }
-                }
-        }   
+    block := &block_system.blocks[block_idx]
+    _assert_buyable_wont_clash_in_block(block, buyable)
 }
 
 _contains :: proc(list: []$T, value: T) -> bool {

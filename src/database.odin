@@ -16,6 +16,8 @@ MAX_FUDGE :: 10
 // Artificial list size limits
 // skill_slot_name := [MAIN_SKILLS_AMOUNT]string{"Primary 1", "Primary 2", "Major 1"}
 
+Points :: BlocksSize
+
 DatabaseError :: enum {
 	None,
 	LoadError,
@@ -156,11 +158,11 @@ BuyableData :: struct {
 	bought_blocks_amount	: BlocksSize,
 	is_owned				: bool,
 	is_upgradeable			: bool,
-	spent					: BlocksSize,
+	spent					: Points,
 }
 
 PlayerLevelState :: struct{
-	skill_points_on_level	: BlocksSize,
+	skill_points_on_level	: Points,
 	main_skill_caps			: [MAIN_SKILLS_AMOUNT]LEVEL,
 	extra_skill_cap			: LEVEL,
 }
@@ -181,7 +183,7 @@ Database :: struct {
 
 	// Unit
 	unit_level				: LEVEL,
-	unused_points			: u32,
+	unused_points			: Points,
 	owned_main_skills		: [MAIN_SKILLS_AMOUNT]SkillID,
 	owned_main_skills_amount: u32,
 	owned_extra_skills		: [dynamic]SkillID,
@@ -231,7 +233,7 @@ _build_skill_lambda :: proc(skillID: SkillID, blockProc: DefineBlockProc){
 // Skill :: proc{_build_skill_default, _build_skill_lambda}
 
 _perk_without_share :: proc(perkID: PerkID, skill_reqs: [dynamic]SKILL_REQ_ENTRY, pre_reqs: Perks, blocks: BlocksSize) {
-	if perkID in DB.perk_data do panic(fmt.tprint("Already built Perk:", perkID))
+	assert(perkID not_in DB.perk_data, fmt.tprint("Already built Perk:", perkID))
 	perk_data := PerkData{ blocks = blocks, prereqs = pre_reqs, skills_reqs = skill_reqs }
 	DB.perk_data[perkID] = perk_data
 }

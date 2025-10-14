@@ -4,6 +4,11 @@ import "core:slice/heap"
 import "core:slice"
 import "core:sort"
 import "core:fmt"
+
+TPartialShare :: struct {
+	buyable_to_share_with: Buyable,
+	strength: STRENGTH,
+}
 TShare :: struct {
 	buyableA: Buyable,
 	buyableB: Buyable,

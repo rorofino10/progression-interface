@@ -230,10 +230,25 @@ _build_skill_lambda :: proc(skillID: SkillID, blockProc: DefineBlockProc){
 }
 // Skill :: proc{_build_skill_default, _build_skill_lambda}
 
-Perk :: proc(perkID: PerkID, skill_reqs: [dynamic]SKILL_REQ_ENTRY, pre_reqs: Perks, blocks: BlocksSize) {
+_perk_without_share :: proc(perkID: PerkID, skill_reqs: [dynamic]SKILL_REQ_ENTRY, pre_reqs: Perks, blocks: BlocksSize) {
 	perk_data := PerkData{ blocks = blocks, prereqs = pre_reqs, skills_reqs = skill_reqs }
 	DB.perk_data[perkID] = perk_data
 }
+
+_perk_with_share :: proc(perkID: PerkID, skill_reqs: [dynamic]SKILL_REQ_ENTRY, pre_reqs: Perks, blocks: BlocksSize, partial_shares: [dynamic]TPartialShare) {
+	defer delete(partial_shares)
+	_perk_without_share(perkID, skill_reqs, pre_reqs, blocks)
+	for partial_share in partial_shares {
+		switch buyable in partial_share.buyable_to_share_with {
+			case LeveledSkill:
+				Share(perkID, buyable.id, buyable.level, partial_share.strength)
+			case PerkID:
+				Share(perkID, buyable, partial_share.strength)
+		}
+	}
+}
+
+Perk :: proc{_perk_with_share}
 
 level_up :: proc() -> LevelUpError {
 	if DB.unit_level+1 >= DB.unit_level_cap do return .MAX_LEVEL_REACHED

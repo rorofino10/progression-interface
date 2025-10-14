@@ -117,7 +117,10 @@ handle_share :: proc(share: TShare){
 
 pre_process_share_constraints :: proc() {
 	// @static share_graph : map[Buyable][dynamic]Buyable
-	defer delete(DB.share_graph)
+	defer {
+		for _, related in DB.share_graph do delete(related)
+		delete(DB.share_graph)
+	}
 	{ // Build Share Graph
 		for share in DB.share_constraints {
 			_, ok_a := DB.share_graph[share.buyableA]
@@ -305,6 +308,7 @@ _handle_contains :: proc(){
 		_process_from_buyable :: proc(start: Buyable){
 			fmt.println("Processing from", start)
 			contains_heap: [dynamic]TContains
+			defer delete(contains_heap)
 			for container in reverse_contains_graph[start] do append(&contains_heap, contains_map[container][start])
 			heap.make(contains_heap[:], _contains_comp)
 			for len(contains_heap) != 0 {

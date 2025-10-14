@@ -5,7 +5,7 @@ WEAK :: 25
 NORMAL :: 50
 STRONG :: 75
 
-MAX_SKILL_LEVEL :: 20
+MAX_SKILL_LEVEL :: 10
 MAX_SKILL_REQS_LEN :: 10
 
 skill_slot_name := [MAIN_SKILLS_AMOUNT]string{"Primary 1", "Primary 2", "Major 1", "Major 2", "Major 3", "Major 4"}

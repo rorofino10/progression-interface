@@ -240,6 +240,7 @@ _perk_without_share :: proc(perkID: PerkID, skill_reqs: [dynamic]SKILL_REQ_ENTRY
 
 _perk_with_share :: proc(perkID: PerkID, skill_reqs: [dynamic]SKILL_REQ_ENTRY, pre_reqs: Perks, blocks: BlocksSize, partial_shares: [dynamic]TPartialShare) {
 	defer delete(partial_shares)
+	defer delete(skill_reqs)
 	_perk_without_share(perkID, skill_reqs, pre_reqs, blocks)
 	for partial_share in partial_shares {
 		switch buyable in partial_share.buyable_to_share_with {

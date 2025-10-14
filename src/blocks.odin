@@ -178,14 +178,7 @@ block_system_assign_leftover :: proc(buyable: Buyable) {
     buyable_data := &DB.buyable_data[buyable]
     blocks_to_assign := buyable_data.blocks_left_to_assign
 
-    for block_idx in 0..<blocks_to_assign {
-        new_block := Block{owned_by={buyable}}
-        append(&block_system.blocks, new_block)
-    }
-
-    buyable_data.blocks_left_to_assign = 0
-    buyable_data.assigned_blocks_amount += blocks_to_assign
-
+    for block_idx in 0..<blocks_to_assign do _create_new_block_with_owners(buyable)
 }
 
 _create_new_block_with_owners :: proc(buyables: ..Buyable) {

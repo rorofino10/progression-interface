@@ -231,6 +231,7 @@ _build_skill_lambda :: proc(skillID: SkillID, blockProc: DefineBlockProc){
 // Skill :: proc{_build_skill_default, _build_skill_lambda}
 
 _perk_without_share :: proc(perkID: PerkID, skill_reqs: [dynamic]SKILL_REQ_ENTRY, pre_reqs: Perks, blocks: BlocksSize) {
+	if perkID in DB.perk_data do panic(fmt.tprint("Already built Perk:", perkID))
 	perk_data := PerkData{ blocks = blocks, prereqs = pre_reqs, skills_reqs = skill_reqs }
 	DB.perk_data[perkID] = perk_data
 }

@@ -5,8 +5,8 @@ WEAK :: 25
 NORMAL :: 50
 STRONG :: 75
 
-MAX_SKILL_LEVEL :: 10
-MAX_SKILL_REQS :: 10
+MAX_SKILL_LEVEL :: 20
+MAX_SKILL_REQS_LEN :: 10
 
 skill_slot_name := [MAIN_SKILLS_AMOUNT]string{"Primary 1", "Primary 2", "Major 1", "Major 2", "Major 3", "Major 4"}
 
@@ -68,6 +68,9 @@ PERK :: enum {
 	Marksman,
 	HeavyWeaponsGuy,
 	Beamer,
+	//
+	SlingTraining,
+	BowTraining,
 }
 
 SkillID :: SKILL
@@ -186,7 +189,7 @@ load_db :: proc() {
 		{.Construction, .Athletics},
 		{.Engineering, .Logic},
 		{.Geology, .Logic},
-		{.Physics, .Logic},
+		// {.Physics, .Logic},
 		{.Piloting, .Finesse},
 		{.Influence, .Language},
 		{.Arts, .Acting},
@@ -204,38 +207,48 @@ load_db :: proc() {
 		}
 	)
 
-	Perk(.Flurry, 			{OR{{.Melee, 9}, {.Ranged, 9}}, Skill{.Finesse, 4}}, {}, 50, {{Skill{.Finesse, 9}, 50}})
-	Perk(.PerfectFlurry,	{Skill{.Finesse, 15}}, {},		70, {})
-	Perk(.Deadeye,			{OR{{.Melee, 9}, {.Ranged, 9}}, Skill{.Composure, 4}}, {.Aim}, 50, {{Skill{.Composure, 9}, 50}})
-	Perk(.Headshot,			{Skill{.Composure, 12}}, {}, 40, {})
-	Perk(.Bullseye,			{Skill{.Composure, 15}}, {}, 40, {})
-	Perk(.SaturationFire,	{Skill{.Ranged, 9}, Skill{.Athletics, 4}}, {}, 50, {{Skill{.Athletics, 9}, 50}})
-	Perk(.MoreDakka,		{Skill{.Ranged, 15}, Skill{.Athletics, 10}}, {}, 70, {})
-	Perk(.GrandSlam,		{Skill{.Athletics, 9}, Skill{.Melee, 4}}, {}, 50, {})
-	Perk(.FullSwing,		{Skill{.Athletics, 15}}, {}, 70, {})
-	Perk(.Guillotine,		{Skill{.Melee, 9}}, {}, 50, {})
-	Perk(.ReignOfTerror,	{Skill{.Melee, 15}}, {},	70, {})
-	Perk(.Whirlwind,		{OR{{.Melee, 9}, {.Ranged, 9}}}, {}, 50, {})
-	Perk(.ImmortalKing,		{OR{{.Melee, 15}, {.Ranged, 15}}}, {}, 70, {})
+	Perk(.Flurry, 			{OR{{.Melee, 9}, {.Ranged, 9}}, Skill{.Finesse, 4}}, 	{},		50, {{Skill{.Finesse, 9}, 50}})
+	Perk(.PerfectFlurry,	{Skill{.Finesse, 15}}, 									{},		70, {})
+	Perk(.Deadeye,			{OR{{.Melee, 9}, {.Ranged, 9}}, Skill{.Composure, 4}}, 	{.Aim}, 50, {{Skill{.Composure, 9}, 50}})
+	Perk(.Headshot,			{Skill{.Composure, 12}}, 								{},		40, {})
+	Perk(.Bullseye,			{Skill{.Composure, 15}}, 								{},		40, {})
+	Perk(.SaturationFire,	{Skill{.Ranged, 9}, Skill{.Athletics, 4}}, 				{},		50, {{Skill{.Athletics, 9}, 50}})
+	Perk(.MoreDakka,		{Skill{.Ranged, 15}, Skill{.Athletics, 10}},			{},		70, {})
+	Perk(.GrandSlam,		{Skill{.Athletics, 9}, Skill{.Melee, 4}}, 				{},		50, {})
+	Perk(.FullSwing,		{Skill{.Athletics, 15}}, 								{},		70, {})
+	Perk(.Guillotine,		{Skill{.Melee, 9}}, 									{},		50, {})
+	Perk(.ReignOfTerror,	{Skill{.Melee, 15}}, 									{},		70, {})
+	Perk(.Whirlwind,		{OR{{.Melee, 9}, {.Ranged, 9}}}, 						{},		50, {})
+	Perk(.ImmortalKing,		{OR{{.Melee, 15}, {.Ranged, 15}}}, 						{},		70, {})
 
-	Perk(.QuickAttack,	{Skill{.Finesse, 9}},					{.Flurry}	,30, {})
-	Perk(.Sweep,		{OR{{.Melee,6}, {.Ranged, 6}}},			{}			,30, {})
-	Perk(.Skewer,		{Skill{.Melee, 6}}, 					{}			,30, {})
-	Perk(.Brutalize,	{Skill{.Melee, 6}},						{}			,30, {})
-	Perk(.Slam,			{Skill{.Melee, 6}},						{.Bully}	,30, {})
-	Perk(.Setup,		{Skill{.Acting, 6}, Skill{.Perception, 6}}, 	{.Feint}	,30, {})
-	Perk(.Disarm,		{OR{{.Melee, 6}, {.Ranged, 6}}},		{.Aim}		,30, {})
-	Perk(.Hobble,		{OR{{.Melee, 6}, {.Ranged, 6}}},		{.Aim}		,30, {})
+	Perk(.QuickAttack,	{Skill{.Finesse, 9}},						{.Flurry}	,30, {})
+	Perk(.Sweep,		{OR{{.Melee,6}, {.Ranged, 6}}},				{}			,30, {})
+	Perk(.Skewer,		{Skill{.Melee, 6}}, 						{}			,30, {})
+	Perk(.Brutalize,	{Skill{.Melee, 6}},							{}			,30, {})
+	Perk(.Slam,			{Skill{.Melee, 6}},							{.Bully}	,30, {})
+	Perk(.Setup,		{Skill{.Acting, 6}, Skill{.Perception, 6}}, {.Feint}	,30, {})
+	Perk(.Disarm,		{OR{{.Melee, 6}, {.Ranged, 6}}},			{.Aim}		,30, {})
+	Perk(.Hobble,		{OR{{.Melee, 6}, {.Ranged, 6}}},			{.Aim}		,30, {})
 	Perk(.FightMeCoward,{Skill{.Acting, 6}},						{}			,30, {})
 	Perk(.HeyListen,	{Skill{.Acting, 6}},						{}			,30, {})
 
-	Perk(.KnifeMaster,	{Skill{.Melee, 15}, Skill{.Finesse, 10}}, 							{}, 50, {{PERK.Swordmaster, 50}})
-	Perk(.Swordmaster,	{Skill{.Melee, 15}, Skill{.Finesse, 10}}, 							{}, 50, {{PERK.StaffMaster, 20}})
-	Perk(.StaffMaster,	{Skill{.Melee, 15}, Skill{.Athletics, 10}}, 						{}, 50, {{PERK.SpearMaster, 50}, {PERK.Axeman, 30}, {PERK.Hammerer, 30}})
-	Perk(.SpearMaster,	{Skill{.Melee, 15}, Skill{.Athletics, 10}, Skill{.Composure, 7}}, 	{}, 50, {{PERK.Axeman, 20}, {PERK.Hammerer, 20}})
-	Perk(.Axeman,		{Skill{.Melee, 15}, Skill{.Athletics, 10}}, 						{}, 50, {{PERK.Hammerer, 50}})
+	Perk(.KnifeMaster,	{Skill{.Melee, 15}, Skill{.Finesse, 10}}, 							{}, 50, {{.Swordmaster, 50}})
+	Perk(.Swordmaster,	{Skill{.Melee, 15}, Skill{.Finesse, 10}}, 							{}, 50, {{.StaffMaster, 20}})
+	Perk(.StaffMaster,	{Skill{.Melee, 15}, Skill{.Athletics, 10}}, 						{}, 50, {{.SpearMaster, 50}, {.Axeman, 30}, {.Hammerer, 30}})
+	Perk(.SpearMaster,	{Skill{.Melee, 15}, Skill{.Athletics, 10}, Skill{.Composure, 7}}, 	{}, 50, {{.Axeman, 20}, {.Hammerer, 20}})
+	Perk(.Axeman,		{Skill{.Melee, 15}, Skill{.Athletics, 10}}, 						{}, 50, {{.Hammerer, 50}})
 	Perk(.Hammerer,		{Skill{.Melee, 15}, Skill{.Athletics, 10}}, 						{}, 50, {})
 
+	Perk(.MasterOfMartialArts,	{Skill{.Melee, 15}, 	Skill{.Athletics, 10}, Skill{.Finesse, 7}}, {}, 50, {{.StaffMaster, 50}})
+	Perk(.Slinger,				{Skill{.Ranged, 15}, 	Skill{.Finesse, 10}, Skill{.Athletics, 7}}, {.SlingTraining}, 50, {{PERK.Archer, 20}, {PERK.Pistoleer, 20}, {PERK.Marksman, 40}})
+	Perk(.Archer,				{Skill{.Ranged, 15}, 	Skill{.Finesse, 10}, Skill{.Athletics, 7}}, {.BowTraining}, 50, {{PERK.Marksman, 40}})
+	Perk(.Pistoleer,			{Skill{.Ranged, 15}, 	Skill{.Finesse, 10}}, {}, 50, {{PERK.Marksman, 40}, {PERK.HeavyWeaponsGuy, 20}})
+	Perk(.Marksman,				{Skill{.Ranged, 15},	Skill{.Composure, 10}}, {}, 50, {{PERK.HeavyWeaponsGuy, 40}})
+	Perk(.HeavyWeaponsGuy,		{Skill{.Ranged, 15},	Skill{.Athletics, 10}, Skill{.Endurance, 10}}, {}, 50, {{PERK.Beamer, 40}})
+	Perk(.Beamer,				{Skill{.Ranged, 15},	Skill{.Endurance, 10}}, {}, 50, {})
+
+	Perk(.BowTraining,		{Skill{.Ranged, 6}, Skill{.Athletics, 4}}, 						{}, 30, {})
+	Perk(.SlingTraining,	{Skill{.Ranged, 6}, Skill{.Finesse, 4}, Skill{.Athletics, 2}},	{}, 60, {})
 }
 
 TestRelation :: proc(A, B: SKILL) {

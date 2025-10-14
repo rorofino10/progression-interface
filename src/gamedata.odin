@@ -5,7 +5,7 @@ WEAK :: 25
 NORMAL :: 50
 STRONG :: 75
 
-MAX_SKILL_LEVEL :: 30
+MAX_SKILL_LEVEL :: 10
 MAX_SKILL_REQS :: 10
 
 skill_slot_name := [MAIN_SKILLS_AMOUNT]string{"Primary 1", "Primary 2", "Major 1", "Major 2", "Major 3", "Major 4"}
@@ -135,6 +135,18 @@ load_db :: proc() {
 
 	BuildSkills(proc(i: BlocksSize) -> BlocksSize{return 100+10*i})
 
+	// Overlap(.Athletics, .Composure, 100)
+	// Overlap(.Athletics, .Influence, 50)
+	// Contains(SKILL.Melee, 7, SKILL.Composure, 4)
+	// Contains(SKILL.Composure, 7, SKILL.Melee, 4)
+	// Contains(SKILL.Melee, 4, SKILL.Athletics, 2)
+	// Contains(SKILL.Composure, 4, SKILL.Athletics, 2)
+	// Contains(SKILL.Melee, 4, SKILL.Influence, 2)
+	// Contains(SKILL.Influence, 3, SKILL.Athletics, 2)
+	// Contains(SKILL.Endurance, 4, SKILL.Composure, 3)
+	// Contains(SKILL.Composure, 3, SKILL.Athletics, 2)
+	// Contains(SKILL.Athletics, 4, SKILL.Melee, 1)
+	// Contains(SKILL.Athletics, 4, SKILL.Composure, 3)
 	// ListOf(
 	// 	TestRelation, {
 	// 		{.Melee, .Composure},
@@ -174,7 +186,7 @@ load_db :: proc() {
 		{.Construction, .Athletics},
 		{.Engineering, .Logic},
 		{.Geology, .Logic},
-		// {.Physics, .Logic},
+		{.Physics, .Logic},
 		{.Piloting, .Finesse},
 		{.Influence, .Language},
 		{.Arts, .Acting},
@@ -183,7 +195,7 @@ load_db :: proc() {
 	ListOf(
 		DistantDerivativeSkills,{
 		{.Sorcery, .Arcana},
-		// {.Arcana, .Logic},
+		{.Arcana, .Logic},
 		// {.Engineering, .Physics},
 		{.Biology, .Chemistry},
 		{.Chemistry, .Physics},

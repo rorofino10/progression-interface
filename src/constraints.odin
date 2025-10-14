@@ -1,5 +1,7 @@
 package main
 
+import "core:slice/heap"
+import "core:slice"
 import "core:sort"
 import "core:fmt"
 TShare :: struct {
@@ -32,6 +34,8 @@ TOverlap :: struct {
 	strength: STRENGTH,
 }
 
+MAX_SHARE_DIFF :: 0.1
+
 Contains :: proc{_contains_skill_skill, _contains_skill_perk, _contains_perk_skill, _contains_perk_perk}
 
 _contains_skill_skill :: proc(skill_id_a: SkillID, level_a: LEVEL, skill_id_b: SkillID, level_b: LEVEL) {
@@ -51,7 +55,10 @@ _build_contains :: proc(buyableA, buyableB: Buyable) {
 }
 
 Drags :: proc(skillA, skillB: SkillID, differential: LEVEL) {
-    append(&DB.drag_constraint, TDrag{skillA, skillB, differential})
+	for level in differential+1..=MAX_SKILL_LEVEL {
+		lskillA, lskillB := LeveledSkill{skillA, LEVEL(level)}, LeveledSkill{skillB, LEVEL(level)-differential}
+		append(&DB.contains_constraint, TContains{lskillA, lskillB})
+	}
 }
 
 Share :: proc{_share_skill_perk, _share_perk_skill, _share_perk_perk}
@@ -102,27 +109,10 @@ handle_share :: proc(share: TShare){
 	block_system_assign_share(share.buyableA, share.buyableB, blocks_to_share, share.strategy)
 }
 
-handle_contains :: proc(contains: TContains){
-	// fmt.println("Handling", share)
-	container_blocks_to_own := DB.buyable_data[contains.container].blocks_to_be_assigned
-	containee_blocks_to_own := DB.buyable_data[contains.containee].blocks_to_be_assigned
-
-	if containee_blocks_to_own >= container_blocks_to_own do panic(fmt.tprintf("Invalid contains constraint", contains))
-
-	block_system_assign_contains(contains.container, contains.containee)
-}
-
-handle_drag :: proc(drag: TDrag) {
-	for level in drag.differential+1..=MAX_SKILL_LEVEL {
-		skillA, skillB := LeveledSkill{drag.skillA, LEVEL(level)}, LeveledSkill{drag.skillB, LEVEL(level)-drag.differential}
-		
-		handle_contains(TContains{skillA, skillB})
-	}
-}
 
 pre_process_share_constraints :: proc() {
 	// @static share_graph : map[Buyable][dynamic]Buyable
-	// defer delete(share_graph)
+	defer delete(DB.share_graph)
 	{ // Build Share Graph
 		for share in DB.share_constraints {
 			_, ok_a := DB.share_graph[share.buyableA]
@@ -186,30 +176,36 @@ pre_process_share_constraints :: proc() {
 			if share_cycle_id[share.buyableA] == share_cycle_id[share.buyableB] do share.strategy = .MaximizingOverlap
 		}
 	}
-
-	for share in DB.share_constraints do fmt.println(share.buyableA, "share with", share.buyableB, share.strategy)
-	// fmt.println(share_graph)
 }
 
 
-check_constraints :: proc() {
+check_shares_are_valid :: proc() {
 	{ // Check Share Constraints
 		for share in DB.share_constraints {
 			if share.strength > 100 do panic(fmt.tprint(share, "Strength is not a percentage"))
 			if share.buyableA == share.buyableB do panic(fmt.tprint(share, "Cannot Share with itself."))
 		}
 	}
-	{ // Check Overlap Constraints
-		for overlap in DB.overlap_constraints {
-			if overlap.strength > 100 do panic(fmt.tprint(overlap, "Strength is not a percentage"))
-			if overlap.skillA == overlap.skillB do panic(fmt.tprint(overlap, "Cannot Overlap with itself."))
+
+}
+
+check_contains_are_valid :: proc() {
+	{ // Check Contains Constraints
+		for contains in DB.contains_constraint {
+			container_blocks_to_own := DB.buyable_data[contains.container].blocks_to_be_assigned
+			containee_blocks_to_own := DB.buyable_data[contains.containee].blocks_to_be_assigned
+
+			assert(containee_blocks_to_own < container_blocks_to_own, fmt.tprint("Invalid contains constraint", contains, "containee has", containee_blocks_to_own, "blocks and container only has", container_blocks_to_own) )
 		}
 	}
 }
 
 _handle_shares :: proc() {
 	@static shares_as_edges_graph : map[TShare][dynamic]TShare
-	defer delete(shares_as_edges_graph)
+	defer {
+		for share, related in shares_as_edges_graph do delete(related) 
+		delete(shares_as_edges_graph)
+	}
 	{	// Build minimizing_share_graph
 		for share in DB.share_constraints {
 			shares_as_edges_graph[share] = make([dynamic]TShare, 0)
@@ -232,7 +228,6 @@ _handle_shares :: proc() {
 	// }
 	{	// Traverse through the graph
 		_handle_share_in_graph :: proc(share: TShare) {
-			fmt.println(share)
 			if share in seen do return
 			seen[share] = void{}
 			handle_share(share)
@@ -250,8 +245,122 @@ _handle_shares :: proc() {
 	}
 }
 
+_contains_comp :: proc(containsA, containsB: TContains) -> bool {
+	containerA, containerB := containsA.container, containsB.container
+	switch cA in containerA {
+		case PerkID:
+			switch cB in containerB {
+				case PerkID:
+					return cA < cB
+				case LeveledSkill:
+					return false
+			}
+		case LeveledSkill:
+			switch cB in containerB {
+				case PerkID:
+					return true
+				case LeveledSkill:
+					if cA.level != cB.level do return cA.level > cB.level
+					else do return cA.id < cB.id
+			}
+	}
+	return false
+}
+
+_handle_contains :: proc(){
+	@static contains_map : map[Buyable]map[Buyable]TContains
+	@static contains_graph : map[Buyable][dynamic]Buyable
+	@static reverse_contains_graph : map[Buyable][dynamic]Buyable
+	defer {
+		for container, related in contains_map do delete(related)
+		delete(contains_map)
+		for contains, related in contains_graph do delete(related)
+		delete(contains_graph)
+		for contains, related in reverse_contains_graph do delete(related)
+		delete(reverse_contains_graph)
+	}
+	{	// Build Contains Graph
+		for contains in DB.contains_constraint {
+			if contains.container not_in contains_map do contains_map[contains.container] = make(map[Buyable]TContains)
+			(&contains_map[contains.container])[contains.containee] = contains
+			if contains.container not_in contains_graph do contains_graph[contains.container] = make([dynamic]Buyable)
+			append(&contains_graph[contains.container], contains.containee)
+			if contains.containee not_in reverse_contains_graph do reverse_contains_graph[contains.containee] = make([dynamic]Buyable)
+			append(&reverse_contains_graph[contains.containee], contains.container)
+		}
+	}
+	{ // Traverse through contains
+		@static seen : map[Buyable]void
+		defer delete(seen)
+
+		_process_from_buyable :: proc(start: Buyable){
+			fmt.println("Processing from", start)
+			contains_heap: [dynamic]TContains
+			for container in reverse_contains_graph[start] do append(&contains_heap, contains_map[container][start])
+			heap.make(contains_heap[:], _contains_comp)
+			for len(contains_heap) != 0 {
+				contains_to_process := contains_heap[0]
+				defer {
+					heap.pop(contains_heap[:], _contains_comp)
+					pop(&contains_heap)
+				}
+
+				block_system_assign_contains(contains_to_process.container, contains_to_process.containee)
+				if contains_to_process.container not_in seen && contains_to_process.container in reverse_contains_graph {
+					for new_container in reverse_contains_graph[contains_to_process.container] {
+						append(&contains_heap, contains_map[new_container][contains_to_process.container])	
+						heap.push(contains_heap[:], _contains_comp)
+					}
+				}
+				seen[contains_to_process.container] = void{}
+			}
+		}
+		for contains in DB.contains_constraint do if contains.containee not_in contains_graph do _process_from_buyable(contains.containee)
+	}
+}
+
 handle_constraints :: proc() {
+	check_shares_are_valid()
+	pre_process_share_constraints()
 	_handle_shares()
-	for contains in DB.contains_constraint do handle_contains(contains)
-	for drag in DB.drag_constraint do handle_drag(drag)
+
+	check_contains_are_valid()
+	_handle_contains()
+}
+
+
+verify_constraints :: proc() {
+	for share in DB.share_constraints {
+		b_data_a, b_data_b := DB.buyable_data[share.buyableA], DB.buyable_data[share.buyableB]
+		
+		shared_blocks_in_a, shared_blocks_in_b : BlocksSize
+		for assigned_block in b_data_a.assigned_blocks do if _contains(assigned_block.owned_by[:], share.buyableB) do shared_blocks_in_a += 1
+		for assigned_block in b_data_b.assigned_blocks do if _contains(assigned_block.owned_by[:], share.buyableA) do shared_blocks_in_b += 1
+		assert(shared_blocks_in_a == shared_blocks_in_b, fmt.tprintln("Shared blocks in A", shared_blocks_in_a, "not equal to shared_blocks_in_b", shared_blocks_in_b, "in share", share))
+
+		representative_percentage_in_a := f64(shared_blocks_in_a) / f64(b_data_a.assigned_blocks_amount) * 100
+		representative_percentage_in_b := f64(shared_blocks_in_b) / f64(b_data_b.assigned_blocks_amount) * 100
+		
+		if share.fudged {
+			is_shared_correctly_in_a := representative_percentage_in_a >= f64(share.strength) 
+			is_shared_correctly_in_a ||= abs(f64(share.strength) - representative_percentage_in_a) <= MAX_FUDGE
+
+			is_shared_correctly_in_b := representative_percentage_in_b >= f64(share.strength) 
+			is_shared_correctly_in_b ||= abs(f64(share.strength) - representative_percentage_in_b) <= MAX_FUDGE
+
+			assert(is_shared_correctly_in_a, fmt.tprintln("Invalid share percentage got:", representative_percentage_in_a, "wanted", share.strength, "in share", share))
+			assert(is_shared_correctly_in_b, fmt.tprintln("Invalid share percentage got:", representative_percentage_in_b, "wanted", share.strength, "in share", share))
+		}
+		else {
+			is_shared_correctly := abs(representative_percentage_in_b - f64(share.strength)) <= MAX_SHARE_DIFF
+			assert(is_shared_correctly, fmt.tprintln("Invalid share percentage got:", representative_percentage_in_b, "wanted", share.strength, "in share", share))
+		}
+	}
+
+	for contains in DB.contains_constraint {
+		b_data_container, b_data_containee := DB.buyable_data[contains.container], DB.buyable_data[contains.containee]
+		for assigned_block in b_data_containee.assigned_blocks {
+			assert(_buyable_requires_block(assigned_block^, contains.container), fmt.tprintln("Assigned block", assigned_block, "of", contains.containee, "isn't contained by", contains.container))
+		}
+	}
 }

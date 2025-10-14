@@ -12,6 +12,7 @@ STRENGTH :: distinct u8
 // CONSTANT
 MAX_UNIT_LEVEL :: 100
 MAIN_SKILLS_AMOUNT :: 6
+MAX_FUDGE :: 10
 // Artificial list size limits
 // skill_slot_name := [MAIN_SKILLS_AMOUNT]string{"Primary 1", "Primary 2", "Major 1"}
 
@@ -171,9 +172,9 @@ Database :: struct {
 
 	// Constraint
 	contains_constraint : [dynamic]TContains,
-	drag_constraint		: [dynamic]TDrag,
+	// drag_constraint		: [dynamic]TDrag,
 	share_constraints	: [dynamic]TShare,
-	overlap_constraints : [dynamic]TOverlap,
+	// overlap_constraints : [dynamic]TOverlap,
 
 	//
 	share_graph : map[Buyable][dynamic]Buyable,
@@ -270,11 +271,10 @@ BuildPlayer :: proc(states: [dynamic]PlayerLevelState) {
 init_db :: proc() -> Error{
 	load_db()
 	assert(DB.owned_main_skills_amount == MAIN_SKILLS_AMOUNT)
-	check_constraints()
-	pre_process_share_constraints()
 	block_system_allocate()
 	init_query_system_alloc() or_return
 	create_buyables()
+	verify_constraints()
 	return nil
 }
 

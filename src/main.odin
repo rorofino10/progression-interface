@@ -222,17 +222,6 @@ reduce_skill :: proc(skill_id: SkillID) -> (u32, ReduceError) {
 		}
 	}
 
-	{ // Check if it drags another buyable
-		for drag in DB.drag_constraint {
-			if skill_level-drag.differential <= 0 do continue
-			dragged_skill := DB.buyable_data[LeveledSkill{drag.skillB, skill_level-drag.differential}]
-			if drag.skillA == skill_id && dragged_skill.is_owned {
-				fmt.println(drag, dragged_skill)
-				return 0, .DragsAnotherBuyable
-			}
-		}
-	}
-
 	{ // Check if it is required in another owned buyable
 		_skill_in_or_group :: proc(skill: LeveledSkill, group: SKILL_REQ_OR_GROUP) -> bool {
 			for entry in group {

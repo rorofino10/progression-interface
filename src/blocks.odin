@@ -201,14 +201,14 @@ _create_new_block_with_owners :: proc(buyables: ..Buyable) {
     append(&block_system.blocks, new_block)
 }
 
-_add_buyables_as_owner_of_block :: proc(block: ^Block, buyables: ..Buyable) {
+_add_buyables_as_owner_of_block_idx :: proc(block_idx: int, buyables: ..Buyable) {
     for buyable in buyables {
         if DB.buyable_data[buyable].blocks_left_to_assign <= 0 do panic("No blocks left to assign")
-        _assert_buyable_wont_clash_in_block(block, buyable)
+        _assert_buyable_wont_clash_in_block_idx(block_idx, buyable)
         buyable_data := &DB.buyable_data[buyable]
         buyable_data.blocks_left_to_assign -= 1
         buyable_data.assigned_blocks_amount += 1
-        append(&block.owned_by, buyable)
+        append(&block_system.blocks[block_idx].owned_by, buyable)
     }
 }
 
@@ -237,11 +237,10 @@ _assign_share_minimizing_overlap :: proc(buyableA, buyableB: Buyable, blocks_to_
     {   // Assign obligatory overlap
         if amount_of_blocks_left_to_share > 0 {
             query_a := query_blocks_indices_from_buyable_that_dont_clash_with_buyable(buyableA, buyableB, amount_of_blocks_left_to_share)
-            fmt.println(query_a)
             defer free_all(query_system_alloc)
             for assigned_block_idx in query_a {
                 queried_block := &block_system.blocks[assigned_block_idx]
-                _add_buyables_as_owner_of_block(queried_block, buyableB)
+                _add_buyables_as_owner_of_block_idx(assigned_block_idx, buyableB)
                 amount_of_blocks_left_to_share -= 1
             }
         }
@@ -275,7 +274,7 @@ _assign_share_maximizing_overlap :: proc(buyableA, buyableB: Buyable, blocks_to_
             query_block_a := &block_system.blocks[assigned_block_of_a_idx]
          
             if _should_add_to_owned(query_block_a.owned_by, buyableB) {
-                _add_buyables_as_owner_of_block(query_block_a, buyableB)
+                _add_buyables_as_owner_of_block_idx(assigned_block_of_a_idx, buyableB)
             }
         }}
     {   // Create new blocks for both
@@ -315,8 +314,7 @@ block_system_assign_contains :: proc(buyableA, buyableB: Buyable){
         if b_data_a.blocks_left_to_assign < partial_assignment_b_amount do panic(fmt.tprintln("Not enough blocks to assign contains between", buyableA, "->", buyableB))
 
         for partially_assigned_block_idx in partial_assignment_b {
-            block := &block_system.blocks[partially_assigned_block_idx]
-            _add_buyables_as_owner_of_block(block, buyableA)
+            _add_buyables_as_owner_of_block_idx(partially_assigned_block_idx, buyableA)
         }
     }
     {   // Create new blocks for B that are to be owned by A, prioritizing new blocks of A
@@ -331,17 +329,14 @@ block_system_assign_contains :: proc(buyableA, buyableB: Buyable){
 
         for relative_block_idx in 0..<new_blocks_to_assign do _create_new_block_with_owners(buyableA, buyableB)
 
-        if buyableA == (LeveledSkill{.Engineering, 9}) {
+        if buyableA == (LeveledSkill{.Engineering, 9}) && buyableB == (LeveledSkill{.Physics, 1}) {
             print_buyable_blocks_by_query(buyableA)
             print_buyable_blocks_by_query(buyableB)
         }
         partial_assignment_a := query_blocks_indices_from_buyable_that_dont_clash_with_buyable(buyableA, buyableB, old_blocks_to_assign)
         defer free_all(query_system_alloc)
 
-        for assigned_block_idx_of_a in partial_assignment_a {
-            assigned_block := &block_system.blocks[assigned_block_idx_of_a]
-            _add_buyables_as_owner_of_block(assigned_block, buyableB)
-        }
+        for assigned_block_idx_of_a in partial_assignment_a do _add_buyables_as_owner_of_block_idx(assigned_block_idx_of_a, buyableB)
     }
     if b_data_b.blocks_left_to_assign > 0 do panic(fmt.tprintln(buyableB, "not contained by", buyableA))
 }
@@ -438,6 +433,18 @@ _should_add_to_owned :: proc(list: [dynamic]Buyable, buyable: Buyable) -> bool {
 } 
 
 _assert_buyable_wont_clash_in_block :: proc(block: ^Block, buyable: Buyable) {
+        #partial switch b in buyable {
+            case LeveledSkill:
+                for block_owner in block.owned_by {
+                    #partial switch skill_owner in block_owner {
+                        case LeveledSkill:
+                            if skill_owner.id == b.id && skill_owner.level != b.level do panic(fmt.tprint("Found", buyable, "and", block_owner, "sharing same block", block))
+                    }
+                }
+        }   
+}
+_assert_buyable_wont_clash_in_block_idx :: proc(block_idx: int, buyable: Buyable) {
+    block := block_system.blocks[block_idx]
         #partial switch b in buyable {
             case LeveledSkill:
                 for block_owner in block.owned_by {

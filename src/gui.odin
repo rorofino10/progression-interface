@@ -177,6 +177,11 @@ _ui_draw_text_aligned_in_bound :: proc (container : UIBound, text : cstring, ali
     centered_div := _ui_center_div(container, {i32(text_size.x), i32(text_size.y)}, alignment, padding)
     rl.DrawTextEx(rl.GuiGetFont(), text, {f32(centered_div.x), f32(centered_div.y)}, f32(font_size), font_spacing, color)
 }
+_ui_draw_label_aligned_in_bound :: proc (container : UIBound, text : cstring, alignment : UIAlign, padding : UIPadding = {}, color : rl.Color = rl.DARKGRAY, font_size : FontSize = DEFAULT_FONT_SIZE, font_spacing : f32 = DEFAULT_FONT_SPACING) {
+    text_size := rl.MeasureTextEx(rl.GuiGetFont(), text, f32(font_size), font_spacing)
+    centered_div := _ui_center_div(container, {i32(text_size.x), i32(text_size.y)}, alignment, padding)
+    rl.GuiLabel(_ui_rect(centered_div), text)
+}
 
 _ui_layout :: proc (bound : UIBound) -> UILayout {
     return {bound = bound, at = {bound.x, bound.y}}
@@ -214,8 +219,23 @@ _gui_draw_perks_panel :: proc() {
     }
 }
 
+_gui_draw_unit_panel :: proc () {
+    unit_panel_bound := UIBound{rl.GetScreenWidth() * 80 / 100, 0, rl.GetScreenWidth() * 20 / 100, rl.GetScreenHeight()}
+    rl.GuiPanel(_ui_rect(unit_panel_bound), "Unit")
+    unit_panel_bound.y += 20
+    level_button_bound := _ui_anchor({unit_panel_bound.x, unit_panel_bound.y}, {0,0,unit_panel_bound.width,200})
+
+    level_button_label := strings.clone_to_cstring(fmt.tprint("Level:", DB.unit_level), context.temp_allocator)
+    if _ui_button(level_button_bound, nil) do level_up()
+    _ui_draw_text_aligned_in_bound(level_button_bound, level_button_label, .Center, font_size = 30)
+
+    points_left_label := strings.clone_to_cstring(fmt.tprint(DB.unused_points, "\npoints left", sep=""), context.temp_allocator)
+    points_left_bound := _ui_anchor({unit_panel_bound.x, unit_panel_bound.y},{0,200,unit_panel_bound.width,200})
+    _ui_draw_text_aligned_in_bound(points_left_bound, points_left_label, .Center, font_size = 30)
+}
+
 _gui_draw_main_skills_panel :: proc() {
-    main_skills_panel_bound := UIBound{rl.GetScreenWidth() * 25 / 100, 0, rl.GetScreenWidth() * 75 / 100, rl.GetScreenHeight() * 50 / 100}
+    main_skills_panel_bound := UIBound{rl.GetScreenWidth() * 25 / 100, 0, rl.GetScreenWidth() * 55 / 100, rl.GetScreenHeight() * 50 / 100}
     layout := _ui_layout(main_skills_panel_bound)
     rl.GuiPanel(_ui_rect(main_skills_panel_bound), "Main Skills")
     // _ui_button(main_skills_panel_bound, nil)
@@ -275,6 +295,7 @@ _gui_draw :: proc() {
     {
         _gui_draw_perks_panel()
         _gui_draw_main_skills_panel()
+        _gui_draw_unit_panel()
         // for perk, i in PerkID {
         //     rl.GuiSetStyle(rl.GuiControl.BUTTON, i32(rl.GuiControlProperty.BASE_COLOR_NORMAL), transmute(i32)u32(0xFF0000FF)); // Red background, full alpha
         //     perk_name, _ := reflect.enum_name_from_value(perk)

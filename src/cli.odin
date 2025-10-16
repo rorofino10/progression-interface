@@ -250,7 +250,7 @@ parse_skill :: proc(skill_id_str, skill_level_str: string, ) -> (LeveledSkill, b
     return LeveledSkill{skill_id, LEVEL(level)}, true
 }
 
-run_cli :: proc() {
+cli_run :: proc() {
     
     // Clear Screen
     // fmt.print("\x1b[2J\x1b[H")

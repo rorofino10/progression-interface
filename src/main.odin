@@ -210,9 +210,11 @@ reduce_skill :: proc(skill_id: SkillID) -> (Points, ReduceError) {
 	skill_level := DB.owned_skills[skill_id]
 	if skill_level == 0 do return 0, .CannotReduceSkill
 
+	reduced_level := skill_level - 1
 	skill := LeveledSkill{skill_id, skill_level}
 	b_data := &DB.buyable_data[skill]
 	owned_blocks_amount := b_data.assigned_blocks_amount
+	skill_id_data := &DB.skill_id_data[skill_id]
 
 
 	{ // Check if it contains another buyable
@@ -241,15 +243,55 @@ reduce_skill :: proc(skill_id: SkillID) -> (Points, ReduceError) {
 			} 
 		}
 	}
-
+	// Set as Locked
 	lock_buyable(skill)
-
 	b_data.is_owned = false
 	refunded := b_data.spent
 	DB.unused_points += refunded
 	b_data.bought_blocks_amount = 0
-	DB.owned_skills[skill_id] = skill_level - 1
-	
+	DB.owned_skills[skill_id] = reduced_level
+
+	if skill_id_data.type == .Main {
+
+	{ // Sift Down if possible 
+		for main_skill_idx := skill_id_data.idx; main_skill_idx < MAIN_SKILLS_AMOUNT-1; main_skill_idx+=1 {
+			curr_main_skill, next_main_skill := DB.owned_main_skills[main_skill_idx], DB.owned_main_skills[main_skill_idx+1]
+			curr_main_skill_level, next_main_skill_level := DB.owned_skills[curr_main_skill], DB.owned_skills[next_main_skill] 
+			curr_main_skill_data, next_main_skill_data := &DB.skill_id_data[curr_main_skill], &DB.skill_id_data[next_main_skill]
+
+			if curr_main_skill_level < next_main_skill_level {
+				// swap
+				DB.owned_main_skills[main_skill_idx] = next_main_skill
+				DB.owned_main_skills[main_skill_idx+1] = curr_main_skill
+
+				curr_main_skill_data.idx += 1
+				next_main_skill_data.idx -= 1
+			}
+		}
+	}
+
+	{ // Demote if Possible
+
+		for extra_skill_id in DB.owned_extra_skills{
+			extra_skill_level := DB.owned_skills[extra_skill_id]
+			extra_skill_data := &DB.skill_id_data[extra_skill_id]
+			if reduced_level < extra_skill_level {
+				
+				// swap
+				skill_id_data.idx = extra_skill_data.idx
+				skill_id_data.type = .Extra
+
+				extra_skill_data.idx = DB.owned_main_skills_amount-1
+				extra_skill_data.type = .Main
+				
+				DB.owned_main_skills[extra_skill_data.idx] = extra_skill_id
+				DB.owned_extra_skills[skill_id_data.idx] = skill_id
+				break
+			}
+		}
+
+	}
+	}
 	recalc_buyable_states()
 	return refunded, .None
 }
@@ -307,7 +349,23 @@ raise_skill :: proc(skill_id: SkillID) -> (Points, BuyError) {
 		if skill_id_data.raisable_state == .Capped do return 0, .CapReached
 	}
 
-	{ // Check for promotion
+
+	b_data := &DB.buyable_data[next_skill]
+
+    owned_block_amount := b_data.assigned_blocks_amount
+	blocks_to_buy := owned_block_amount - b_data.bought_blocks_amount
+	
+
+	{ // Set as bought
+		DB.unused_points -= blocks_to_buy
+		unlock_buyable(next_skill) // Set all blocks to bought
+	
+		b_data.spent = blocks_to_buy
+		b_data.is_owned = true
+		DB.owned_skills[next_skill.id] = next_skill.level
+	}
+
+	{ // Promote if Possible
 		last_main_skill_id := DB.owned_main_skills[DB.owned_main_skills_amount-1]
 		last_main_skill_level := DB.owned_skills[last_main_skill_id]
 		if skill_id_data.type == .Extra && next_skill.level > last_main_skill_level {
@@ -324,35 +382,22 @@ raise_skill :: proc(skill_id: SkillID) -> (Points, BuyError) {
 	}
 
 	{ // Sift Up if possible 
-		for main_skill_idx := skill_id_data.idx; main_skill_idx > 0; main_skill_idx-=1 {
-			curr_main_skill, prev_main_skill := DB.owned_main_skills[main_skill_idx], DB.owned_main_skills[main_skill_idx-1]
-			curr_main_skill_level, prev_main_skill_level := DB.owned_skills[curr_main_skill], DB.owned_skills[prev_main_skill] 
-			curr_main_skill_data, prev_main_skill_data := &DB.skill_id_data[curr_main_skill], &DB.skill_id_data[prev_main_skill]
+		if skill_id_data.type == .Main {
+			for main_skill_idx := skill_id_data.idx; main_skill_idx > 0; main_skill_idx-=1 {
+				curr_main_skill, prev_main_skill := DB.owned_main_skills[main_skill_idx], DB.owned_main_skills[main_skill_idx-1]
+				curr_main_skill_level, prev_main_skill_level := DB.owned_skills[curr_main_skill], DB.owned_skills[prev_main_skill] 
+				curr_main_skill_data, prev_main_skill_data := &DB.skill_id_data[curr_main_skill], &DB.skill_id_data[prev_main_skill]
 
-			if curr_main_skill_level >= prev_main_skill_level {
-				// swap
-				DB.owned_main_skills[main_skill_idx] = prev_main_skill
-				DB.owned_main_skills[main_skill_idx-1] = curr_main_skill
+				if curr_main_skill_level > prev_main_skill_level {
+					// swap
+					DB.owned_main_skills[main_skill_idx] = prev_main_skill
+					DB.owned_main_skills[main_skill_idx-1] = curr_main_skill
 
-				curr_main_skill_data.idx -= 1
-				prev_main_skill_data.idx += 1
+					curr_main_skill_data.idx -= 1
+					prev_main_skill_data.idx += 1
+				}
 			}
 		}
-	}	
-
-	b_data := &DB.buyable_data[next_skill]
-
-    owned_block_amount := b_data.assigned_blocks_amount
-	blocks_to_buy := owned_block_amount - b_data.bought_blocks_amount
-	
-
-	{ // Set as bought
-		DB.unused_points -= blocks_to_buy
-		unlock_buyable(next_skill) // Set all blocks to bought
-	
-		b_data.spent = blocks_to_buy
-		b_data.is_owned = true
-		DB.owned_skills[next_skill.id] = next_skill.level
 	}
 	
 	recalc_buyable_states()
@@ -391,8 +436,8 @@ run :: proc() -> Error {
 	init_block_system_alloc() or_return
 	init_db() or_return
 	
-	// run_cli()
-	gui_run()
+	cli_run()
+	// gui_run()
 	return nil
 }
 

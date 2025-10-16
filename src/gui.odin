@@ -280,6 +280,7 @@ _gui_draw_main_skills_panel :: proc() {
         button_label : string
         if rl.CheckCollisionPointRec(rl.GetMousePosition(), _ui_rect(button_bound)) {
             button_label = fmt.tprint(skill_name, " ", skill_level, "\nCost: ", buyable_data.assigned_blocks_amount - buyable_data.bought_blocks_amount, sep = "") 
+            if rl.IsMouseButtonPressed(.RIGHT) do reduce_skill(skill_id)
         }
         else do button_label = fmt.tprint(skill_name, skill_level)
         button_label_c_string := strings.clone_to_cstring(button_label, context.temp_allocator)

@@ -391,7 +391,8 @@ run :: proc() -> Error {
 	init_block_system_alloc() or_return
 	init_db() or_return
 	
-	run_cli()
+	// run_cli()
+	gui_run()
 	return nil
 }
 

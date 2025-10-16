@@ -161,13 +161,13 @@ load_db :: proc() {
 	// 		// {.Athletics, .Ranged },
 	// 	}
 	// )
-	ListOf(
-		CloseSkills, {
-		{.Melee, .Athletics},
-		{.Ranged, .Finesse},
-		{.Influence, .Acting},
-		}
-	)
+	// ListOf(
+	// 	CloseSkills, {
+	// 	{.Melee, .Athletics},
+	// 	{.Ranged, .Finesse},
+	// 	{.Influence, .Acting},
+	// 	}
+	// )
 	// ListOf(
 	// 	DistantSkills, {
 	// 	{.Influence, .Composure},

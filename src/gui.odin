@@ -83,7 +83,7 @@ _ui_bound_from_anchor :: proc( anchor: Anchor, bound: UIBound ) -> UIBound {
 		case .CENTER_LEFT:		return {  }
 		case .CENTER:			return {  }
 		case .CENTER_RIGHT:		return {  }
-		case .BOTTOM_LEFT:		return { bound.x+0, bound.y-bound.height, bound.width, bound.height }
+		case .BOTTOM_LEFT:		return { bound.x, -bound.y-bound.height, bound.width, bound.height }
 		case .BOTTOM_CENTER:	return { }
 		case .BOTTOM_RIGHT:		return { }
 	}
@@ -277,27 +277,40 @@ _gui_draw_main_skills_panel :: proc() {
         skill_name, _ := reflect.enum_name_from_value(skill_id)
         owned_bound := _ui_anchor(content_bottom_left, _ui_bound_from_anchor(.BOTTOM_LEFT,{(SKILL_BUTTON_WIDTH+SEPARATOR)*i32(slot), 0, button_bound.width, button_bound.height/MAX_SKILL_LEVEL*i32(skill_level)}))
         
-        button_label : string
-        if rl.CheckCollisionPointRec(rl.GetMousePosition(), _ui_rect(button_bound)) {
-            button_label = fmt.tprint(skill_name, " ", skill_level, "\nCost: ", buyable_data.assigned_blocks_amount - buyable_data.bought_blocks_amount, sep = "") 
-            if rl.IsMouseButtonPressed(.RIGHT) do reduce_skill(skill_id)
-        }
-        else do button_label = fmt.tprint(skill_name, skill_level)
-        button_label_c_string := strings.clone_to_cstring(button_label, context.temp_allocator)
-        
-        rl.GuiSetStyle(rl.GuiControl.BUTTON, i32(rl.GuiControlProperty.BASE_COLOR_NORMAL), _color_to_i32(state_color))
-        rl.GuiLock()
-        _ui_button(owned_bound, nil)
-        _ui_draw_text_aligned_in_bound(owned_bound, button_label_c_string, .Center)
-        rl.GuiUnlock()
-        
         rl.GuiSetStyle(.BUTTON, i32(rl.GuiControlProperty.BASE_COLOR_NORMAL), 0x00000000)
         rl.GuiSetStyle(.BUTTON, i32(rl.GuiControlProperty.BASE_COLOR_FOCUSED), rl.GuiGetStyle(.BUTTON, i32(rl.GuiControlProperty.BASE_COLOR_NORMAL)));
         rl.GuiSetStyle(.BUTTON, i32(rl.GuiControlProperty.BASE_COLOR_PRESSED), rl.GuiGetStyle(.BUTTON, i32(rl.GuiControlProperty.BASE_COLOR_NORMAL)));
 
-        if _ui_button(button_bound, nil) {
-            raise_skill(skill_id)
+        _ui_button(button_bound, nil)
+
+        button_label : string
+        if rl.CheckCollisionPointRec(rl.GetMousePosition(), _ui_rect(button_bound)) {
+            button_label = fmt.tprint(skill_name, " ", skill_level, "\nCost: ", buyable_data.assigned_blocks_amount - buyable_data.bought_blocks_amount, sep = "") 
+            if rl.IsMouseButtonPressed(.RIGHT) do reduce_skill(skill_id)
+            if rl.IsMouseButtonPressed(.LEFT) do raise_skill(skill_id)
         }
+        else do button_label = fmt.tprint(skill_name, skill_level)
+        button_label_c_string := strings.clone_to_cstring(button_label, context.temp_allocator)
+        
+        rl.GuiLock()
+        cap_bound := _ui_anchor(content_bottom_left, _ui_bound_from_anchor(.BOTTOM_LEFT,{(SKILL_BUTTON_WIDTH+SEPARATOR)*i32(slot), 0, button_bound.width, button_bound.height/MAX_SKILL_LEVEL*i32(slot_cap)}))
+        rl.GuiSetStyle(rl.GuiControl.BUTTON, i32(rl.GuiControlProperty.BASE_COLOR_NORMAL), _color_to_i32(rl.MAGENTA))
+        _ui_button(cap_bound, nil)
+
+        if skill_level == 0 {
+            rl.GuiSetStyle(rl.GuiControl.BUTTON, i32(rl.GuiControlProperty.BASE_COLOR_NORMAL), _color_to_i32(rl.GRAY))
+            _ui_button(button_bound, nil)
+            _ui_draw_text_aligned_in_bound(button_bound, button_label_c_string, .Center)
+        }
+        else {
+            rl.GuiSetStyle(rl.GuiControl.BUTTON, i32(rl.GuiControlProperty.BASE_COLOR_NORMAL), _color_to_i32(state_color))
+            _ui_button(owned_bound, nil)
+            _ui_draw_text_aligned_in_bound(owned_bound, button_label_c_string, .Center)
+        }
+
+
+
+        rl.GuiUnlock()
         rl.GuiLoadStyleDefault()
     }
 }

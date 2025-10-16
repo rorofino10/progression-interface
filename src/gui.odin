@@ -187,6 +187,15 @@ _ui_layout :: proc (bound : UIBound) -> UILayout {
     return {bound = bound, at = {bound.x, bound.y}}
 }
 
+_ui_content_from_panel :: proc(panel: UIBound, padding: UIPadding = {}) -> (content: UIBound) {
+    TITLE_OFFSET :: 20
+    content.x = panel.x + padding.left
+    content.y = panel.y + TITLE_OFFSET + padding.top
+    content.width = panel.width - padding.left - padding.right
+    content.height = panel.height - padding.top - padding.bottom - TITLE_OFFSET
+    return
+}
+
 _gui_draw_perk_button :: proc(perk: PerkID) { 
 
 }
@@ -221,7 +230,7 @@ _gui_draw_perks_panel :: proc() {
 
 _gui_draw_unit_panel :: proc () {
     unit_panel_bound := UIBound{rl.GetScreenWidth() * 80 / 100, 0, rl.GetScreenWidth() * 20 / 100, rl.GetScreenHeight()}
-    unit_content_bound := UIBound{unit_panel_bound.x, unit_panel_bound.y+20, unit_panel_bound.width, unit_panel_bound.height-20}
+    unit_content_bound := _ui_content_from_panel(unit_panel_bound)
     rl.GuiPanel(_ui_rect(unit_panel_bound), "Unit")
     level_button_bound := _ui_anchor({unit_content_bound.x, unit_content_bound.y}, {0,0,unit_content_bound.width,200})
 
@@ -236,12 +245,13 @@ _gui_draw_unit_panel :: proc () {
 
 _gui_draw_main_skills_panel :: proc() {
     main_skills_panel_bound := UIBound{rl.GetScreenWidth() * 25 / 100, 0, rl.GetScreenWidth() * 55 / 100, rl.GetScreenHeight() * 50 / 100}
-    main_skills_content_bound := UIBound{main_skills_panel_bound.x, main_skills_panel_bound.y+20, main_skills_panel_bound.width, main_skills_panel_bound.height-20}
+    main_skills_content_bound := _ui_content_from_panel(main_skills_panel_bound, {50, 50, 50, 50})
+    SEPARATOR :: 50
+    SKILL_BUTTON_WIDTH := (main_skills_content_bound.width - (MAIN_SKILLS_AMOUNT-1)*SEPARATOR)/MAIN_SKILLS_AMOUNT
     layout := _ui_layout(main_skills_content_bound)
     rl.GuiPanel(_ui_rect(main_skills_panel_bound), "Main Skills")
     
     content_bottom_left := _ui_anchored_pos(.BOTTOM_LEFT, main_skills_content_bound)
-    fmt.println(content_bottom_left)
     // _ui_button(main_skills_panel_bound, nil)
     for skill_id, slot in DB.owned_main_skills {
         skill_id_data := DB.skill_id_data[skill_id]
@@ -251,7 +261,7 @@ _gui_draw_main_skills_panel :: proc() {
         buyable_data := DB.buyable_data[next_skill]
         slot_cap := DB.player_states[DB.unit_level].main_skill_caps[slot]
         
-        button_bound := _ui_anchor(content_bottom_left, _ui_bound_from_anchor(.BOTTOM_LEFT,{main_skills_content_bound.width/MAIN_SKILLS_AMOUNT*i32(slot), 0, main_skills_content_bound.width/MAIN_SKILLS_AMOUNT, main_skills_content_bound.height}))
+        button_bound := _ui_anchor(content_bottom_left, _ui_bound_from_anchor(.BOTTOM_LEFT,{(SKILL_BUTTON_WIDTH+SEPARATOR)*i32(slot), 0, SKILL_BUTTON_WIDTH, main_skills_content_bound.height}))
         state_color : rl.Color
         switch skill_id_data.raisable_state {
             case .NotEnoughPoints:
@@ -265,7 +275,7 @@ _gui_draw_main_skills_panel :: proc() {
         }
 
         skill_name, _ := reflect.enum_name_from_value(skill_id)
-        owned_bound := _ui_anchor(content_bottom_left, _ui_bound_from_anchor(.BOTTOM_LEFT,{main_skills_content_bound.width/MAIN_SKILLS_AMOUNT*i32(slot), 0, button_bound.width, button_bound.height/MAX_SKILL_LEVEL*i32(skill_level)}))
+        owned_bound := _ui_anchor(content_bottom_left, _ui_bound_from_anchor(.BOTTOM_LEFT,{(SKILL_BUTTON_WIDTH+SEPARATOR)*i32(slot), 0, button_bound.width, button_bound.height/MAX_SKILL_LEVEL*i32(skill_level)}))
         
         button_label : string
         if rl.CheckCollisionPointRec(rl.GetMousePosition(), _ui_rect(button_bound)) {

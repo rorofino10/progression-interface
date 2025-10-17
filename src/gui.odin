@@ -6,7 +6,6 @@ import "core:strings"
 import "core:reflect"
 import rl "vendor:raylib"
 
-GUI_BUTTON_PERK_SIZE :: 50
 DEFAULT_FONT_SIZE :: 15
 DEFAULT_FONT_SPACING :: 2
 
@@ -238,9 +237,12 @@ _color_to_i32 :: proc(color: rl.Color) -> i32 {
 }
 
 _gui_draw_perks_panel :: proc(panel_bound: UIBound) {
+    PERKS_PER_ROW :: 2
+    PERK_BUTTON_HEIGHT :: 100
     content_bound := _ui_content_from_panel(panel_bound)
     i : i32 = 0
     for perk, perk_val in DB.perk_data {
+        buyable_data := DB.buyable_data[perk]
         state_color : i32 
         switch perk_val.buyable_state {
             case .UnmetRequirements:
@@ -252,12 +254,21 @@ _gui_draw_perks_panel :: proc(panel_bound: UIBound) {
             case .Free:
                 state_color = _color_to_i32(rl.YELLOW)
         }
-        rl.GuiSetStyle(rl.GuiControl.BUTTON, i32(rl.GuiControlProperty.BASE_COLOR_NORMAL), state_color)
         perk_name, _ := reflect.enum_name_from_value(perk)
-        if _ui_button(_ui_anchor({content_bound.x, content_bound.y},{0, i*GUI_BUTTON_PERK_SIZE, GUI_BUTTON_PERK_SIZE, GUI_BUTTON_PERK_SIZE}), strings.clone_to_cstring(perk_name, context.temp_allocator)) {
-            buy_perk(perk)
+        button_bound := _ui_anchor({content_bound.x, content_bound.y},{0, i*PERK_BUTTON_HEIGHT, content_bound.width/PERKS_PER_ROW, PERK_BUTTON_HEIGHT})
+        button_label : string
+        if rl.CheckCollisionPointRec(rl.GetMousePosition(), _ui_rect(button_bound)) {
+            button_label = fmt.tprint(perk_name, "\nCost: ", buyable_data.assigned_blocks_amount - buyable_data.bought_blocks_amount, sep = "") 
+            if rl.IsMouseButtonPressed(.LEFT) do buy_perk(perk)
+            if rl.IsMouseButtonPressed(.RIGHT) do refund_perk(perk)
         }
-        // rl.GuiButton({0,i*GUI_BUTTON_PERK_SIZE, GUI_BUTTON_PERK_SIZE, GUI_BUTTON_PERK_SIZE}, strings.clone_to_cstring(perk_name, context.temp_allocator))
+        else do button_label = fmt.tprint(perk_name)
+        button_label_c_string := strings.clone_to_cstring(button_label, context.temp_allocator)
+        
+        rl.GuiSetStyle(rl.GuiControl.BUTTON, i32(rl.GuiControlProperty.BASE_COLOR_NORMAL), state_color)
+        _ui_button(button_bound, nil)
+        rl.GuiSetStyle(.LABEL, i32(rl.GuiControlProperty.TEXT_ALIGNMENT), i32(rl.GuiTextAlignment.TEXT_ALIGN_CENTER));
+        rl.GuiLabel(_ui_rect(button_bound), button_label_c_string)
         i += 1
     }
 }
@@ -266,22 +277,23 @@ _gui_draw_unit_panel :: proc (panel_bound: UIBound) {
     content_bound := _ui_content_from_panel(panel_bound)
     level_button_bound := _ui_anchor({content_bound.x, content_bound.y}, {0,0,content_bound.width,200})
 
+    rl.GuiSetStyle(.LABEL, i32(rl.GuiControlProperty.TEXT_ALIGNMENT), i32(rl.GuiTextAlignment.TEXT_ALIGN_CENTER))
+    rl.GuiSetStyle(.DEFAULT, i32(rl.GuiDefaultProperty.TEXT_SIZE), 40)
+    rl.GuiSetStyle(.DEFAULT, i32(rl.GuiDefaultProperty.TEXT_LINE_SPACING), 40)
+
     level_button_label := strings.clone_to_cstring(fmt.tprint("Level:", DB.unit_level), context.temp_allocator)
     if _ui_button(level_button_bound, nil) do level_up()
-    _ui_draw_text_aligned_in_bound(level_button_bound, level_button_label, .Center, font_size = 30)
+    rl.GuiLabel(_ui_rect(level_button_bound), level_button_label)
 
     points_left_label := strings.clone_to_cstring(fmt.tprint(DB.unused_points, "\npoints left", sep=""), context.temp_allocator)
     points_left_bound := _ui_anchor({content_bound.x, content_bound.y+200},{0,0,content_bound.width,200})
-    rl.GuiSetStyle(.LABEL, i32(rl.GuiControlProperty.TEXT_ALIGNMENT), i32(rl.GuiTextAlignment.TEXT_ALIGN_CENTER));
-    rl.GuiSetStyle(.DEFAULT, i32(rl.GuiDefaultProperty.TEXT_SIZE), 40);
-    rl.GuiSetStyle(.DEFAULT, i32(rl.GuiDefaultProperty.TEXT_LINE_SPACING), 40);
+
     rl.GuiLabel(_ui_rect(points_left_bound), points_left_label)
     rl.GuiLoadStyleDefault()
-    // _ui_draw_text_aligned_in_bound(points_left_bound, points_left_label, .Center, font_size = 30)
 }
 
 skills_panel_layout := UIPanelLayout{
-    distribution = {0, 50, 100},
+    distribution = {0, 75, 100},
     panels = {{name="Main Skills",draw=_gui_draw_main_skills_panel}, {name="Extra Skills",draw=_gui_draw_extra_skills_panel}},
     direction = .VERTICAL,
 }
@@ -324,7 +336,7 @@ _gui_draw_main_skills_panel :: proc(panel_bound: UIBound) {
         }
 
         skill_name, _ := reflect.enum_name_from_value(skill_id)
-        owned_bound := _ui_anchor(content_bottom_left, _ui_bound_from_anchor(.BOTTOM_LEFT,{(SKILL_BUTTON_WIDTH+SEPARATOR)*i32(slot), 0, button_bound.width, button_bound.height/MAX_SKILL_LEVEL*i32(skill_level)}))
+        owned_bound := _ui_anchor(content_bottom_left, _ui_bound_from_anchor(.BOTTOM_LEFT,{(button_bound.width+SEPARATOR)*i32(slot), 0, button_bound.width, button_bound.height/MAX_SKILL_LEVEL*i32(skill_level)}))
         
         rl.GuiSetStyle(.BUTTON, i32(rl.GuiControlProperty.BASE_COLOR_NORMAL), 0x00000000)
         rl.GuiSetStyle(.BUTTON, i32(rl.GuiControlProperty.BASE_COLOR_FOCUSED), rl.GuiGetStyle(.BUTTON, i32(rl.GuiControlProperty.BASE_COLOR_NORMAL)));
@@ -346,17 +358,14 @@ _gui_draw_main_skills_panel :: proc(panel_bound: UIBound) {
         rl.GuiSetStyle(rl.GuiControl.BUTTON, i32(rl.GuiControlProperty.BASE_COLOR_NORMAL), _color_to_i32(rl.MAGENTA))
         _ui_button(cap_bound, nil)
 
-        if skill_level == 0 {
-            rl.GuiSetStyle(rl.GuiControl.BUTTON, i32(rl.GuiControlProperty.BASE_COLOR_NORMAL), _color_to_i32(rl.GRAY))
-            _ui_button(button_bound, nil)
-            _ui_draw_text_aligned_in_bound(button_bound, button_label_c_string, .Center)
-        }
-        else {
-            rl.GuiSetStyle(rl.GuiControl.BUTTON, i32(rl.GuiControlProperty.BASE_COLOR_NORMAL), _color_to_i32(state_color))
-            _ui_button(owned_bound, nil)
-            _ui_draw_text_aligned_in_bound(owned_bound, button_label_c_string, .Center)
-        }
-
+        
+        label_bound : UIBound
+        if skill_level == 0 {label_bound = button_bound; state_color = rl.GRAY}
+        else do label_bound = owned_bound
+        rl.GuiSetStyle(.LABEL, i32(rl.GuiControlProperty.TEXT_ALIGNMENT), i32(rl.GuiTextAlignment.TEXT_ALIGN_CENTER))
+        rl.GuiSetStyle(rl.GuiControl.BUTTON, i32(rl.GuiControlProperty.BASE_COLOR_NORMAL), _color_to_i32(state_color))
+        _ui_button(label_bound, nil)
+        rl.GuiLabel(_ui_rect(label_bound), button_label_c_string)
 
 
         rl.GuiUnlock()
@@ -365,7 +374,7 @@ _gui_draw_main_skills_panel :: proc(panel_bound: UIBound) {
 }
 
 global_panel_layout := UIPanelLayout{
-    distribution = {0, 25, 75, 100},
+    distribution = {0, 25, 90, 100},
     panels = {{name="Perks",draw=_gui_draw_perks_panel}, {name="Skills",draw=_gui_draw_skills_panel}, {name="Unit",draw=_gui_draw_unit_panel}},
     direction = .HORIZONTAL,
 }

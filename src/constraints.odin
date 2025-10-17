@@ -41,6 +41,10 @@ TOverlap :: struct {
 
 MAX_SHARE_DIFF :: 0.1
 
+Discounts :: proc(buyableA, buyableB: Buyable, strength: STRENGTH) {
+    append(&DB.share_constraints, TShare{buyableA, buyableB, strength, false, .MinimizingOverlap})
+}
+
 Contains :: proc{_contains_skill_skill, _contains_skill_perk, _contains_perk_skill, _contains_perk_perk}
 
 _contains_skill_skill :: proc(skill_id_a: SkillID, level_a: LEVEL, skill_id_b: SkillID, level_b: LEVEL) {

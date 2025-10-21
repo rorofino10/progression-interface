@@ -13,6 +13,8 @@ DEFAULT_LINE_SPACING :: 15
 VRES_HEIGHT :: 1080
 VRES_WIDTH :: 1920
 
+gui_font : rl.Font
+
 FontSize :: u8
 
 UILayout :: struct {
@@ -163,10 +165,17 @@ _ui_label :: proc(bound: UIBound, text: cstring, font_size : FontSize = DEFAULT_
     
 }
 
-_ui_button :: proc(bound: UIBound, text: cstring, font_size : FontSize = DEFAULT_FONT_SIZE, font_spacing : f32 = DEFAULT_FONT_SPACING, line_spacing : f32 = DEFAULT_LINE_SPACING) -> bool {
-    pressed := rl.GuiButton(_ui_rect(bound), nil)
-    // _ui_draw_text({bound.x,bound.y}, text, font_size = font_size, font_spacing = font_spacing)
-    _ui_label(bound, text, font_size, font_spacing, line_spacing)
+_ui_button_with_color :: proc(bound: UIBound, text: cstring = nil, font_size : FontSize = DEFAULT_FONT_SIZE, font_spacing : f32 = DEFAULT_FONT_SPACING, line_spacing : f32 = DEFAULT_LINE_SPACING, padding : UIPadding = {}, color : rl.Color) -> bool {
+    prev_color := rl.GuiGetStyle(rl.GuiControl.BUTTON, i32(rl.GuiControlProperty.BASE_COLOR_NORMAL))
+    defer rl.GuiSetStyle(rl.GuiControl.BUTTON, i32(rl.GuiControlProperty.BASE_COLOR_NORMAL), prev_color) 
+    rl.GuiSetStyle(rl.GuiControl.BUTTON, i32(rl.GuiControlProperty.BASE_COLOR_NORMAL), _color_to_i32(color))
+    return _ui_button(bound, text, font_size, font_spacing, line_spacing, padding)
+}
+
+_ui_button :: proc(bound: UIBound, text: cstring = nil, font_size : FontSize = DEFAULT_FONT_SIZE, font_spacing : f32 = DEFAULT_FONT_SPACING, line_spacing : f32 = DEFAULT_LINE_SPACING, padding : UIPadding = {}) -> bool {
+    padded_bound := UIBound{bound.x+padding.left, bound.y+padding.top, bound.width-padding.left-padding.right, bound.height-padding.top-padding.bottom}
+    pressed := rl.GuiButton(_ui_rect(padded_bound), nil)
+    _ui_label(padded_bound, text, font_size, font_spacing, line_spacing)
 
     return pressed
 }
@@ -286,12 +295,12 @@ _gui_draw_perks_panel :: proc(panel_bound: UIBound) {
     PERKS_PER_ROW :: 2
     ROWS :: 5
     content_bound := _ui_content_from_panel(panel_bound)
-    scroll_view := _ui_content_from_panel(panel_bound, {10,10,10,10}, true)
+    scroll_view := _ui_content_from_panel(panel_bound, {}, true)
     PERK_BUTTON_SIZE := UISize{scroll_view.width/PERKS_PER_ROW, scroll_view.height/ROWS}
 
     perks_amount := i32(len(DB.perk_data))
 
-    scroll_content_bound := _ui_content_from_panel({panel_bound.x, panel_bound.y, panel_bound.width, perks_amount/PERKS_PER_ROW*PERK_BUTTON_SIZE.height}, {10, 10, 10, 10}, true)
+    scroll_content_bound := _ui_content_from_panel({panel_bound.x, panel_bound.y, panel_bound.width, perks_amount/PERKS_PER_ROW*PERK_BUTTON_SIZE.height}, {}, true)
 
     rl.GuiScrollPanel(_ui_rect(panel_bound), "Perks", _ui_rect(scroll_content_bound), &perk_scroll, &perk_view)
     layout := _ui_layout(_ui_anchor({i32(perk_scroll.x), i32(perk_scroll.y)}, scroll_content_bound))
@@ -327,8 +336,7 @@ _gui_draw_perks_panel :: proc(panel_bound: UIBound) {
             else do button_label = fmt.tprint(perk_name)
             button_label_c_string := strings.clone_to_cstring(button_label, context.temp_allocator)
 
-            rl.GuiSetStyle(rl.GuiControl.BUTTON, i32(rl.GuiControlProperty.BASE_COLOR_NORMAL), _color_to_i32(state_color))
-            _ui_button(button_bound, button_label_c_string)
+            _ui_button_with_color(button_bound, button_label_c_string, padding = {20,20,20,20}, color = state_color)
         }
     }
     rl.EndScissorMode()
@@ -363,6 +371,7 @@ _gui_draw_extra_skills_panel :: proc(panel_bound: UIBound) {
 }
 
 _gui_draw_main_skills_panel :: proc(panel_bound: UIBound) {
+    MAIN_SKILL_FONT_SIZE :: 20
     PAD := panel_bound.width*5/100
     SEPARATOR := i32(0)
     main_skills_content_bound := _ui_content_from_panel(panel_bound, {PAD, PAD, PAD, PAD})
@@ -394,12 +403,23 @@ _gui_draw_main_skills_panel :: proc(panel_bound: UIBound) {
 
         skill_name, _ := reflect.enum_name_from_value(skill_id)
         owned_bound := _ui_anchor(content_bottom_left+layout.at, _ui_bound_from_anchor(.BOTTOM_LEFT,{0, 0, button_bound.width, button_bound.height/MAX_SKILL_LEVEL*i32(skill_level)}))
-        
-        rl.GuiSetStyle(.BUTTON, i32(rl.GuiControlProperty.BASE_COLOR_NORMAL), 0x00000000)
-        rl.GuiSetStyle(.BUTTON, i32(rl.GuiControlProperty.BASE_COLOR_FOCUSED), rl.GuiGetStyle(.BUTTON, i32(rl.GuiControlProperty.BASE_COLOR_NORMAL)));
-        rl.GuiSetStyle(.BUTTON, i32(rl.GuiControlProperty.BASE_COLOR_PRESSED), rl.GuiGetStyle(.BUTTON, i32(rl.GuiControlProperty.BASE_COLOR_NORMAL)));
 
-        _ui_button(button_bound, nil)
+
+        { // Make Invis and Disable Hover effects
+            button_color_normal := rl.GuiGetStyle(.BUTTON, i32(rl.GuiControlProperty.BASE_COLOR_NORMAL))
+            button_color_focused := rl.GuiGetStyle(.BUTTON, i32(rl.GuiControlProperty.BASE_COLOR_FOCUSED))
+            button_color_pressed := rl.GuiGetStyle(.BUTTON, i32(rl.GuiControlProperty.BASE_COLOR_PRESSED))
+            rl.GuiSetStyle(.BUTTON, i32(rl.GuiControlProperty.BASE_COLOR_NORMAL), 0x00000000)
+            rl.GuiSetStyle(.BUTTON, i32(rl.GuiControlProperty.BASE_COLOR_FOCUSED), 0x00000000);
+            rl.GuiSetStyle(.BUTTON, i32(rl.GuiControlProperty.BASE_COLOR_PRESSED), 0x00000000);
+            defer {
+                rl.GuiSetStyle(.BUTTON, i32(rl.GuiControlProperty.BASE_COLOR_NORMAL), button_color_normal)
+                rl.GuiSetStyle(.BUTTON, i32(rl.GuiControlProperty.BASE_COLOR_FOCUSED), button_color_focused);
+                rl.GuiSetStyle(.BUTTON, i32(rl.GuiControlProperty.BASE_COLOR_PRESSED), button_color_pressed);
+            }
+            _ui_button(button_bound, nil)
+        }
+
 
         button_label : string
         if rl.CheckCollisionPointRec(rl.GetMousePosition(), _ui_rect(button_bound)) {
@@ -412,19 +432,17 @@ _gui_draw_main_skills_panel :: proc(panel_bound: UIBound) {
         
         rl.GuiLock()
         cap_bound := _ui_anchor(content_bottom_left+layout.at, _ui_bound_from_anchor(.BOTTOM_LEFT,{0, 0, button_bound.width, button_bound.height/MAX_SKILL_LEVEL*i32(slot_cap)}))
-        rl.GuiSetStyle(rl.GuiControl.BUTTON, i32(rl.GuiControlProperty.BASE_COLOR_NORMAL), _color_to_i32(rl.GRAY))
-        _ui_button(cap_bound, nil)
+        _ui_button_with_color(cap_bound, color = rl.GRAY)
 
         
         label_bound : UIBound
         if skill_level == 0 {label_bound = button_bound; state_color = rl.GRAY}
         else do label_bound = owned_bound
-        rl.GuiSetStyle(rl.GuiControl.BUTTON, i32(rl.GuiControlProperty.BASE_COLOR_NORMAL), _color_to_i32(state_color))
-        _ui_button(label_bound, button_label_c_string)
+        _ui_button_with_color(label_bound, button_label_c_string, font_size = MAIN_SKILL_FONT_SIZE,  color = state_color)
+
 
         rl.GuiUnlock()
         _ui_layout_advance(&layout, {SKILL_BUTTON_WIDTH+SEPARATOR, 0}, .HORIZONTAL)
-        rl.GuiLoadStyleDefault()
     }
 }
 
@@ -438,47 +456,28 @@ _gui_draw :: proc() {
     rl.BeginDrawing()
     rl.ClearBackground(rl.WHITE)
 
-    {
-
+    { // Main Draw
         _ui_draw_panel_layout({0,0}, global_panel_layout, VRES_HEIGHT)
-
-        // _gui_draw_perks_panel()
-        // _gui_draw_main_skills_panel()
-        // _gui_draw_unit_panel()
-        // for perk, i in PerkID {
-        //     rl.GuiSetStyle(rl.GuiControl.BUTTON, i32(rl.GuiControlProperty.BASE_COLOR_NORMAL), transmute(i32)u32(0xFF0000FF)); // Red background, full alpha
-        //     perk_name, _ := reflect.enum_name_from_value(perk)
-        //     rl.GuiButton(rl.Rectangle{0,f32(i * GUI_BUTTON_PERK_SIZE), GUI_BUTTON_PERK_SIZE, GUI_BUTTON_PERK_SIZE}, strings.clone_to_cstring(perk_name, context.temp_allocator))
-        // }
-        // rl.GuiScrollPanel(rl.Rectangle{0,0, 50, 200}, "Scroll", rl.Rectangle{0,0,0,f32(PerkID.COUNT) * f32(GUI_BUTTON_PERK_SIZE)}, &scroll, &view)
-
-        // rl.GuiScrollPanel(panelBounds, nil, contentRect, &scroll, &view)
-
-        // // Start scissor mode to limit drawing to the panel view
-        // rl.BeginScissorMode(i32(view.x), i32(view.y), i32(view.width), i32(view.height))
-
-        // // Draw 20 buttons inside the content area
-        // for i := 0; i < 20; i += 1
-        // {
-        //     btnBounds := rl.Rectangle{ panelBounds.x + 10, panelBounds.y + 10 + f32(i) * 40 + scroll.y, 200, 30 }
-        //     rl.GuiButton(btnBounds, rl.TextFormat("Button %02i", i + 1))
-        // }
-
-        // rl.EndScissorMode()
     }
     rl.EndDrawing()
 }
 
 _gui_update :: proc() {}
 
+_gui_init_font :: proc() {
+    gui_font = rl.LoadFont("res/DejaVuSansMono.ttf")
+}
+
 gui_run :: proc() {
     { // Init
         cfg := _cfg_default()
-        rl.SetTraceLogLevel( .WARNING )
+        // rl.SetTraceLogLevel( .WARNING )
         rl.SetConfigFlags({.WINDOW_RESIZABLE, .VSYNC_HINT, .WINDOW_RESIZABLE, .MSAA_4X_HINT })
         rl.InitWindow( cfg.resolution_width, cfg.resolution_height, "App" )
         rl.SetTargetFPS( cfg.max_fps )
         if cfg.fullscreen do rl.ToggleFullscreen()
+        _gui_init_font()
+        rl.GuiSetFont(gui_font)
     }
     for !rl.WindowShouldClose() {
         defer free_all(context.temp_allocator)

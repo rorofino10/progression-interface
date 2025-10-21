@@ -8,7 +8,7 @@ import rl "vendor:raylib"
 
 DEFAULT_FONT_SIZE :: 15
 DEFAULT_FONT_SPACING :: 2
-DEFAULT_LINE_SPACING :: 15
+DEFAULT_LINE_SPACING :: DEFAULT_FONT_SIZE+5
 
 VRES_HEIGHT :: 1080
 VRES_WIDTH :: 1920
@@ -132,8 +132,8 @@ _ui_anchored_pos :: proc( anchor: Anchor, bound: UIBound ) -> UIVec2 {
 
 // returns ratio between virtual res and screen res
 _ui_get_ratio :: proc () -> UIRatio {
-    w := rl.GetRenderWidth()
-    h := rl.GetRenderHeight()
+    w := rl.GetScreenWidth()
+    h := rl.GetScreenHeight()
     return {f32(w)/(VRES_WIDTH), f32(h)/(VRES_HEIGHT)}
 }
 
@@ -147,6 +147,10 @@ _ui_get_font_size :: proc (virtual_size : FontSize) -> f32 {
 _ui_rect :: proc (bound : UIBound) -> rl.Rectangle {
     ratio := _ui_get_ratio()
     return {f32(bound.x)*ratio.w, f32(bound.y)*ratio.h, f32(bound.width)*ratio.w, f32(bound.height)*ratio.h}
+}
+
+_ui_bound :: proc(rect : rl.Rectangle) -> UIBound {
+    return {i32(rect.x), i32(rect.y), i32(rect.width), i32(rect.height)}
 }
 
 /* Wrappers */
@@ -240,13 +244,15 @@ _ui_layout_advance :: proc(layout: ^UILayout, size: UISize, direction: UILayoutD
     switch direction {
         case .HORIZONTAL:
             layout.at.x += size.width
-            if layout.at.x >= layout.bound.width {
+            remaining := layout.bound.width - layout.at.x 
+            if size.width > remaining {
                 layout.at.x = 0
                 layout.at.y += size.height
             }
         case .VERTICAL:
             layout.at.y += size.height
-            if layout.at.y >= layout.bound.height {
+            remaining := layout.bound.height - layout.at.y 
+            if size.height > remaining {
                 layout.at.y = 0
                 layout.at.x += size.width
             }
@@ -289,6 +295,76 @@ _ui_content_from_panel :: proc(panel: UIBound, padding: UIPadding = {}, is_scrol
 _color_to_i32 :: proc(color: rl.Color) -> i32 {
     return transmute(i32)(u32(color.r) << 24 | u32(color.g) << 16 | u32(color.b) << 8 | u32(color.a) << 0)
 }
+
+extra_skills_scroll : rl.Vector2
+extra_skills_view : rl.Rectangle
+
+_gui_draw_extra_skills_panel :: proc(panel_bound: UIBound) {
+    SKILLS_PER_ROW :: 5
+    ROWS :: 2
+    content_bound := _ui_content_from_panel(panel_bound)
+    scroll_view := _ui_content_from_panel(panel_bound, {}, true)
+    SKILL_BUTTON_SIZE := UISize{scroll_view.width/SKILLS_PER_ROW, scroll_view.height/ROWS}
+
+    extra_skills_amount := i32(len(DB.owned_extra_skills))
+
+    scroll_content_bound := _ui_content_from_panel({panel_bound.x, panel_bound.y, panel_bound.width, (extra_skills_amount + SKILLS_PER_ROW - 1)/SKILLS_PER_ROW*SKILL_BUTTON_SIZE.height}, {}, true)
+
+    rl.GuiScrollPanel(_ui_rect(panel_bound), "Extra Skills", _ui_rect(scroll_content_bound), &extra_skills_scroll, &extra_skills_view)
+
+    view_bound := _ui_bound(extra_skills_view)
+    layout := _ui_layout(_ui_anchor({i32(extra_skills_scroll.x), i32(extra_skills_scroll.y)}, view_bound))
+
+    rl.BeginScissorMode(view_bound.x, view_bound.y, view_bound.width, view_bound.height)
+    {
+        // TODO: Make this not... Bad
+        for skill_id, slot in DB.owned_extra_skills {
+            skill_id_data := DB.skill_id_data[skill_id]
+            skill_level := DB.owned_skills[skill_id]
+            next_skill := LeveledSkill{skill_id, skill_level+1}
+
+            buyable_data := DB.buyable_data[next_skill]
+            slot_cap := DB.player_states[DB.unit_level].extra_skill_cap
+
+            state_color : rl.Color
+            switch skill_id_data.raisable_state {
+                case .NotEnoughPoints:
+                    state_color = rl.RED
+                case .Raisable:
+                    state_color = rl.GREEN
+                case .Capped:
+                    state_color = rl.SKYBLUE
+                case .Free:
+                    state_color = rl.YELLOW
+            }
+
+            skill_name, _ := reflect.enum_name_from_value(skill_id)
+            button_bound := _ui_anchor({layout.bound.x + layout.at.x, layout.bound.y + layout.at.y},{0, 0, SKILL_BUTTON_SIZE.width, SKILL_BUTTON_SIZE.height})
+            _ui_layout_advance(&layout, SKILL_BUTTON_SIZE, .HORIZONTAL)
+
+            button_label : cstring
+            if skill_level == 0 {
+                button_label = fmt.ctprint("Unlock\n",skill_name, sep = "") 
+            }
+            else {
+                button_label = fmt.ctprint(skill_name, skill_level) 
+            } 
+
+            if rl.CheckCollisionPointRec(rl.GetMousePosition(), _ui_rect(button_bound)) {
+                switch skill_id_data.raisable_state {
+                    case .NotEnoughPoints, .Raisable, .Capped:
+                        button_label = fmt.ctprint(button_label, "\n", buyable_data.assigned_blocks_amount - buyable_data.bought_blocks_amount, " to raise", sep = "") 
+                    case .Free:
+                        button_label = fmt.ctprint(button_label, "FREE to raise", sep = "\n") 
+                }
+                if rl.IsMouseButtonPressed(.LEFT) do raise_skill(skill_id)
+                if rl.IsMouseButtonPressed(.RIGHT) do reduce_skill(skill_id)
+            }
+            _ui_button_with_color(button_bound, button_label, padding = {}, color = state_color)
+        }
+    }
+    rl.EndScissorMode()
+}
 perk_scroll : rl.Vector2
 perk_view : rl.Rectangle
 _gui_draw_perks_panel :: proc(panel_bound: UIBound) {
@@ -300,23 +376,21 @@ _gui_draw_perks_panel :: proc(panel_bound: UIBound) {
 
     perks_amount := i32(len(DB.perk_data))
 
-    scroll_content_bound := _ui_content_from_panel({panel_bound.x, panel_bound.y, panel_bound.width, perks_amount/PERKS_PER_ROW*PERK_BUTTON_SIZE.height}, {}, true)
+    scroll_content_bound := _ui_content_from_panel({panel_bound.x, panel_bound.y, panel_bound.width, (perks_amount + PERKS_PER_ROW - 1)/PERKS_PER_ROW*PERK_BUTTON_SIZE.height}, {}, true)
 
     rl.GuiScrollPanel(_ui_rect(panel_bound), "Perks", _ui_rect(scroll_content_bound), &perk_scroll, &perk_view)
-    layout := _ui_layout(_ui_anchor({i32(perk_scroll.x), i32(perk_scroll.y)}, scroll_content_bound))
 
-    // scroll_source := rl.Rectangle{ 0, -scroll_vector.y, scroll_image.width, scroll_view.height };
-    // rl.DrawTexturePro(scroll_image, scroll_source, scroll, (Vector2){0}, 0, WHITE);    
-    // content_bound := _ui_content_from_panel(panel_bound, {right=20})
-    rl.BeginScissorMode(i32(perk_view.x), i32(perk_view.y), i32(perk_view.width), i32(perk_view.height));
+    view_bound := _ui_bound(perk_view)
+    layout := _ui_layout(_ui_anchor({i32(perk_scroll.x), i32(perk_scroll.y)}, view_bound))
+
+    rl.BeginScissorMode(view_bound.x, view_bound.y, view_bound.width, view_bound.height);
     {
-        
+        // TODO: Make this not... Bad
         for perk, perk_val in DB.perk_data {
+            if perk_val.buyable_state == .UnmetRequirements do continue
             buyable_data := DB.buyable_data[perk]
             state_color : rl.Color
-            switch perk_val.buyable_state {
-                case .UnmetRequirements:
-                    state_color = rl.RED
+            #partial switch perk_val.buyable_state {
                 case .Buyable:
                     state_color = rl.GREEN
                 case .Owned:
@@ -324,6 +398,33 @@ _gui_draw_perks_panel :: proc(panel_bound: UIBound) {
                 case .Free:
                     state_color = rl.YELLOW
             }
+            perk_name, _ := reflect.enum_name_from_value(perk)
+            button_bound := _ui_anchor({layout.bound.x + layout.at.x, layout.bound.y + layout.at.y},{0, 0, PERK_BUTTON_SIZE.width, PERK_BUTTON_SIZE.height})
+            _ui_layout_advance(&layout, PERK_BUTTON_SIZE, .HORIZONTAL)
+
+            button_label : string
+            if rl.CheckCollisionPointRec(rl.GetMousePosition(), _ui_rect(button_bound)) {
+                #partial switch perk_val.buyable_state {
+                    case .Buyable:
+                        button_label = fmt.tprint(perk_name, "\nCost: ", buyable_data.assigned_blocks_amount - buyable_data.bought_blocks_amount, sep = "") 
+                    case .Owned:
+                        state_color = rl.SKYBLUE
+                        button_label = fmt.tprint(perk_name, "\nSpent: ", buyable_data.spent, sep = "") 
+                    case .Free:
+                        state_color = rl.YELLOW
+                        button_label = fmt.tprint(perk_name, "\nFREE", sep = "") 
+                }
+                if rl.IsMouseButtonPressed(.LEFT) do buy_perk(perk)
+                if rl.IsMouseButtonPressed(.RIGHT) do refund_perk(perk)
+            }
+            else do button_label = fmt.tprint(perk_name)
+            button_label_c_string := strings.clone_to_cstring(button_label, context.temp_allocator)
+
+            _ui_button_with_color(button_bound, button_label_c_string, padding = {}, color = state_color)
+        }
+        for perk, perk_val in DB.perk_data {
+            if perk_val.buyable_state != .UnmetRequirements do continue
+            buyable_data := DB.buyable_data[perk]
             perk_name, _ := reflect.enum_name_from_value(perk)
             button_bound := _ui_anchor({layout.bound.x + layout.at.x, layout.bound.y + layout.at.y},{0, 0, PERK_BUTTON_SIZE.width, PERK_BUTTON_SIZE.height})
             _ui_layout_advance(&layout, PERK_BUTTON_SIZE, .HORIZONTAL)
@@ -336,11 +437,10 @@ _gui_draw_perks_panel :: proc(panel_bound: UIBound) {
             else do button_label = fmt.tprint(perk_name)
             button_label_c_string := strings.clone_to_cstring(button_label, context.temp_allocator)
 
-            _ui_button_with_color(button_bound, button_label_c_string, padding = {20,20,20,20}, color = state_color)
+            _ui_button_with_color(button_bound, button_label_c_string, padding = {}, color = rl.RED)
         }
     }
     rl.EndScissorMode()
-
 }
 
 _gui_draw_unit_panel :: proc (panel_bound: UIBound) {
@@ -348,12 +448,12 @@ _gui_draw_unit_panel :: proc (panel_bound: UIBound) {
     level_button_bound := _ui_anchor({content_bound.x, content_bound.y}, {0,0,content_bound.width,200})
 
     level_button_label := strings.clone_to_cstring(fmt.tprint("Level:", DB.unit_level), context.temp_allocator)
-    if _ui_button(level_button_bound, level_button_label, 40, line_spacing = 40) do level_up()
+    if _ui_button(level_button_bound, level_button_label, 25, line_spacing = 40) do level_up()
 
     points_left_label := strings.clone_to_cstring(fmt.tprint(DB.unused_points, "\npoints left", sep=""), context.temp_allocator)
     points_left_bound := _ui_anchor({content_bound.x, content_bound.y+200},{0,0,content_bound.width,200})
 
-    _ui_label(points_left_bound, points_left_label, font_size = 40, line_spacing = 40)
+    _ui_label(points_left_bound, points_left_label, font_size = 25, line_spacing = 40)
 }
 
 skills_panel_layout := UIPanelLayout{
@@ -366,9 +466,6 @@ _gui_draw_skills_panel :: proc(panel_bound: UIBound) {
     _ui_draw_panel_layout({panel_bound.x, panel_bound.y}, skills_panel_layout, panel_bound.width)
 }
 
-
-_gui_draw_extra_skills_panel :: proc(panel_bound: UIBound) {
-}
 
 _gui_draw_main_skills_panel :: proc(panel_bound: UIBound) {
     MAIN_SKILL_FONT_SIZE :: 20
@@ -421,25 +518,35 @@ _gui_draw_main_skills_panel :: proc(panel_bound: UIBound) {
         }
 
 
-        button_label : string
+
+        
+        rl.GuiLock()
+        
+        button_label : cstring
+        label_bound : UIBound
+        if skill_level == 0 {
+            label_bound = button_bound
+            // state_color = rl.GRAY
+            button_label = fmt.ctprint("Unlock\n",skill_name, sep = "") 
+        }
+        else {
+            label_bound = owned_bound
+            cap_bound := _ui_anchor(content_bottom_left+layout.at, _ui_bound_from_anchor(.BOTTOM_LEFT,{0, 0, button_bound.width, button_bound.height/MAX_SKILL_LEVEL*i32(slot_cap)}))
+            _ui_button_with_color(cap_bound, color = rl.GRAY)
+            button_label = fmt.ctprint(skill_name, skill_level) 
+        }    
+        
         if rl.CheckCollisionPointRec(rl.GetMousePosition(), _ui_rect(button_bound)) {
-            button_label = fmt.tprint(skill_name, " ", skill_level, "\nCost: ", buyable_data.assigned_blocks_amount - buyable_data.bought_blocks_amount, sep = "") 
+            switch skill_id_data.raisable_state {
+                case .NotEnoughPoints, .Raisable, .Capped:
+                    button_label = fmt.ctprint(button_label, "\n", buyable_data.assigned_blocks_amount - buyable_data.bought_blocks_amount, " to raise", sep = "") 
+                case .Free:
+                    button_label = fmt.ctprint(button_label, "FREE to raise", sep = "\n") 
+            }
             if rl.IsMouseButtonPressed(.RIGHT) do reduce_skill(skill_id)
             if rl.IsMouseButtonPressed(.LEFT) do raise_skill(skill_id)
         }
-        else do button_label = fmt.tprint(skill_name, skill_level)
-        button_label_c_string := strings.clone_to_cstring(button_label, context.temp_allocator)
-        
-        rl.GuiLock()
-        cap_bound := _ui_anchor(content_bottom_left+layout.at, _ui_bound_from_anchor(.BOTTOM_LEFT,{0, 0, button_bound.width, button_bound.height/MAX_SKILL_LEVEL*i32(slot_cap)}))
-        _ui_button_with_color(cap_bound, color = rl.GRAY)
-
-        
-        label_bound : UIBound
-        if skill_level == 0 {label_bound = button_bound; state_color = rl.GRAY}
-        else do label_bound = owned_bound
-        _ui_button_with_color(label_bound, button_label_c_string, font_size = MAIN_SKILL_FONT_SIZE,  color = state_color)
-
+        _ui_button_with_color(label_bound, button_label, font_size = MAIN_SKILL_FONT_SIZE,  color = state_color)
 
         rl.GuiUnlock()
         _ui_layout_advance(&layout, {SKILL_BUTTON_WIDTH+SEPARATOR, 0}, .HORIZONTAL)

@@ -121,6 +121,11 @@ SKILL :: enum {
 	Engineering,
 	Language,
 	Physics,
+	Physics2,
+	Physics3,
+	Physics4,
+	// Physics5,
+	// Physics6,
 }
 
 load_db :: proc() {
@@ -250,8 +255,10 @@ load_db :: proc() {
 	Perk(.HeavyWeaponsGuy,		{Skill{.Ranged, 15},	Skill{.Athletics, 10}, Skill{.Endurance, 10}}, {}, 50, {{PERK.Beamer, 40}})
 	Perk(.Beamer,				{Skill{.Ranged, 15},	Skill{.Endurance, 10}}, {}, 50, {})
 
-	Perk(.BowTraining,		{Skill{.Ranged, 6}, Skill{.Athletics, 4}}, 						{}, 30, {})
-	Perk(.SlingTraining,	{Skill{.Ranged, 6}, Skill{.Finesse, 4}, Skill{.Athletics, 2}},	{}, 60, {})
+	// Perk(.BowTraining,		{Skill{.Ranged, 6}, Skill{.Athletics, 4}}, 						{}, 30, {})
+	// Perk(.SlingTraining,	{Skill{.Ranged, 6}, Skill{.Finesse, 4}, Skill{.Athletics, 2}},	{}, 60, {})
+	Perk(.SlingTraining,	{},	{}, 60, {})
+	Perk(.BowTraining,		{}, 						{}, 60, {{PERK.SlingTraining, 100}})
 }
 
 TestRelation :: proc(A, B: SKILL) {

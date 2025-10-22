@@ -40,24 +40,25 @@ recalc_perks_buyable_state :: proc() {
 		}
 
 		{ 	// check if pre_reqs are satisfied
+			fmt.println(perk_val.prereqs, "Pre Reqs", perk)
+			has_reqs := true
 			for prereq in perk_val.prereqs {
+				if !has_reqs do break
 				switch req in prereq {
 					case PerkID:
-						if req not_in DB.owned_perks {
-							perk_val.buyable_state = .UnmetRequirements
-							continue
-						}
+						if req not_in DB.owned_perks do has_reqs = false
 					case PRE_REQ_OR_GROUP:
 						satisfied := false
 						for perk_in_or_group in req {
 							if perk_in_or_group in DB.owned_perks do satisfied = true
 						}
-						if !satisfied {
-							perk_val.buyable_state = .UnmetRequirements
-							continue
-						}
+						if !satisfied do has_reqs = false
 				}
 
+			}
+			if !has_reqs {
+				perk_val.buyable_state = .UnmetRequirements
+				continue
 			}
 		}
 

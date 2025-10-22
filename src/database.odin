@@ -52,9 +52,9 @@ Perks :: bit_set[PerkID]
 
 PerkData :: struct {
 	blocks:      BlocksSize,
-	prereqs:     [dynamic]PRE_REQ_ENTRY,
+	prereqs:     []PRE_REQ_ENTRY,
 	buyable_state: PerkBuyableState,
-	skills_reqs: [dynamic]SKILL_REQ_ENTRY,
+	skills_reqs: []SKILL_REQ_ENTRY,
 }
 
 PerkBuyableState :: enum {
@@ -249,7 +249,13 @@ _build_skill_lambda :: proc(skillID: SkillID, blockProc: DefineBlockProc){
 
 _perk_without_share :: proc(perkID: PerkID, skill_reqs: [dynamic]SKILL_REQ_ENTRY, pre_reqs: [dynamic]PRE_REQ_ENTRY, blocks: BlocksSize) {
 	assert(perkID not_in DB.perk_data, fmt.tprint("Already built Perk:", perkID))
-	perk_data := PerkData{ blocks = blocks, prereqs = pre_reqs, skills_reqs = skill_reqs }
+	defer {
+		delete(skill_reqs)
+		delete(pre_reqs)
+	}
+	pre_reqs_copy := slice.clone(pre_reqs[:])
+	skill_reqs_copy := slice.clone(skill_reqs[:])
+	perk_data := PerkData{ blocks = blocks, prereqs = pre_reqs_copy, skills_reqs = skill_reqs_copy }
 	DB.perk_data[perkID] = perk_data
 }
 

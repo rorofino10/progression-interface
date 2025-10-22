@@ -39,12 +39,25 @@ recalc_perks_buyable_state :: proc() {
 			}
 		}
 
-		{ 	// check pre_reqs
+		{ 	// check if pre_reqs are satisfied
 			for prereq in perk_val.prereqs {
-				if prereq not_in DB.owned_perks {
-					perk_val.buyable_state = .UnmetRequirements
-					continue
+				switch req in prereq {
+					case PerkID:
+						if req not_in DB.owned_perks {
+							perk_val.buyable_state = .UnmetRequirements
+							continue
+						}
+					case PRE_REQ_OR_GROUP:
+						satisfied := false
+						for perk_in_or_group in req {
+							if perk_in_or_group in DB.owned_perks do satisfied = true
+						}
+						if !satisfied {
+							perk_val.buyable_state = .UnmetRequirements
+							continue
+						}
 				}
+
 			}
 		}
 
@@ -300,10 +313,8 @@ refund_perk :: proc(perk_id: PerkID) -> (Points, RefundError) {
 	if !player_has_buyable(perk_id) do return 0, .BuyableNotOwned
 
 	{ // Check if it is required in another owned buyable
-		for owned_perk in DB.owned_perks {
-			owned_perk_data := DB.perk_data[owned_perk]	
-			if perk_id in owned_perk_data.prereqs do return 0, .RequiredByAnotherBuyable
-		}
+		for owned_perk in DB.owned_perks do if perk_id in _flattened_pre_reqs(owned_perk) do return 0, .RequiredByAnotherBuyable
+		
 	}
 
 	b_data := &DB.buyable_data[perk_id]

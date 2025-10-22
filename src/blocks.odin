@@ -361,7 +361,7 @@ _buyable_requires_block :: proc(block: Block, buyable: Buyable) -> bool {
                 for owner in block.owned_by {
                     #partial switch o in owner {
                         case PerkID:
-                            if o in b_perk_data.prereqs do return true
+                            if o in _flattened_pre_reqs(b) do return true
                         case LeveledSkill:
                             for req_entry in b_perk_data.skills_reqs {
                                 switch r_entry in req_entry {
@@ -396,8 +396,7 @@ _block_requires_buyable :: proc(block: Block, buyable: Buyable) -> bool {
                 for owner in block.owned_by {
                     #partial switch o in owner {
                         case PerkID:
-                            perk_data := DB.perk_data[o]
-                            if b in perk_data.prereqs do return true
+                            if b in _flattened_pre_reqs(o) do return true
                     }
                 }
             case LeveledSkill:

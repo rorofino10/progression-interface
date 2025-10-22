@@ -52,7 +52,7 @@ Perks :: bit_set[PerkID]
 
 PerkData :: struct {
 	blocks:      BlocksSize,
-	prereqs:     Perks,
+	prereqs:     [dynamic]PRE_REQ_ENTRY,
 	buyable_state: PerkBuyableState,
 	skills_reqs: [dynamic]SKILL_REQ_ENTRY,
 }
@@ -75,7 +75,22 @@ SKILL_REQ_ENTRY :: union {
 	SKILL_REQ_OR_GROUP
 }
 
+PRE_REQ_OR_GROUP :: Perks
 
+PRE_REQ_ENTRY :: union {
+	PerkID,
+	PRE_REQ_OR_GROUP,
+}
+
+PreReqsOr :: proc(entries: ..PerkID) -> (group: PRE_REQ_OR_GROUP) {
+	defer delete(entries)
+	for entry in entries do group += {entry}
+	return
+}
+
+PreReqs :: proc(entries: ..PRE_REQ_ENTRY) -> []PRE_REQ_ENTRY{
+	return entries
+}
 
 void :: struct {}
 
@@ -232,13 +247,13 @@ _build_skill_lambda :: proc(skillID: SkillID, blockProc: DefineBlockProc){
 }
 // Skill :: proc{_build_skill_default, _build_skill_lambda}
 
-_perk_without_share :: proc(perkID: PerkID, skill_reqs: [dynamic]SKILL_REQ_ENTRY, pre_reqs: Perks, blocks: BlocksSize) {
+_perk_without_share :: proc(perkID: PerkID, skill_reqs: [dynamic]SKILL_REQ_ENTRY, pre_reqs: [dynamic]PRE_REQ_ENTRY, blocks: BlocksSize) {
 	assert(perkID not_in DB.perk_data, fmt.tprint("Already built Perk:", perkID))
 	perk_data := PerkData{ blocks = blocks, prereqs = pre_reqs, skills_reqs = skill_reqs }
 	DB.perk_data[perkID] = perk_data
 }
 
-_perk_with_share :: proc(perkID: PerkID, skill_reqs: [dynamic]SKILL_REQ_ENTRY, pre_reqs: Perks, blocks: BlocksSize, partial_shares: [dynamic]TPartialShare) {
+_perk_with_share :: proc(perkID: PerkID, skill_reqs: [dynamic]SKILL_REQ_ENTRY, pre_reqs: [dynamic]PRE_REQ_ENTRY, blocks: BlocksSize, partial_shares: [dynamic]TPartialShare) {
 	defer delete(partial_shares)
 	// defer delete(skill_reqs)
 	_perk_without_share(perkID, skill_reqs, pre_reqs, blocks)
@@ -297,6 +312,19 @@ init_db :: proc() -> Error{
 	return nil
 }
 
+_flattened_pre_reqs :: proc(perk: PerkID) -> (flattened_pre_reqs: Perks) {
+	pre_reqs := DB.perk_data[perk].prereqs
+	for req in pre_reqs {
+		switch r in req {
+			case PerkID:
+				flattened_pre_reqs |= {r}
+			case Perks:
+				flattened_pre_reqs |= r
+		}
+	}
+	return
+}
+
 create_buyables :: proc() {
 	{ // Check for cycles in pre_reqs
 		
@@ -307,7 +335,7 @@ create_buyables :: proc() {
 			if perk in seen do return nil
 			new_seen := seen | {perk}
 			new_curr_path := curr_path | {perk}
-			for req_perk in DB.perk_data[perk].prereqs {
+			for req_perk in _flattened_pre_reqs(perk) {
 				repeated_perk := check_for_cycles(req_perk, new_curr_path, new_seen, curr_path_stack)
 				if repeated_perk != nil do return repeated_perk
 				pop(curr_path_stack)
@@ -319,14 +347,14 @@ create_buyables :: proc() {
 			if perk in redundant do return perk
 			if perk in seen do return nil
 			new_seen := seen | {perk}
-			for req_perk in DB.perk_data[perk].prereqs {
+			for req_perk in _flattened_pre_reqs(perk) {
 				redundant_perk := check_for_redundancy(req_perk, new_seen, redundant)
 				if redundant_perk != nil do return redundant_perk
 			}
 			return nil
 		}
 		for perk in PerkID {
-			pre_reqs := DB.perk_data[perk].prereqs
+			pre_reqs := _flattened_pre_reqs(perk)
 			{ // Check redundancy
 
 				for req_perk in pre_reqs {

@@ -136,6 +136,9 @@ _ui_get_ratio :: proc () -> UIRatio {
     h := rl.GetScreenHeight()
     return {f32(w)/(VRES_WIDTH), f32(h)/(VRES_HEIGHT)}
 }
+_ui_get_ratio_from_virtual_to_screen :: proc () -> UIRatio {
+    return {VRES_WIDTH/f32(rl.GetScreenWidth()), VRES_HEIGHT/f32(rl.GetScreenHeight())}
+}
 
 // returns screen space size of font
 _ui_get_font_size :: proc (virtual_size : FontSize) -> f32 {
@@ -283,8 +286,9 @@ _ui_draw_panel_layout :: proc(anchor: UIVec2, panel_layout: UIPanelLayout, span:
 }
 
 _ui_content_from_panel :: proc(panel: UIBound, padding: UIPadding = {}, is_scrollable : bool = false) -> (content: UIBound) {
-    TITLE_OFFSET :: 24
-    SCROLL_BAR_WIDTH :: 14
+    virtual_to_screen_ratio := _ui_get_ratio_from_virtual_to_screen()
+    TITLE_OFFSET := i32(24 * virtual_to_screen_ratio.h)
+    SCROLL_BAR_WIDTH := i32(14 * virtual_to_screen_ratio.w)
     content.x = panel.x + padding.left
     content.y = panel.y + TITLE_OFFSET + padding.top
     content.width = panel.width - padding.left - padding.right - (is_scrollable ? SCROLL_BAR_WIDTH : 0)
@@ -302,7 +306,6 @@ extra_skills_view : rl.Rectangle
 _gui_draw_extra_skills_panel :: proc(panel_bound: UIBound) {
     SKILLS_PER_ROW :: 5
     ROWS :: 2
-    content_bound := _ui_content_from_panel(panel_bound)
     scroll_view := _ui_content_from_panel(panel_bound, {}, true)
     SKILL_BUTTON_SIZE := UISize{scroll_view.width/SKILLS_PER_ROW, scroll_view.height/ROWS}
 
@@ -313,7 +316,7 @@ _gui_draw_extra_skills_panel :: proc(panel_bound: UIBound) {
     rl.GuiScrollPanel(_ui_rect(panel_bound), "Extra Skills", _ui_rect(scroll_content_bound), &extra_skills_scroll, &extra_skills_view)
 
     view_bound := _ui_bound(extra_skills_view)
-    layout := _ui_layout(_ui_anchor({i32(extra_skills_scroll.x), i32(extra_skills_scroll.y)}, view_bound))
+    layout := _ui_layout(_ui_anchor({i32(extra_skills_scroll.x), i32(extra_skills_scroll.y)}, scroll_content_bound))
 
     rl.BeginScissorMode(view_bound.x, view_bound.y, view_bound.width, view_bound.height)
     {
@@ -370,7 +373,6 @@ perk_view : rl.Rectangle
 _gui_draw_perks_panel :: proc(panel_bound: UIBound) {
     PERKS_PER_ROW :: 2
     ROWS :: 5
-    content_bound := _ui_content_from_panel(panel_bound)
     scroll_view := _ui_content_from_panel(panel_bound, {}, true)
     PERK_BUTTON_SIZE := UISize{scroll_view.width/PERKS_PER_ROW, scroll_view.height/ROWS}
 
@@ -381,7 +383,7 @@ _gui_draw_perks_panel :: proc(panel_bound: UIBound) {
     rl.GuiScrollPanel(_ui_rect(panel_bound), "Perks", _ui_rect(scroll_content_bound), &perk_scroll, &perk_view)
 
     view_bound := _ui_bound(perk_view)
-    layout := _ui_layout(_ui_anchor({i32(perk_scroll.x), i32(perk_scroll.y)}, view_bound))
+    layout := _ui_layout(_ui_anchor({i32(perk_scroll.x), i32(perk_scroll.y)}, scroll_content_bound))
 
     rl.BeginScissorMode(view_bound.x, view_bound.y, view_bound.width, view_bound.height);
     {
@@ -457,7 +459,7 @@ _gui_draw_unit_panel :: proc (panel_bound: UIBound) {
 }
 
 skills_panel_layout := UIPanelLayout{
-    distribution = {0, 75, 100},
+    distribution = {0, 50, 100},
     panels = {{name="Main Skills",draw=_gui_draw_main_skills_panel}, {name="Extra Skills",draw=_gui_draw_extra_skills_panel}},
     direction = .VERTICAL,
 }

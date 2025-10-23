@@ -24,26 +24,19 @@ player_has_buyable :: proc(buyable: Buyable) -> bool {
 }
 
 recalc_perks_buyable_state :: proc() {
-	for perk, &perk_val in DB.perk_data {
+	_immediate_perk_state :: proc(perk: PerkID, prereqs: []PRE_REQ_ENTRY, skills_reqs: []SKILL_REQ_ENTRY) -> PerkBuyableState {
 		b_data := &DB.buyable_data[perk]
-		query := b_data.assigned_blocks
 		
-		bought_blocks_amount : BlocksSize =  0
-		for &block in query do if block.bought do bought_blocks_amount += 1 
-		b_data.bought_blocks_amount = bought_blocks_amount
-
+		b_data.bought_blocks_amount = slice.count_proc(b_data.assigned_blocks[:], proc(block: ^Block) -> bool {return block.bought})
 
 		{ // Owned?
-			if b_data.is_owned {
-				perk_val.buyable_state = .Owned
-				continue
-			}
+			if b_data.is_owned do return .Owned
 		}
 
 		{ 	// check if pre_reqs are satisfied
 			has_reqs := 
-				slice.is_empty(perk_val.prereqs) ||
-				slice.all_of_proc(perk_val.prereqs, proc(prereq: PRE_REQ_ENTRY) -> bool {
+				slice.is_empty(prereqs) ||
+				slice.all_of_proc(prereqs, proc(prereq: PRE_REQ_ENTRY) -> bool {
 					switch req in prereq {
 						case PerkID:
 							return req in DB.owned_perks
@@ -57,16 +50,13 @@ recalc_perks_buyable_state :: proc() {
 					return false
 				})
 
-			if !has_reqs {
-				perk_val.buyable_state = .UnmetRequirements
-				continue
-			}
+			if !has_reqs do return .UnmetRequirements
 		}
 
 		{ 	// check skills_reqs
 			has_reqs := 
-				slice.is_empty(perk_val.skills_reqs) || 
-				slice.all_of_proc(perk_val.skills_reqs, proc(skill_req: SKILL_REQ_ENTRY) -> bool {
+				slice.is_empty(skills_reqs) || 
+				slice.all_of_proc(skills_reqs, proc(skill_req: SKILL_REQ_ENTRY) -> bool {
 					switch req in skill_req {
 						case LeveledSkill:
 							return player_has_skill(req)
@@ -75,55 +65,42 @@ recalc_perks_buyable_state :: proc() {
 					}
 					return true
 				})
-				
-			if !has_reqs { 
-				perk_val.buyable_state = .UnmetRequirements
-				continue
-			}
+
+			if !has_reqs do return .UnmetRequirements
 		}
 		{ // Check for points
 
 			owned_block_amount := b_data.assigned_blocks_amount
 
 			blocks_to_buy := owned_block_amount - b_data.bought_blocks_amount
-			if blocks_to_buy > DB.unused_points { 
-				perk_val.buyable_state = .UnmetRequirements
-				continue
-			}
-			if blocks_to_buy == 0 {
-				perk_val.buyable_state = .Free
-				continue
-			}
+			if blocks_to_buy > DB.unused_points do return .UnmetRequirements
+			if blocks_to_buy == 0 do return .Free
 		}
 
-		perk_val.buyable_state = .Buyable
+		return .Buyable
 	}
+
+	for perk, &perk_val in DB.perk_data do perk_val.buyable_state = _immediate_perk_state(perk, perk_val.prereqs, perk_val.skills_reqs)
 }
 recalc_skill_id_raisable_state :: proc() {
-	immediate_raisable_state :: proc(skillID: SkillID) -> SkillRaisableState{
+	_immediate_raisable_state :: proc(skillID: SkillID) -> SkillRaisableState{
 		
 		curr_level := DB.owned_skills[skillID]
 
 		if curr_level == MAX_SKILL_LEVEL do return .Capped
 
-		
-		{ // Check If Enough Points
-			skill := LeveledSkill{skillID, curr_level}
-			next_skill := LeveledSkill{skillID, curr_level+1}
-			
-			b_data := &DB.buyable_data[next_skill]
-			query := b_data.assigned_blocks
-			defer free_all(query_system_alloc)
-			
-			bought_blocks_amount : BlocksSize =  0
-			for &block in query do if block.bought do bought_blocks_amount += 1 
-			b_data.bought_blocks_amount = bought_blocks_amount
+		skill := LeveledSkill{skillID, curr_level}
+		next_skill := LeveledSkill{skillID, curr_level+1}
 
+		b_data := &DB.buyable_data[next_skill]
+		b_data.bought_blocks_amount = slice.count_proc(b_data.assigned_blocks[:], proc(block: ^Block) -> bool {return block.bought})
+		
+		{ // Check If Enough Points or Free
 			owned_block_amount := b_data.assigned_blocks_amount
 			blocks_to_buy := owned_block_amount - b_data.bought_blocks_amount
 			if blocks_to_buy > DB.unused_points do return .NotEnoughPoints
+			if blocks_to_buy == 0 do return .Free
 		}
-
 
 		{ // Check if Capped
 			cap: LEVEL
@@ -137,25 +114,15 @@ recalc_skill_id_raisable_state :: proc() {
 			if curr_level >= cap do return .Capped
 		}
 
-		{ // Check if Free
-			skill := LeveledSkill{skillID, curr_level}
-			next_skill := LeveledSkill{skillID, curr_level+1}
-
-			b_data := &DB.buyable_data[next_skill]
-
-			owned_block_amount := b_data.assigned_blocks_amount
-			blocks_to_buy := owned_block_amount - b_data.bought_blocks_amount
-			if blocks_to_buy == 0 do return .Free
-		}
 		return .Raisable
 	}
 	primary_1 := DB.owned_main_skills[0]
-	(&DB.skill_id_data[primary_1]).raisable_state = immediate_raisable_state(primary_1)
+	(&DB.skill_id_data[primary_1]).raisable_state = _immediate_raisable_state(primary_1)
 	for main_skill_idx in 1..<MAIN_SKILLS_AMOUNT {
 		prev_main_skill := DB.owned_main_skills[main_skill_idx-1]
 		curr_main_skill := DB.owned_main_skills[main_skill_idx]
 
-		curr_raisable_state := immediate_raisable_state(curr_main_skill)
+		curr_raisable_state := _immediate_raisable_state(curr_main_skill)
 		(&DB.skill_id_data[curr_main_skill]).raisable_state = curr_raisable_state
 		if curr_raisable_state != .Capped do continue
 		prev_raisable_state := DB.skill_id_data[prev_main_skill].raisable_state
@@ -169,7 +136,7 @@ recalc_skill_id_raisable_state :: proc() {
 	for extra_skill in DB.owned_extra_skills {
 		last_main_skill := DB.owned_main_skills[MAIN_SKILLS_AMOUNT-1]
 
-		curr_raisable_state := immediate_raisable_state(extra_skill)
+		curr_raisable_state := _immediate_raisable_state(extra_skill)
 		(&DB.skill_id_data[extra_skill]).raisable_state = curr_raisable_state
 
 		if curr_raisable_state != .Capped do continue

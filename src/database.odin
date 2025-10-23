@@ -66,13 +66,15 @@ PerkBuyableState :: enum {
 
 Skill :: LeveledSkill
 
-OR :: SKILL_REQ_OR_GROUP
-
-SKILL_REQ_OR_GROUP :: [dynamic]LeveledSkill
+SKILL_REQ_OR_GROUP :: []LeveledSkill
 
 SKILL_REQ_ENTRY :: union {
 	LeveledSkill,
 	SKILL_REQ_OR_GROUP
+}
+
+SkillReqsOr :: proc(entries: ..LeveledSkill) -> SKILL_REQ_OR_GROUP {
+	return slice.clone(entries)
 }
 
 PRE_REQ_OR_GROUP :: Perks
@@ -82,14 +84,11 @@ PRE_REQ_ENTRY :: union {
 	PRE_REQ_OR_GROUP,
 }
 
+Or :: proc{PreReqsOr, SkillReqsOr}
+
 PreReqsOr :: proc(entries: ..PerkID) -> (group: PRE_REQ_OR_GROUP) {
-	defer delete(entries)
 	for entry in entries do group += {entry}
 	return
-}
-
-PreReqs :: proc(entries: ..PRE_REQ_ENTRY) -> []PRE_REQ_ENTRY{
-	return entries
 }
 
 void :: struct {}
@@ -111,16 +110,11 @@ BuyError :: enum {
 
 RefundError :: enum {
 	None,
+	Unrefundable,
 	BuyableNotOwned,
 	RequiredByAnotherBuyable,
-}
-
-ReduceError :: enum {
-	None,
-	CannotReduceSkill,
-	RequiredByAnotherBuyable,
 	ContainsAnotherBuyable,
-	DragsAnotherBuyable,
+	SharesWithAnotherBuyable,
 }
 
 CycleInPreReqsError :: struct {
@@ -247,8 +241,8 @@ _build_skill_lambda :: proc(skillID: SkillID, blockProc: DefineBlockProc){
 }
 // Skill :: proc{_build_skill_default, _build_skill_lambda}
 
-_perk_without_share :: proc(perkID: PerkID, skill_reqs: [dynamic]SKILL_REQ_ENTRY, pre_reqs: [dynamic]PRE_REQ_ENTRY, blocks: BlocksSize) {
-	assert(perkID not_in DB.perk_data, fmt.tprint("Already built Perk:", perkID))
+_perk_without_share :: proc(id: PerkID, skill_reqs: [dynamic]SKILL_REQ_ENTRY, pre_reqs: [dynamic]PRE_REQ_ENTRY, blocks: BlocksSize) {
+	assert(id not_in DB.perk_data, fmt.tprint("Already built Perk:", id))
 	defer {
 		delete(skill_reqs)
 		delete(pre_reqs)
@@ -256,19 +250,19 @@ _perk_without_share :: proc(perkID: PerkID, skill_reqs: [dynamic]SKILL_REQ_ENTRY
 	pre_reqs_copy := slice.clone(pre_reqs[:])
 	skill_reqs_copy := slice.clone(skill_reqs[:])
 	perk_data := PerkData{ blocks = blocks, prereqs = pre_reqs_copy, skills_reqs = skill_reqs_copy }
-	DB.perk_data[perkID] = perk_data
+	DB.perk_data[id] = perk_data
 }
 
-_perk_with_share :: proc(perkID: PerkID, skill_reqs: [dynamic]SKILL_REQ_ENTRY, pre_reqs: [dynamic]PRE_REQ_ENTRY, blocks: BlocksSize, partial_shares: [dynamic]TPartialShare) {
+_perk_with_share :: proc(id: PerkID, skill_reqs: [dynamic]SKILL_REQ_ENTRY = nil, pre_reqs: [dynamic]PRE_REQ_ENTRY = nil, blocks: BlocksSize, partial_shares: [dynamic]TPartialShare = nil) {
 	defer delete(partial_shares)
-	// defer delete(skill_reqs)
-	_perk_without_share(perkID, skill_reqs, pre_reqs, blocks)
+
+	_perk_without_share(id, skill_reqs, pre_reqs, blocks)
 	for partial_share in partial_shares {
 		switch buyable in partial_share.buyable_to_share_with {
 			case LeveledSkill:
-				Share(perkID, buyable.id, buyable.level, partial_share.strength)
+				Share(id, buyable.id, buyable.level, partial_share.strength)
 			case PerkID:
-				Share(perkID, buyable, partial_share.strength)
+				Share(id, buyable, partial_share.strength)
 		}
 	}
 }
@@ -284,16 +278,11 @@ level_up :: proc() -> LevelUpError {
 	return nil
 }
 level_up_to :: proc(to_level: LEVEL) -> LevelUpError {
-	err : LevelUpError = nil
-	for level in DB.unit_level..<to_level {
-		if DB.unit_level+1 >= DB.unit_level_cap {err = .MAX_LEVEL_REACHED; break}
-		DB.unused_points += DB.player_states[DB.unit_level+1].skill_points_on_level
-		DB.unit_level += 1
-	}
-
 	// Recalc only once
-	recalc_buyable_states()
-	return err
+	defer recalc_buyable_states()
+	for level in DB.unit_level..<to_level do level_up() or_return
+	
+	return nil
 }
 
 BuildPlayer :: proc(states: [dynamic]PlayerLevelState) {

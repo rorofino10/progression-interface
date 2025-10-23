@@ -61,7 +61,7 @@ recalc_perks_buyable_state :: proc() {
 						case LeveledSkill:
 							return player_has_skill(req)
 						case SKILL_REQ_OR_GROUP:
-							return slice.any_of_proc(req[:], proc(skill: LeveledSkill) -> bool {return player_has_skill(skill)}) 
+							return slice.any_of_proc(req, proc(skill: LeveledSkill) -> bool {return player_has_skill(skill)}) 
 					}
 					return true
 				})
@@ -168,22 +168,22 @@ lock_buyable :: proc(buyable: Buyable) {
 }
 
 
-reduce_to_skill :: proc(skill: LeveledSkill) -> (Points, ReduceError) {
+reduce_to_skill :: proc(skill: LeveledSkill) -> (Points, RefundError) {
 	curr_skill_level := DB.owned_skills[skill.id]
 	refund : Points = 0
 
 	for level in skill.level..<curr_skill_level {
 		reduce_refund, reduce_err := reduce_skill(skill.id)
 		refund += reduce_refund
-		if reduce_err != nil do return refund, reduce_err
+		if reduce_err != {} do return refund, reduce_err
 	}
 
-	return refund, nil
+	return refund, {}
 }
 
-reduce_skill :: proc(skill_id: SkillID) -> (Points, ReduceError) {
+reduce_skill :: proc(skill_id: SkillID) -> (Points, RefundError) {
 	skill_level := DB.owned_skills[skill_id]
-	if skill_level == 0 do return 0, .CannotReduceSkill
+	if skill_level == 0 do return 0, .Unrefundable
 
 	reduced_level := skill_level - 1
 	skill := LeveledSkill{skill_id, skill_level}
@@ -200,12 +200,6 @@ reduce_skill :: proc(skill_id: SkillID) -> (Points, ReduceError) {
 	}
 
 	{ // Check if it is required in another owned buyable
-		_skill_in_or_group :: proc(skill: LeveledSkill, group: SKILL_REQ_OR_GROUP) -> bool {
-			for entry in group {
-				if entry == skill do return true
-			}
-			return false
-		}
 		for owned_perk in DB.owned_perks {
 			owned_perk_data := DB.perk_data[owned_perk]	
 			for skill_req in owned_perk_data.skills_reqs {
@@ -213,7 +207,7 @@ reduce_skill :: proc(skill_id: SkillID) -> (Points, ReduceError) {
 					case LeveledSkill:
 						if skill == req do return 0, .RequiredByAnotherBuyable
 					case SKILL_REQ_OR_GROUP:
-						if _skill_in_or_group(skill, req) do return 0, .RequiredByAnotherBuyable
+						if slice.contains(req, skill) do return 0, .RequiredByAnotherBuyable
 				}
 			} 
 		}

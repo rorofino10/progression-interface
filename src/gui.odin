@@ -1,6 +1,7 @@
 #+feature dynamic-literals
 package main
 
+import "core:slice"
 import "core:fmt"
 import "core:strings"
 import "core:reflect"
@@ -360,8 +361,11 @@ _gui_draw_extra_skills_panel :: proc(panel_bound: UIBound) {
                     case .Free:
                         button_label = fmt.ctprint(button_label, "FREE to raise", sep = "\n") 
                 }
+                if rl.IsMouseButtonPressed(.RIGHT) {
+                    refund, err := reduce_skill(skill_id)
+                    if err != nil do fmt.println(err)
+                }
                 if rl.IsMouseButtonPressed(.LEFT) do raise_skill(skill_id)
-                if rl.IsMouseButtonPressed(.RIGHT) do reduce_skill(skill_id)
             }
             _ui_button_with_color(button_bound, button_label, padding = {}, color = state_color)
         }
@@ -388,8 +392,7 @@ _gui_draw_perks_panel :: proc(panel_bound: UIBound) {
     rl.BeginScissorMode(view_bound.x, view_bound.y, view_bound.width, view_bound.height);
     {
         // TODO: Make this not... Bad
-        for perk, perk_val in DB.perk_data {
-            if perk_val.buyable_state == .UnmetRequirements do continue
+        for perk, perk_val in DB.perk_data do if perk_val.buyable_state != .UnmetRequirements {
             buyable_data := DB.buyable_data[perk]
             state_color : rl.Color
             #partial switch perk_val.buyable_state {
@@ -400,6 +403,8 @@ _gui_draw_perks_panel :: proc(panel_bound: UIBound) {
                 case .Free:
                     state_color = rl.YELLOW
             }
+            if _should_blink_perk(perk) do state_color = rl.MAGENTA
+
             perk_name, _ := reflect.enum_name_from_value(perk)
             button_bound := _ui_anchor({layout.bound.x + layout.at.x, layout.bound.y + layout.at.y},{0, 0, PERK_BUTTON_SIZE.width, PERK_BUTTON_SIZE.height})
             _ui_layout_advance(&layout, PERK_BUTTON_SIZE, .HORIZONTAL)
@@ -417,15 +422,20 @@ _gui_draw_perks_panel :: proc(panel_bound: UIBound) {
                         button_label = fmt.tprint(perk_name, "\nFREE", sep = "") 
                 }
                 if rl.IsMouseButtonPressed(.LEFT) do buy_perk(perk)
-                if rl.IsMouseButtonPressed(.RIGHT) do refund_perk(perk)
+                if rl.IsMouseButtonPressed(.RIGHT) {
+                    refund, err := refund_perk(perk)
+                    if err != nil {
+                        fmt.println(err)
+                        _gui_blinker_start(perk, err)
+                    }
+                }
             }
             else do button_label = fmt.tprint(perk_name)
             button_label_c_string := strings.clone_to_cstring(button_label, context.temp_allocator)
 
             _ui_button_with_color(button_bound, button_label_c_string, padding = {}, color = state_color)
         }
-        for perk, perk_val in DB.perk_data {
-            if perk_val.buyable_state != .UnmetRequirements do continue
+        for perk, perk_val in DB.perk_data do if perk_val.buyable_state == .UnmetRequirements {
             buyable_data := DB.buyable_data[perk]
             perk_name, _ := reflect.enum_name_from_value(perk)
             button_bound := _ui_anchor({layout.bound.x + layout.at.x, layout.bound.y + layout.at.y},{0, 0, PERK_BUTTON_SIZE.width, PERK_BUTTON_SIZE.height})
@@ -434,7 +444,13 @@ _gui_draw_perks_panel :: proc(panel_bound: UIBound) {
             if rl.CheckCollisionPointRec(rl.GetMousePosition(), _ui_rect(button_bound)) {
                 button_label = fmt.tprint(perk_name, "\nCost: ", buyable_data.assigned_blocks_amount - buyable_data.bought_blocks_amount, sep = "") 
                 if rl.IsMouseButtonPressed(.LEFT) do buy_perk(perk)
-                if rl.IsMouseButtonPressed(.RIGHT) do refund_perk(perk)
+                if rl.IsMouseButtonPressed(.RIGHT) {
+                    refund, err := refund_perk(perk)
+                    if err != nil {
+                        fmt.println(err)
+                        _gui_blinker_start(perk, err)
+                    }
+                }
             }
             else do button_label = fmt.tprint(perk_name)
             button_label_c_string := strings.clone_to_cstring(button_label, context.temp_allocator)
@@ -545,7 +561,11 @@ _gui_draw_main_skills_panel :: proc(panel_bound: UIBound) {
                 case .Free:
                     button_label = fmt.ctprint(button_label, "FREE to raise", sep = "\n") 
             }
-            if rl.IsMouseButtonPressed(.RIGHT) do reduce_skill(skill_id)
+            if rl.IsMouseButtonPressed(.RIGHT) {
+                reduce_skill(skill_id)
+                // _gui_start_refund_blink(skill_id,err)
+                // if err != nil do fmt.println(err)
+            }
             if rl.IsMouseButtonPressed(.LEFT) do raise_skill(skill_id)
         }
         _ui_button_with_color(label_bound, button_label, font_size = MAIN_SKILL_FONT_SIZE,  color = state_color)
@@ -571,7 +591,74 @@ _gui_draw :: proc() {
     rl.EndDrawing()
 }
 
-_gui_update :: proc() {}
+RefundBlink :: struct{
+    per_blink_time      : f32,
+    remaining_time      : f32,
+    remaining_blinks    : int,
+    active_blink        : bool,
+    affected_buyable    : Buyable,
+    cause               : RefundError,
+}
+blinker : RefundBlink
+_should_blink_perk :: proc(buyable: Buyable) -> bool {
+    if blinker.remaining_blinks <= 0 || !blinker.active_blink do return false
+    if buyable == blinker.affected_buyable do return true
+    switch blinker.cause {
+        case .None, .Unrefundable, .BuyableNotOwned:
+        case .RequiredByAnotherBuyable:
+            #partial switch perk in buyable {
+                case PerkID:
+                    #partial switch affected_buyable in blinker.affected_buyable {
+                    case PerkID:
+                        if affected_buyable in _flattened_pre_reqs(perk) do return true
+                    case LeveledSkill:
+                        perk_val := DB.perk_data[perk]
+                        for skill_req_entry in perk_val.skills_reqs {
+                            switch req in skill_req_entry {
+					            case LeveledSkill:
+					            	if affected_buyable == req do return true
+					            case SKILL_REQ_OR_GROUP:
+					            	if slice.contains(req, affected_buyable) do return true 
+					        }
+                        }
+                    }
+            }
+        case .ContainsAnotherBuyable:
+            for contains in DB.contains_constraint{
+                if contains.container == blinker.affected_buyable && contains.containee == buyable do return true
+            }
+        case .SharesWithAnotherBuyable:
+            for share in DB.share_constraints {
+                if (share.buyableA == buyable && share.buyableB == blinker.affected_buyable) || (share.buyableA == blinker.affected_buyable && share.buyableB == buyable) do return true
+            }
+    }
+    return false
+}
+_gui_blinker_start :: proc(buyable: Buyable, refund_error: RefundError) {
+    DEFAULT_BLINK_TIME :: 1.0
+    DEFAULT_BLINK_AMOUNT :: 3 * 2
+    #partial switch refund_error {
+        case .None, .Unrefundable, .BuyableNotOwned:
+            return
+    }
+    blinker.per_blink_time = DEFAULT_BLINK_TIME / DEFAULT_BLINK_AMOUNT
+    blinker.remaining_time = blinker.per_blink_time
+    blinker.remaining_blinks = DEFAULT_BLINK_AMOUNT
+    blinker.affected_buyable = buyable
+    blinker.cause = refund_error
+    blinker.active_blink = true
+}
+
+_gui_update :: proc() {
+    if blinker.remaining_blinks > 0 {
+        if blinker.remaining_time > 0 do blinker.remaining_time -= rl.GetFrameTime()
+        else {
+            blinker.active_blink = !blinker.active_blink
+            blinker.remaining_time = blinker.per_blink_time
+            blinker.remaining_blinks -= 1
+        }
+    }
+}
 
 _gui_init_font :: proc() {
     gui_font = rl.LoadFont("res/DejaVuSansMono.ttf")

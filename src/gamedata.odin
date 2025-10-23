@@ -133,7 +133,7 @@ load_db :: proc() {
 	BuildPlayer(
 		// Level = Skill Points on Level, Major Skill Caps, Extra Skill Cap
 		{
-			1 = {10000,{6,5,3,2,2,2},		1},
+			1 = {100,{6,5,3,2,2,2},		1},
 			2 = {500,{7,6,4,3,2,2},		1},
 			3 = {500,{8,7,5,4,3,3},		1},
 			4 = {500,{9,8,6,5,4,4},		2},
@@ -257,10 +257,15 @@ load_db :: proc() {
 
 	// Perk(.BowTraining,		{Skill{.Ranged, 6}, Skill{.Athletics, 4}}, 						{}, 30, {})
 	// Perk(.SlingTraining,	{Skill{.Ranged, 6}, Skill{.Finesse, 4}, Skill{.Athletics, 2}},	{}, 60, {})
-	Perk(.SlingTraining,	{},	{}, 60, {})
+	Perk(
+		.SlingTraining,	{},	{}, 60, {})
 	Perk(.BowTraining,		{}, 						{}, 60, {{PERK.SlingTraining, 100}})
-	Perk(.Aim,	{}, {.Beamer, PRE_REQ_OR_GROUP{.SlingTraining, .BowTraining}}, 60, {})
-	Perk(.Beamer,				{}, {}, 50, {})
+	// Perk(.Aim,	{Or(Skill{.Athletics, 1}, Skill{.Melee,1})}, {PERK.Beamer, Or(PERK.SlingTraining, PERK.BowTraining)}, 60, {})
+	Perk(
+		id = .Beamer, 
+		pre_reqs = {.SlingTraining},
+		blocks = 50, 
+	)
 
 }
 

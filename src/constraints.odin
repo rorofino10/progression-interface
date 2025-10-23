@@ -351,8 +351,8 @@ verify_constraints :: proc() {
 		b_data_a, b_data_b := DB.buyable_data[share.buyableA], DB.buyable_data[share.buyableB]
 		
 		shared_blocks_in_a, shared_blocks_in_b : BlocksSize
-		for assigned_block in b_data_a.assigned_blocks do if _contains(assigned_block.owned_by[:], share.buyableB) do shared_blocks_in_a += 1
-		for assigned_block in b_data_b.assigned_blocks do if _contains(assigned_block.owned_by[:], share.buyableA) do shared_blocks_in_b += 1
+		for assigned_block in b_data_a.assigned_blocks do if slice.contains(assigned_block.owned_by[:], share.buyableB) do shared_blocks_in_a += 1
+		for assigned_block in b_data_b.assigned_blocks do if slice.contains(assigned_block.owned_by[:], share.buyableA) do shared_blocks_in_b += 1
 		assert(shared_blocks_in_a == shared_blocks_in_b, fmt.tprintln("Shared blocks in A", shared_blocks_in_a, "not equal to shared_blocks_in_b", shared_blocks_in_b, "in share", share))
 
 		representative_percentage_in_a := f64(shared_blocks_in_a) / f64(b_data_a.assigned_blocks_amount) * 100

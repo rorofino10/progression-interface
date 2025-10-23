@@ -1,6 +1,7 @@
 #+feature dynamic-literals
 package main
 
+import "core:slice"
 import "core:sort"
 import "core:math"
 import "core:fmt"
@@ -60,7 +61,7 @@ query_blocks_indices_from_buyable :: proc(buyable: Buyable, query_amount: Blocks
     for &block, block_idx in block_system.blocks {
         if BlocksSize(len(query)) == query_amount do break
 
-        if _contains(block.owned_by[:], buyable) do append(&query, block_idx)
+        if slice.contains(block.owned_by[:], buyable) do append(&query, block_idx)
     }
     assert(BlocksSize(len(query)) == query_amount, fmt.tprint(len(query), query_amount, buyable))
     return query[:]
@@ -72,7 +73,7 @@ query_blocks_indices_from_buyable_that_dont_clash_with_buyable :: proc(buyableA,
     for &block, block_idx in block_system.blocks {
         if BlocksSize(len(query)) == query_amount do break
 
-        if _contains(block.owned_by[:], buyableA) && !_block_clashes_with_buyable(block, buyableB) do append(&query, block_idx)
+        if slice.contains(block.owned_by[:], buyableA) && !_block_clashes_with_buyable(block, buyableB) do append(&query, block_idx)
     }
     assert(BlocksSize(len(query)) == query_amount, fmt.tprint("Queried for", query_amount, "got", len(query), buyableA))
     return query[:]
@@ -82,7 +83,7 @@ query_all_blocks_indices_from_buyable_that_dont_clash_with_buyable :: proc(buyab
     context.allocator = query_system_alloc
     query := make([dynamic]int, 0)
     for &block, block_idx in block_system.blocks {
-        if _contains(block.owned_by[:], buyableA) && !_block_clashes_with_buyable(block, buyableB) do append(&query, block_idx)
+        if slice.contains(block.owned_by[:], buyableA) && !_block_clashes_with_buyable(block, buyableB) do append(&query, block_idx)
     }
     return query[:]
 }
@@ -93,7 +94,7 @@ query_blocks_indices_from_buyable_that_dont_require_buyable :: proc(buyableA, bu
     for &block, block_idx in block_system.blocks {
         if BlocksSize(len(query)) == query_amount do break
 
-        if _contains(block.owned_by[:], buyableA) && _block_requires_buyable(block, buyableB) do append(&query, block_idx)
+        if slice.contains(block.owned_by[:], buyableA) && _block_requires_buyable(block, buyableB) do append(&query, block_idx)
     }
     assert(BlocksSize(len(query)) == query_amount, fmt.tprint(len(query), query_amount, buyableA))
     return query[:]
@@ -104,7 +105,7 @@ query_blocks_indices_from_buyable_that_buyable_doesnt_require :: proc(buyableA, 
     for &block, block_idx in block_system.blocks {
         if BlocksSize(len(query)) == query_amount do break
 
-        if _contains(block.owned_by[:], buyableA) && !_buyable_requires_block(block, buyableB) do append(&query, block_idx)
+        if slice.contains(block.owned_by[:], buyableA) && !_buyable_requires_block(block, buyableB) do append(&query, block_idx)
     }
     assert(BlocksSize(len(query)) == query_amount, fmt.tprint(len(query), query_amount, buyableA))
     return query[:]
@@ -115,7 +116,7 @@ query_blocks_indices_from_buyable_not_assigned_to_buyable :: proc(buyableA, buya
     for &block, block_idx in block_system.blocks {
         if BlocksSize(len(query)) == query_amount do break
 
-        if _contains(block.owned_by[:], buyableA) && !_contains(block.owned_by[:], buyableB) do append(&query, block_idx)
+        if slice.contains(block.owned_by[:], buyableA) && !slice.contains(block.owned_by[:], buyableB) do append(&query, block_idx)
     }
     assert(BlocksSize(len(query)) == query_amount, fmt.tprint(len(query), query_amount, buyableA))
     return query[:]
@@ -125,7 +126,7 @@ query_all_blocks_indices_from_buyable_that_buyable_doesnt_require :: proc(buyabl
     context.allocator = query_system_alloc
     query := make([dynamic]int, 0)
     for &block, block_idx in block_system.blocks {
-        if _contains(block.owned_by[:], buyable) && !_buyable_requires_block(block, owner) do append(&query, block_idx)
+        if slice.contains(block.owned_by[:], buyable) && !_buyable_requires_block(block, owner) do append(&query, block_idx)
     }
     return query[:]    
 }
@@ -134,7 +135,7 @@ query_all_blocks_indices_from_buyable :: proc(buyable: Buyable) -> BlocksIndexQu
     context.allocator = query_system_alloc
     query := make([dynamic]int, 0)
     query_curr_idx : BlocksSize = 0
-    for &block, block_idx in block_system.blocks do if _contains(block.owned_by[:], buyable) do append(&query, block_idx)
+    for &block, block_idx in block_system.blocks do if slice.contains(block.owned_by[:], buyable) do append(&query, block_idx)
     return query[:]
 }
 
@@ -169,7 +170,7 @@ assign_all_blocks_to_buyables :: proc() {
 query_all_blocks_from_buyable :: proc(buyable: Buyable) -> BlocksQuery {
     context.allocator = query_system_alloc
     query := make([dynamic]^Block, 0)
-    for &block in block_system.blocks do if _contains(block.owned_by[:], buyable) do append(&query, &block)
+    for &block in block_system.blocks do if slice.contains(block.owned_by[:], buyable) do append(&query, &block)
     return query[:]
 }
 
@@ -216,7 +217,7 @@ _assign_share_minimizing_overlap :: proc(buyableA, buyableB: Buyable, blocks_to_
         defer free_all(query_system_alloc)
         for assigned_block_idx in query_b {
             queried_block := block_system.blocks[assigned_block_idx]
-            if _contains(queried_block.owned_by[:], buyableA) do already_shared_blocks_amount += 1
+            if slice.contains(queried_block.owned_by[:], buyableA) do already_shared_blocks_amount += 1
         }
     }
     amount_of_blocks_left_to_share := blocks_to_share - already_shared_blocks_amount
@@ -252,7 +253,7 @@ _assign_share_maximizing_overlap :: proc(buyableA, buyableB: Buyable, blocks_to_
         defer free_all(query_system_alloc)
         for assigned_block_idx in query_b {
             queried_block := block_system.blocks[assigned_block_idx]
-            if _contains(queried_block.owned_by[:], buyableA) do already_shared_blocks_amount += 1
+            if slice.contains(queried_block.owned_by[:], buyableA) do already_shared_blocks_amount += 1
         }
     }
 
@@ -414,7 +415,7 @@ _block_requires_buyable :: proc(block: Block, buyable: Buyable) -> bool {
 }
 
 _should_add_to_owned :: proc(list: [dynamic]Buyable, buyable: Buyable) -> bool {
-    return !_contains(list[:], buyable)
+    return !slice.contains(list[:], buyable)
 } 
 
 _assert_buyable_wont_clash_in_block :: proc(block: ^Block, buyable: Buyable) {
@@ -431,9 +432,4 @@ _assert_buyable_wont_clash_in_block :: proc(block: ^Block, buyable: Buyable) {
 _assert_buyable_wont_clash_in_block_idx :: proc(block_idx: int, buyable: Buyable) {
     block := &block_system.blocks[block_idx]
     _assert_buyable_wont_clash_in_block(block, buyable)
-}
-
-_contains :: proc(list: []$T, value: T) -> bool {
-    for elem in list do if elem == value do return true
-    return false
 }

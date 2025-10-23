@@ -1,5 +1,6 @@
 package main
 
+import "core:slice"
 import "core:mem"
 import "core:fmt"
 
@@ -40,22 +41,22 @@ recalc_perks_buyable_state :: proc() {
 		}
 
 		{ 	// check if pre_reqs are satisfied
-			fmt.println(perk_val.prereqs, "Pre Reqs", perk)
-			has_reqs := true
-			for prereq in perk_val.prereqs {
-				if !has_reqs do break
-				switch req in prereq {
-					case PerkID:
-						if req not_in DB.owned_perks do has_reqs = false
-					case PRE_REQ_OR_GROUP:
-						satisfied := false
-						for perk_in_or_group in req {
-							if perk_in_or_group in DB.owned_perks do satisfied = true
-						}
-						if !satisfied do has_reqs = false
-				}
+			has_reqs := 
+				slice.is_empty(perk_val.prereqs) ||
+				slice.all_of_proc(perk_val.prereqs, proc(prereq: PRE_REQ_ENTRY) -> bool {
+					switch req in prereq {
+						case PerkID:
+							return req in DB.owned_perks
+						case PRE_REQ_OR_GROUP:
+							satisfied := false
+							for perk_in_or_group in req {
+								if perk_in_or_group in DB.owned_perks do satisfied = true
+							}
+							return satisfied
+					}
+					return false
+				})
 
-			}
 			if !has_reqs {
 				perk_val.buyable_state = .UnmetRequirements
 				continue
@@ -63,25 +64,18 @@ recalc_perks_buyable_state :: proc() {
 		}
 
 		{ 	// check skills_reqs
-			_skill_req_or_group_satisfied :: proc(or_group: SKILL_REQ_OR_GROUP) -> bool {
-				satisfied := false
-				for req in or_group {
-					if player_has_skill(req) {satisfied = true; break}
-				}
-				return satisfied
-			}
-			has_reqs := true
-			// fmt.println(perk_val.skills_reqs)
-			for skill_req in perk_val.skills_reqs {
-				if !has_reqs do break
-				switch req in skill_req {
-					case LeveledSkill:
-						if !player_has_skill(req) do has_reqs = false
-					case SKILL_REQ_OR_GROUP:
-						if !_skill_req_or_group_satisfied(req) do has_reqs = false
-				}
-
-			}
+			has_reqs := 
+				slice.is_empty(perk_val.skills_reqs) || 
+				slice.all_of_proc(perk_val.skills_reqs, proc(skill_req: SKILL_REQ_ENTRY) -> bool {
+					switch req in skill_req {
+						case LeveledSkill:
+							return player_has_skill(req)
+						case SKILL_REQ_OR_GROUP:
+							return slice.any_of_proc(req[:], proc(skill: LeveledSkill) -> bool {return player_has_skill(skill)}) 
+					}
+					return true
+				})
+				
 			if !has_reqs { 
 				perk_val.buyable_state = .UnmetRequirements
 				continue

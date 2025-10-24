@@ -31,9 +31,8 @@ recalc_perks_buyable_state :: proc() {
 	_immediate_perk_state :: proc(perk: PerkID, prereqs: []PRE_REQ_ENTRY, skills_reqs: []SKILL_REQ_ENTRY) -> PerkBuyableState {
 		b_data := &DB.buyable_data[perk]
 		
-		b_data.bought_blocks_amount = 0
-		for assigned_block_idx in b_data.assigned_blocks_indices do if block_system.blocks[assigned_block_idx].bought do b_data.bought_blocks_amount += 1
-		
+		b_data.bought_blocks_amount = slice.count_proc(b_data.assigned_blocks_indices[:], is_block_bought)
+
 		{ // Owned?
 			if player_has_perk(perk) do return .Owned
 		}
@@ -98,10 +97,8 @@ recalc_skill_id_raisable_state :: proc() {
 		next_skill := LeveledSkill{skillID, curr_level+1}
 
 		b_data := &DB.buyable_data[next_skill]
-		b_data.bought_blocks_amount = 0
-		for assigned_block_idx in b_data.assigned_blocks_indices do if block_system.blocks[assigned_block_idx].bought do b_data.bought_blocks_amount += 1
+		b_data.bought_blocks_amount = slice.count_proc(b_data.assigned_blocks_indices[:], is_block_bought)
 		
-
 		{ // Check if Capped
 			cap: LEVEL
 			skill_id_data := &DB.skill_id_data[skillID]
@@ -113,7 +110,7 @@ recalc_skill_id_raisable_state :: proc() {
 			}
 			if curr_level >= cap do return .Capped
 		}
-		
+
 		{ // Check If Enough Points or Free
 			owned_block_amount := b_data.assigned_blocks_amount
 			blocks_to_buy := owned_block_amount - b_data.bought_blocks_amount

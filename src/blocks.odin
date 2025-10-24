@@ -397,3 +397,7 @@ _assert_buyable_wont_clash_in_block_idx :: proc(block_idx: BlockIndex, buyable: 
     block := &block_system.blocks[block_idx]
     _assert_buyable_wont_clash_in_block(block, buyable)
 }
+
+is_block_bought :: proc(idx: BlockIndex) -> bool {
+	return block_system.blocks[idx].bought
+}

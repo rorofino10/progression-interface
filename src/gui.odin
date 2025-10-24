@@ -137,7 +137,7 @@ _ui_get_ratio :: proc () -> UIRatio {
     h := rl.GetScreenHeight()
     return {f32(w)/(VRES_WIDTH), f32(h)/(VRES_HEIGHT)}
 }
-_ui_get_ratio_from_virtual_to_screen :: proc () -> UIRatio {
+_ui_get_ratio_from_screen_to_virtual :: proc () -> UIRatio {
     return {VRES_WIDTH/f32(rl.GetScreenWidth()), VRES_HEIGHT/f32(rl.GetScreenHeight())}
 }
 
@@ -264,7 +264,6 @@ _ui_layout_advance :: proc(layout: ^UILayout, size: UISize, direction: UILayoutD
 }
 
 _ui_layout_button :: proc(layout : ^UILayout, size: UISize, text: cstring, font_size : FontSize = DEFAULT_FONT_SIZE, font_spacing : f32 = DEFAULT_FONT_SPACING) -> bool {
-    // bound := _ui_row(layout, i32(font_size)*2, {UI_H_PADDING, UI_H_PADDING, UI_V_PADDING, UI_V_PADDING})
     pressed := _ui_button(_ui_anchor(layout.at,{0,0, size.width, size.height}), text, font_size, font_spacing)
     layout.at += {0, size.height}
     return pressed
@@ -287,7 +286,7 @@ _ui_draw_panel_layout :: proc(anchor: UIVec2, panel_layout: UIPanelLayout, span:
 }
 
 _ui_content_from_panel :: proc(panel: UIBound, padding: UIPadding = {}, is_scrollable : bool = false) -> (content: UIBound) {
-    virtual_to_screen_ratio := _ui_get_ratio_from_virtual_to_screen()
+    virtual_to_screen_ratio := _ui_get_ratio_from_screen_to_virtual()
     TITLE_OFFSET := i32(24 * virtual_to_screen_ratio.h)
     SCROLL_BAR_WIDTH := i32(14 * virtual_to_screen_ratio.w)
     content.x = panel.x + padding.left
@@ -305,6 +304,8 @@ extra_skills_scroll : rl.Vector2
 extra_skills_view : rl.Rectangle
 
 _gui_draw_extra_skills_panel :: proc(panel_bound: UIBound) {
+    ratio := _ui_get_ratio_from_screen_to_virtual()
+
     SKILLS_PER_ROW :: 5
     ROWS :: 2
     scroll_view := _ui_content_from_panel(panel_bound, {}, true)
@@ -342,7 +343,7 @@ _gui_draw_extra_skills_panel :: proc(panel_bound: UIBound) {
                     state_color = rl.YELLOW
             }
             skill_name, _ := reflect.enum_name_from_value(skill_id)
-            button_bound := _ui_anchor({layout.bound.x + layout.at.x + i32(extra_skills_scroll.x), layout.bound.y + layout.at.y + i32(extra_skills_scroll.y)},{0, 0, SKILL_BUTTON_SIZE.width, SKILL_BUTTON_SIZE.height})
+            button_bound := _ui_anchor({layout.bound.x + layout.at.x + i32(extra_skills_scroll.x * ratio.w), layout.bound.y + layout.at.y + i32(extra_skills_scroll.y * ratio.h)},{0, 0, SKILL_BUTTON_SIZE.width, SKILL_BUTTON_SIZE.height})
             _ui_layout_advance(&layout, SKILL_BUTTON_SIZE, .HORIZONTAL)
 
             button_label : cstring
@@ -375,14 +376,17 @@ _gui_draw_extra_skills_panel :: proc(panel_bound: UIBound) {
 perk_scroll : rl.Vector2
 perk_view : rl.Rectangle
 _gui_draw_perks_panel :: proc(panel_bound: UIBound) {
+    ratio := _ui_get_ratio_from_screen_to_virtual()
     PERKS_PER_ROW :: 2
     ROWS :: 5
     scroll_view := _ui_content_from_panel(panel_bound, {}, true)
-    PERK_BUTTON_SIZE := UISize{scroll_view.width/PERKS_PER_ROW, scroll_view.height/ROWS}
+    PERK_BUTTON_HEIGHT := scroll_view.height/ROWS
 
     perks_amount := i32(len(DB.perk_data))
+    scroll_content_bound_height := (perks_amount + PERKS_PER_ROW - 1)/PERKS_PER_ROW*PERK_BUTTON_HEIGHT
+    scroll_content_bound := _ui_content_from_panel({panel_bound.x, panel_bound.y, panel_bound.width, scroll_content_bound_height}, {}, scroll_view.height < scroll_content_bound_height)
 
-    scroll_content_bound := _ui_content_from_panel({panel_bound.x, panel_bound.y, panel_bound.width, (perks_amount + PERKS_PER_ROW - 1)/PERKS_PER_ROW*PERK_BUTTON_SIZE.height}, {}, true)
+    PERK_BUTTON_SIZE := UISize{scroll_content_bound.width/PERKS_PER_ROW, PERK_BUTTON_HEIGHT}
 
     rl.GuiScrollPanel(_ui_rect(panel_bound), "Perks", _ui_rect(scroll_content_bound), &perk_scroll, &perk_view)
 
@@ -405,7 +409,7 @@ _gui_draw_perks_panel :: proc(panel_bound: UIBound) {
             }
             if _should_blink_perk(perk) do state_color = rl.MAGENTA
 
-            button_bound := _ui_anchor({layout.bound.x + layout.at.x + i32(perk_scroll.x), layout.bound.y + layout.at.y + i32(perk_scroll.y)},{0, 0, PERK_BUTTON_SIZE.width, PERK_BUTTON_SIZE.height})
+            button_bound := _ui_anchor({layout.bound.x + layout.at.x + i32(perk_scroll.x * ratio.w) , layout.bound.y + layout.at.y + i32(perk_scroll.y * ratio.h)},{0, 0, PERK_BUTTON_SIZE.width, PERK_BUTTON_SIZE.height})
             _ui_layout_advance(&layout, PERK_BUTTON_SIZE, .HORIZONTAL)
 
             button_label : string
@@ -436,7 +440,8 @@ _gui_draw_perks_panel :: proc(panel_bound: UIBound) {
         }
         for perk, perk_val in DB.perk_data do if perk_val.buyable_state == .UnmetRequirements {
             buyable_data := DB.buyable_data[perk]
-            button_bound := _ui_anchor({layout.bound.x + layout.at.x, layout.bound.y + layout.at.y},{0, 0, PERK_BUTTON_SIZE.width, PERK_BUTTON_SIZE.height})
+            button_bound := _ui_anchor({layout.bound.x + layout.at.x + i32(perk_scroll.x * ratio.w) , layout.bound.y + layout.at.y + i32(perk_scroll.y * ratio.h)},{0, 0, PERK_BUTTON_SIZE.width, PERK_BUTTON_SIZE.height})
+
             _ui_layout_advance(&layout, PERK_BUTTON_SIZE, .HORIZONTAL)
             button_label : string
             if rl.CheckCollisionPointRec(rl.GetMousePosition(), _ui_rect(button_bound)) {

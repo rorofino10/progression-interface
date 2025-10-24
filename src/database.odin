@@ -253,7 +253,7 @@ _perk_without_share :: proc(display : string = "", id: PerkID, skill_reqs: [dyna
 	DB.perk_data[id] = perk_data
 }
 
-Perk :: proc(display : string = "", id: PerkID, skill_reqs: [dynamic]SKILL_REQ_ENTRY = nil, pre_reqs: [dynamic]PRE_REQ_ENTRY = nil, blocks: BlocksSize, shares: [dynamic]TPartialShare = nil) {
+Perk :: proc(id: PerkID, skill_reqs: [dynamic]SKILL_REQ_ENTRY = nil, pre_reqs: [dynamic]PRE_REQ_ENTRY = nil, blocks: BlocksSize, shares: [dynamic]TPartialShare = nil, display : string = "") {
 	defer delete(shares)
 
 	_perk_without_share(display, id, skill_reqs, pre_reqs, blocks)

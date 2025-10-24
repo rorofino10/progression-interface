@@ -30,7 +30,7 @@ recalc_perks_buyable_state :: proc() {
 		b_data.bought_blocks_amount = slice.count_proc(b_data.assigned_blocks[:], proc(block: ^Block) -> bool {return block.bought})
 
 		{ // Owned?
-			if b_data.is_owned do return .Owned
+			if player_has_perk(perk) do return .Owned
 		}
 
 		{ 	// check if pre_reqs are satisfied
@@ -191,14 +191,6 @@ reduce_skill :: proc(skill_id: SkillID) -> (Points, RefundError) {
 	owned_blocks_amount := b_data.assigned_blocks_amount
 	skill_id_data := &DB.skill_id_data[skill_id]
 
-
-	{ // Check if it contains another buyable
-		for contains in DB.contains_constraint {
-			containee_data := DB.buyable_data[contains.containee]
-			if contains.container == skill && containee_data.is_owned do return 0, .ContainsAnotherBuyable
-		}
-	}
-
 	{ // Check if it is required in another owned buyable
 		for owned_perk in DB.owned_perks {
 			owned_perk_data := DB.perk_data[owned_perk]	
@@ -213,12 +205,15 @@ reduce_skill :: proc(skill_id: SkillID) -> (Points, RefundError) {
 		}
 	}
 	// Set as Locked
-	lock_buyable(skill)
-	b_data.is_owned = false
-	refunded := b_data.spent
-	DB.unused_points += refunded
-	b_data.bought_blocks_amount = 0
+	refunded : Points
 	DB.owned_skills[skill_id] = reduced_level
+	for assigned_block in b_data.assigned_blocks {
+		if !slice.any_of_proc(assigned_block.owned_by[:], player_has_buyable) {
+			assigned_block.bought = false
+			refunded += 1
+		}
+	}
+	DB.unused_points += refunded
 
 	if skill_id_data.type == .Main {
 
@@ -268,21 +263,24 @@ refund_perk :: proc(perk_id: PerkID) -> (Points, RefundError) {
 	if !player_has_buyable(perk_id) do return 0, .BuyableNotOwned
 
 	{ // Check if it is required in another owned buyable
-		for owned_perk in DB.owned_perks do if perk_id in _flattened_pre_reqs(owned_perk) do return 0, .RequiredByAnotherBuyable
-		
+		for owned_perk in DB.owned_perks do if perk_id in _flattened_pre_reqs(owned_perk) do return 0, .RequiredByAnotherBuyable	
 	}
 
 	b_data := &DB.buyable_data[perk_id]
-	owned_blocks_amount := b_data.assigned_blocks_amount
-
-	lock_buyable(perk_id)
-
-	b_data.is_owned = false
-	refunded := b_data.spent
-	DB.unused_points += refunded
-	b_data.bought_blocks_amount = 0
 	DB.owned_perks -= {perk_id}
+	
+	refunded : Points
+	for assigned_block in b_data.assigned_blocks {
+		if !slice.any_of_proc(assigned_block.owned_by[:], player_has_buyable) {
+			assigned_block.bought = false
+			refunded += 1
+		}
+	}
+
+	DB.unused_points += refunded
+
 	recalc_buyable_states()
+
 	return refunded, .None
 }
 
@@ -326,8 +324,6 @@ raise_skill :: proc(skill_id: SkillID) -> (Points, BuyError) {
 		DB.unused_points -= blocks_to_buy
 		unlock_buyable(next_skill) // Set all blocks to bought
 	
-		b_data.spent = blocks_to_buy
-		b_data.is_owned = true
 		DB.owned_skills[next_skill.id] = next_skill.level
 	}
 
@@ -387,8 +383,6 @@ buy_perk :: proc(perk: PerkID) -> (Points, BuyError) {
 		DB.unused_points -= blocks_to_buy
 		unlock_buyable(perk) // Set all blocks to bought
 
-		b_data.spent = blocks_to_buy
-		b_data.is_owned = true
 		DB.owned_perks |= {perk}
 	}
 

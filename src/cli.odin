@@ -69,7 +69,7 @@ print_buyable_blocks_by_query :: proc(buyable: Buyable) {
     fmt.print(buyable_data.bought_blocks_amount, "/", owned_block_amount, " ", sep="")
     switch {
         // Already Bought
-        case buyable_data.is_owned:
+        case player_has_buyable(buyable):
             for block in assigned_blocks do fmt.printf("\x1b[44m%d\x1b[0m", len(block.owned_by))
         // Free
         case owned_block_amount == buyable_data.bought_blocks_amount:

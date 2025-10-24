@@ -341,7 +341,6 @@ _gui_draw_extra_skills_panel :: proc(panel_bound: UIBound) {
                 case .Free:
                     state_color = rl.YELLOW
             }
-
             skill_name, _ := reflect.enum_name_from_value(skill_id)
             button_bound := _ui_anchor({layout.bound.x + layout.at.x + i32(extra_skills_scroll.x), layout.bound.y + layout.at.y + i32(extra_skills_scroll.y)},{0, 0, SKILL_BUTTON_SIZE.width, SKILL_BUTTON_SIZE.height})
             _ui_layout_advance(&layout, SKILL_BUTTON_SIZE, .HORIZONTAL)
@@ -363,7 +362,7 @@ _gui_draw_extra_skills_panel :: proc(panel_bound: UIBound) {
                 }
                 if rl.IsMouseButtonPressed(.RIGHT) {
                     refund, err := reduce_skill(skill_id)
-                    if err != nil do fmt.println(err)
+                    if err != nil do _gui_blinker_start(LeveledSkill{skill_id, skill_level},err)
                 }
                 if rl.IsMouseButtonPressed(.LEFT) do raise_skill(skill_id)
             }
@@ -415,7 +414,7 @@ _gui_draw_perks_panel :: proc(panel_bound: UIBound) {
                         button_label = fmt.tprint(perk_val.display, "\nCost: ", buyable_data.assigned_blocks_amount - buyable_data.bought_blocks_amount, sep = "") 
                     case .Owned:
                         state_color = rl.SKYBLUE
-                        button_label = fmt.tprint(perk_val.display, "\nSpent: ", buyable_data.spent, sep = "") 
+                        button_label = fmt.tprint(perk_val.display, "\nRefund", sep = "") 
                     case .Free:
                         state_color = rl.YELLOW
                         button_label = fmt.tprint(perk_val.display, "\nFREE", sep = "") 
@@ -533,9 +532,6 @@ _gui_draw_main_skills_panel :: proc(panel_bound: UIBound) {
             _ui_button(button_bound, nil)
         }
 
-
-
-        
         rl.GuiLock()
         
         button_label : cstring
@@ -560,9 +556,8 @@ _gui_draw_main_skills_panel :: proc(panel_bound: UIBound) {
                     button_label = fmt.ctprint(button_label, "FREE to raise", sep = "\n") 
             }
             if rl.IsMouseButtonPressed(.RIGHT) {
-                reduce_skill(skill_id)
-                // _gui_start_refund_blink(skill_id,err)
-                // if err != nil do fmt.println(err)
+                refund, err := reduce_skill(skill_id)
+                if err != nil do _gui_blinker_start(LeveledSkill{skill_id, skill_level},err)
             }
             if rl.IsMouseButtonPressed(.LEFT) do raise_skill(skill_id)
         }
@@ -598,6 +593,7 @@ RefundBlink :: struct{
     cause               : RefundError,
 }
 blinker : RefundBlink
+
 _should_blink_perk :: proc(buyable: Buyable) -> bool {
     if blinker.remaining_blinks <= 0 || !blinker.active_blink do return false
     if buyable == blinker.affected_buyable do return true
@@ -620,14 +616,6 @@ _should_blink_perk :: proc(buyable: Buyable) -> bool {
 					        }
                         }
                     }
-            }
-        case .ContainsAnotherBuyable:
-            for contains in DB.contains_constraint{
-                if contains.container == blinker.affected_buyable && contains.containee == buyable do return true
-            }
-        case .SharesWithAnotherBuyable:
-            for share in DB.share_constraints {
-                if (share.buyableA == buyable && share.buyableB == blinker.affected_buyable) || (share.buyableA == blinker.affected_buyable && share.buyableB == buyable) do return true
             }
     }
     return false
@@ -666,8 +654,8 @@ gui_run :: proc() {
     { // Init
         cfg := _cfg_default()
         // rl.SetTraceLogLevel( .WARNING )
-        rl.SetConfigFlags({.WINDOW_RESIZABLE, .VSYNC_HINT, .WINDOW_RESIZABLE, .MSAA_4X_HINT })
-        rl.InitWindow( cfg.resolution_width, cfg.resolution_height, "App" )
+        rl.SetConfigFlags({.WINDOW_RESIZABLE, .VSYNC_HINT, .WINDOW_RESIZABLE })
+        rl.InitWindow( cfg.resolution_width, cfg.resolution_height, "Progression Interface" )
         rl.SetTargetFPS( cfg.max_fps )
         if cfg.fullscreen do rl.ToggleFullscreen()
         _gui_init_font()

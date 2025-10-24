@@ -115,8 +115,6 @@ RefundError :: enum {
 	Unrefundable,
 	BuyableNotOwned,
 	RequiredByAnotherBuyable,
-	ContainsAnotherBuyable,
-	SharesWithAnotherBuyable,
 }
 
 CycleInPreReqsError :: struct {
@@ -167,9 +165,6 @@ BuyableData :: struct {
 	blocks_to_be_assigned 	: BlocksSize,
 	assigned_blocks			: [dynamic]^Block,
 	bought_blocks_amount	: BlocksSize,
-	is_owned				: bool,
-	is_upgradeable			: bool,
-	spent					: Points,
 }
 
 PlayerLevelState :: struct{
@@ -258,7 +253,7 @@ _perk_without_share :: proc(display : string = "", id: PerkID, skill_reqs: [dyna
 	DB.perk_data[id] = perk_data
 }
 
-_perk_with_share :: proc(display : string = "", id: PerkID, skill_reqs: [dynamic]SKILL_REQ_ENTRY = nil, pre_reqs: [dynamic]PRE_REQ_ENTRY = nil, blocks: BlocksSize, partial_shares: [dynamic]TPartialShare = nil) {
+Perk :: proc(display : string = "", id: PerkID, skill_reqs: [dynamic]SKILL_REQ_ENTRY = nil, pre_reqs: [dynamic]PRE_REQ_ENTRY = nil, blocks: BlocksSize, partial_shares: [dynamic]TPartialShare = nil) {
 	defer delete(partial_shares)
 
 	_perk_without_share(display, id, skill_reqs, pre_reqs, blocks)
@@ -271,8 +266,6 @@ _perk_with_share :: proc(display : string = "", id: PerkID, skill_reqs: [dynamic
 		}
 	}
 }
-
-Perk :: proc{_perk_with_share}
 
 level_up :: proc() -> LevelUpError {
 	if DB.unit_level+1 >= DB.unit_level_cap do return .MAX_LEVEL_REACHED

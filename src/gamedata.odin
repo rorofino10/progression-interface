@@ -118,11 +118,6 @@ SKILL :: enum {
 	Engineering,
 	Language,
 	Physics,
-	Physics2,
-	Physics3,
-	Physics4,
-	// Physics5,
-	// Physics6,
 }
 
 load_db :: proc() {
@@ -269,6 +264,7 @@ load_db :: proc() {
 	Perk(
 		id = .Beamer, 
 		pre_reqs = {.SlingTraining},
+		skill_reqs = {Skill{.Athletics, 2}},
 		blocks = 50, 
 	)
 

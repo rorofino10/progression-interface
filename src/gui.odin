@@ -360,6 +360,7 @@ _gui_draw_extra_skills_panel :: proc(panel_bound: UIBound) {
                     case .Free:
                         button_label = fmt.ctprint(button_label, "FREE to raise", sep = "\n") 
                 }
+                if rl.IsKeyPressed(.B) do print_buyable_blocks(next_skill)
                 if rl.IsMouseButtonPressed(.RIGHT) {
                     refund, err := reduce_skill(skill_id)
                     if err != nil do _gui_blinker_start(LeveledSkill{skill_id, skill_level},err)
@@ -495,6 +496,7 @@ _gui_draw_main_skills_panel :: proc(panel_bound: UIBound) {
     for skill_id, slot in DB.owned_main_skills {
         skill_id_data := DB.skill_id_data[skill_id]
         skill_level := DB.owned_skills[skill_id]
+        skill := LeveledSkill{skill_id, skill_level}
         next_skill := LeveledSkill{skill_id, skill_level+1}
 
         buyable_data := DB.buyable_data[next_skill]
@@ -555,9 +557,10 @@ _gui_draw_main_skills_panel :: proc(panel_bound: UIBound) {
                 case .Free:
                     button_label = fmt.ctprint(button_label, "FREE to raise", sep = "\n") 
             }
+            if rl.IsKeyPressed(.B) do print_buyable_blocks(next_skill)
             if rl.IsMouseButtonPressed(.RIGHT) {
                 refund, err := reduce_skill(skill_id)
-                if err != nil do _gui_blinker_start(LeveledSkill{skill_id, skill_level},err)
+                if err != nil do _gui_blinker_start(skill,err)
             }
             if rl.IsMouseButtonPressed(.LEFT) do raise_skill(skill_id)
         }

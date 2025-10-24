@@ -67,10 +67,10 @@ PERK :: enum {
 	// Pistoleer,
 	// Marksman,
 	// HeavyWeaponsGuy,
-	Beamer,
-	//
-	SlingTraining,
-	BowTraining,
+	// Beamer,
+	// //
+	// SlingTraining,
+	// BowTraining,
 }
 
 SkillID :: SKILL
@@ -158,54 +158,54 @@ load_db :: proc() {
 	// 		// {.Athletics, .Ranged },
 	// 	}
 	// )
-	// ListOf(
-	// 	CloseSkills, {
-	// 	{.Melee, .Athletics},
-	// 	{.Ranged, .Finesse},
-	// 	{.Influence, .Acting},
-	// 	}
-	// )
-	// ListOf(
-	// 	DistantSkills, {
-	// 	{.Influence, .Composure},
-	// 	{.Acting, .Composure},
-	// 	{.Influence, .Acting},
-	// 	{.Endurance, .Composure},
-	// 	{.Endurance, .Athletics},
-	// 	{.Athletics, .Finesse},
-	// 	{.Logic, .Perception},
-	// 	{.Arts, .Influence},
-	// 	{.Arts, .Acting},
-	// 	{.Ranged, .Perception},
-	// 	{.Melee, .Perception},
-	// 	{.Survival, .Perception},
-	// 	{.Survival, .Construction},
-	// })
-	// ListOf(
-	// 	CloseDerivativeSkills, {
-	// 	{.Computers, .Logic},
-	// 	{.Medicine, .Logic},
-	// 	{.Thievery, .Finesse},
-	// 	{.Construction, .Athletics},
-	// 	{.Engineering, .Logic},
-	// 	{.Geology, .Logic},
-	// 	// {.Physics, .Logic},
-	// 	{.Piloting, .Finesse},
-	// 	{.Influence, .Language},
-	// 	{.Arts, .Acting},
-	// 	}
-	// )
-	// ListOf(
-	// 	DistantDerivativeSkills,{
-	// 	{.Sorcery, .Arcana},
-	// 	{.Arcana, .Logic},
-	// 	// {.Engineering, .Physics},
-	// 	{.Biology, .Chemistry},
-	// 	{.Chemistry, .Physics},
-	// 	// {.Geology, .Physics},
-	// 	// {.Arts, .Language},
-	// 	}
-	// )
+	ListOf(
+		CloseSkills, {
+		{.Melee, .Athletics},
+		{.Ranged, .Finesse},
+		{.Influence, .Acting},
+		}
+	)
+	ListOf(
+		DistantSkills, {
+		{.Influence, .Composure},
+		{.Acting, .Composure},
+		{.Influence, .Acting},
+		{.Endurance, .Composure},
+		{.Endurance, .Athletics},
+		{.Athletics, .Finesse},
+		{.Logic, .Perception},
+		{.Arts, .Influence},
+		{.Arts, .Acting},
+		{.Ranged, .Perception},
+		{.Melee, .Perception},
+		{.Survival, .Perception},
+		{.Survival, .Construction},
+	})
+	ListOf(
+		CloseDerivativeSkills, {
+		{.Computers, .Logic},
+		{.Medicine, .Logic},
+		{.Thievery, .Finesse},
+		{.Construction, .Athletics},
+		{.Engineering, .Logic},
+		{.Geology, .Logic},
+		// {.Physics, .Logic},
+		{.Piloting, .Finesse},
+		{.Influence, .Language},
+		{.Arts, .Acting},
+		}
+	)
+	ListOf(
+		DistantDerivativeSkills,{
+		{.Sorcery, .Arcana},
+		// {.Arcana, .Logic},
+		// {.Engineering, .Physics},
+		{.Biology, .Chemistry},
+		{.Chemistry, .Physics},
+		// {.Geology, .Physics},
+		// {.Arts, .Language},
+		}
+	)
 
 	// Perk(.Flurry, 			{OR{{.Melee, 9}, {.Ranged, 9}}, Skill{.Finesse, 4}}, 	{},		50, {{Skill{.Finesse, 9}, 50}})
 	// Perk(.PerfectFlurry,	{Skill{.Finesse, 15}}, 									{},		70, {})
@@ -249,24 +249,24 @@ load_db :: proc() {
 
 	// Perk(.BowTraining,		{Skill{.Ranged, 6}, Skill{.Athletics, 4}}, 						{}, 30, {})
 	// Perk(.SlingTraining,	{Skill{.Ranged, 6}, Skill{.Finesse, 4}, Skill{.Athletics, 2}},	{}, 60, {})
-	Perk(
-		display = "Sling Training",
-		id = .SlingTraining, 
-		blocks = 60, 
-	)
-	Perk(
-		display = "Bow Training",
-		id = .BowTraining, 
-		blocks = 60, 
-		shares = {{PERK.SlingTraining, 100}},
-	)
-	// Perk(.Aim,	{Or(Skill{.Athletics, 1}, Skill{.Melee,1})}, {PERK.Beamer, Or(PERK.SlingTraining, PERK.BowTraining)}, 60, {})
-	Perk(
-		id = .Beamer, 
-		pre_reqs = {.SlingTraining},
-		skill_reqs = {Skill{.Athletics, 2}},
-		blocks = 50, 
-	)
+	// Perk(
+	// 	display = "Sling Training",
+	// 	id = .SlingTraining, 
+	// 	blocks = 60, 
+	// )
+	// Perk(
+	// 	display = "Bow Training",
+	// 	id = .BowTraining, 
+	// 	blocks = 60, 
+	// 	shares = {{PERK.SlingTraining, 100}},
+	// )
+	// // Perk(.Aim,	{Or(Skill{.Athletics, 1}, Skill{.Melee,1})}, {PERK.Beamer, Or(PERK.SlingTraining, PERK.BowTraining)}, 60, {})
+	// Perk(
+	// 	id = .Beamer, 
+	// 	pre_reqs = {.SlingTraining},
+	// 	skill_reqs = {Skill{.Athletics, 2}},
+	// 	blocks = 50, 
+	// )
 
 }
 

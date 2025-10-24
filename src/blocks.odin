@@ -56,7 +56,8 @@ block_system_allocate :: proc() {
 query_blocks_indices_from_buyable :: proc(buyable: Buyable, query_amount: BlocksSize) -> BlocksIndexQuery {
     context.allocator = query_system_alloc
     query := make([dynamic]BlockIndex, 0, query_amount)
-    for &block, block_idx in block_system.blocks {
+    for block_idx in DB.buyable_data[buyable].assigned_blocks_indices {
+        block := block_system.blocks[block_idx]
         if BlocksSize(len(query)) == query_amount do break
 
         if slice.contains(block.owned_by[:], buyable) do append(&query, block_idx)
@@ -68,7 +69,8 @@ query_blocks_indices_from_buyable :: proc(buyable: Buyable, query_amount: Blocks
 query_blocks_indices_from_buyable_that_dont_clash_with_buyable :: proc(buyableA, buyableB: Buyable, query_amount: BlocksSize) -> BlocksIndexQuery {
     context.allocator = query_system_alloc
     query := make([dynamic]int, 0, query_amount)
-    for &block, block_idx in block_system.blocks {
+    for block_idx in DB.buyable_data[buyableA].assigned_blocks_indices {
+        block := block_system.blocks[block_idx]
         if BlocksSize(len(query)) == query_amount do break
 
         if slice.contains(block.owned_by[:], buyableA) && !_block_clashes_with_buyable(block, buyableB) do append(&query, block_idx)
@@ -80,7 +82,8 @@ query_blocks_indices_from_buyable_that_dont_clash_with_buyable :: proc(buyableA,
 query_all_blocks_indices_from_buyable_that_dont_clash_with_buyable :: proc(buyableA, buyableB: Buyable) -> BlocksIndexQuery {
     context.allocator = query_system_alloc
     query := make([dynamic]int, 0)
-    for &block, block_idx in block_system.blocks {
+    for block_idx in DB.buyable_data[buyableA].assigned_blocks_indices {
+        block := block_system.blocks[block_idx]
         if slice.contains(block.owned_by[:], buyableA) && !_block_clashes_with_buyable(block, buyableB) do append(&query, block_idx)
     }
     return query[:]
@@ -89,7 +92,8 @@ query_all_blocks_indices_from_buyable_that_dont_clash_with_buyable :: proc(buyab
 query_blocks_indices_from_buyable_that_dont_require_buyable :: proc(buyableA, buyableB: Buyable, query_amount: BlocksSize) -> BlocksIndexQuery {
     context.allocator = query_system_alloc
     query := make([dynamic]int, 0, query_amount)
-    for &block, block_idx in block_system.blocks {
+    for block_idx in DB.buyable_data[buyableA].assigned_blocks_indices {
+        block := block_system.blocks[block_idx]
         if BlocksSize(len(query)) == query_amount do break
 
         if slice.contains(block.owned_by[:], buyableA) && _block_requires_buyable(block, buyableB) do append(&query, block_idx)
@@ -100,7 +104,8 @@ query_blocks_indices_from_buyable_that_dont_require_buyable :: proc(buyableA, bu
 query_blocks_indices_from_buyable_that_buyable_doesnt_require :: proc(buyableA, buyableB: Buyable, query_amount: BlocksSize) -> BlocksIndexQuery {
     context.allocator = query_system_alloc
     query := make([dynamic]int, 0, query_amount)
-    for &block, block_idx in block_system.blocks {
+    for block_idx in DB.buyable_data[buyableA].assigned_blocks_indices {
+        block := block_system.blocks[block_idx]
         if BlocksSize(len(query)) == query_amount do break
 
         if slice.contains(block.owned_by[:], buyableA) && !_buyable_requires_block(block, buyableB) do append(&query, block_idx)
@@ -111,7 +116,8 @@ query_blocks_indices_from_buyable_that_buyable_doesnt_require :: proc(buyableA, 
 query_blocks_indices_from_buyable_not_assigned_to_buyable :: proc(buyableA, buyableB: Buyable, query_amount: BlocksSize) -> BlocksIndexQuery {
     context.allocator = query_system_alloc
     query := make([dynamic]int, 0, query_amount)
-    for &block, block_idx in block_system.blocks {
+    for block_idx in DB.buyable_data[buyableA].assigned_blocks_indices {
+        block := block_system.blocks[block_idx]
         if BlocksSize(len(query)) == query_amount do break
 
         if slice.contains(block.owned_by[:], buyableA) && !slice.contains(block.owned_by[:], buyableB) do append(&query, block_idx)
@@ -123,18 +129,11 @@ query_blocks_indices_from_buyable_not_assigned_to_buyable :: proc(buyableA, buya
 query_all_blocks_indices_from_buyable_that_buyable_doesnt_require :: proc(buyable, owner: Buyable) -> BlocksIndexQuery {
     context.allocator = query_system_alloc
     query := make([dynamic]int, 0)
-    for &block, block_idx in block_system.blocks {
+    for block_idx in DB.buyable_data[buyable].assigned_blocks_indices {
+        block := block_system.blocks[block_idx]
         if slice.contains(block.owned_by[:], buyable) && !_buyable_requires_block(block, owner) do append(&query, block_idx)
     }
     return query[:]    
-}
-
-query_all_blocks_indices_from_buyable :: proc(buyable: Buyable) -> BlocksIndexQuery {
-    context.allocator = query_system_alloc
-    query := make([dynamic]int, 0)
-    query_curr_idx : BlocksSize = 0
-    for &block, block_idx in block_system.blocks do if slice.contains(block.owned_by[:], buyable) do append(&query, block_idx)
-    return query[:]
 }
 
 block_system_assign_leftover :: proc(buyable: Buyable) {
@@ -178,7 +177,7 @@ _assign_share_minimizing_overlap :: proc(buyableA, buyableB: Buyable, blocks_to_
     b_data_b := &DB.buyable_data[buyableB]
     already_shared_blocks_amount : BlocksSize
     {   // Calc already_shared_blocks_amount
-        query_b := query_all_blocks_indices_from_buyable(buyableB)
+        query_b := b_data_b.assigned_blocks_indices
         defer free_all(query_system_alloc)
         for assigned_block_idx in query_b {
             queried_block := block_system.blocks[assigned_block_idx]
@@ -214,7 +213,7 @@ _assign_share_maximizing_overlap :: proc(buyableA, buyableB: Buyable, blocks_to_
 
     already_shared_blocks_amount : BlocksSize
     {   // Calc already_shared_blocks_amount
-        query_b := query_all_blocks_indices_from_buyable(buyableB)
+        query_b := b_data_b.assigned_blocks_indices
         defer free_all(query_system_alloc)
         for assigned_block_idx in query_b {
             queried_block := block_system.blocks[assigned_block_idx]
@@ -397,8 +396,4 @@ _assert_buyable_wont_clash_in_block :: proc(block: ^Block, buyable: Buyable) {
 _assert_buyable_wont_clash_in_block_idx :: proc(block_idx: BlockIndex, buyable: Buyable) {
     block := &block_system.blocks[block_idx]
     _assert_buyable_wont_clash_in_block(block, buyable)
-}
-
-is_block_bought :: proc(idx: BlockIndex) -> bool {
-	return block_system.blocks[idx].bought
 }

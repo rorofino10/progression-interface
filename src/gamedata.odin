@@ -258,7 +258,7 @@ load_db :: proc() {
 		display = "Bow Training",
 		id = .BowTraining, 
 		blocks = 60, 
-		partial_shares = {{PERK.SlingTraining, 100}},
+		shares = {{PERK.SlingTraining, 100}},
 	)
 	// Perk(.Aim,	{Or(Skill{.Athletics, 1}, Skill{.Melee,1})}, {PERK.Beamer, Or(PERK.SlingTraining, PERK.BowTraining)}, 60, {})
 	Perk(

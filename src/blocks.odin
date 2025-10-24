@@ -2,8 +2,6 @@
 package main
 
 import "core:slice"
-import "core:sort"
-import "core:math"
 import "core:fmt"
 import "base:runtime"
 import "core:mem"
@@ -32,8 +30,8 @@ Block :: struct {
 
 Blocks :: [dynamic]Block
 BlocksSize :: int
-BlocksQuery :: []^Block
-BlocksIndexQuery :: []int
+BlockIndex :: BlocksSize
+BlocksIndexQuery :: []BlockIndex
 
 init_block_system_alloc :: proc() -> Error {
 	block_system_buffer = make([]byte, BLOCK_SYSTEM_ALLOCATED_MEM) or_return
@@ -57,7 +55,7 @@ block_system_allocate :: proc() {
 
 query_blocks_indices_from_buyable :: proc(buyable: Buyable, query_amount: BlocksSize) -> BlocksIndexQuery {
     context.allocator = query_system_alloc
-    query := make([dynamic]int, 0, query_amount)
+    query := make([dynamic]BlockIndex, 0, query_amount)
     for &block, block_idx in block_system.blocks {
         if BlocksSize(len(query)) == query_amount do break
 
@@ -139,43 +137,7 @@ query_all_blocks_indices_from_buyable :: proc(buyable: Buyable) -> BlocksIndexQu
     return query[:]
 }
 
-
-query_blocks_from_buyable :: proc(buyable: Buyable, query_amount: BlocksSize) -> BlocksQuery {
-    context.allocator = query_system_alloc
-    query := make(BlocksQuery, query_amount)
-    query_curr_idx : BlocksSize = 0
-    for &block in block_system.blocks {
-        if query_curr_idx == query_amount do break
-
-        for block_owner in block.owned_by {
-            if block_owner == buyable {
-                query[query_curr_idx] = &block
-                query_curr_idx += 1
-                break
-            }
-        }
-    }
-    return query
-}
-
-assign_all_blocks_to_buyables :: proc() {
-    for &block in block_system.blocks {
-        for block_owner in block.owned_by {
-            assigned_blocks := &(&DB.buyable_data[block_owner]).assigned_blocks
-            append(assigned_blocks, &block)
-        }
-    }
-}
- 
-query_all_blocks_from_buyable :: proc(buyable: Buyable) -> BlocksQuery {
-    context.allocator = query_system_alloc
-    query := make([dynamic]^Block, 0)
-    for &block in block_system.blocks do if slice.contains(block.owned_by[:], buyable) do append(&query, &block)
-    return query[:]
-}
-
 block_system_assign_leftover :: proc(buyable: Buyable) {
-
     buyable_data := &DB.buyable_data[buyable]
     blocks_to_assign := buyable_data.blocks_left_to_assign
 
@@ -184,15 +146,17 @@ block_system_assign_leftover :: proc(buyable: Buyable) {
 
 _create_new_block_with_owners :: proc(buyables: ..Buyable) {
     new_block : Block
+    block_idx := len(block_system.blocks)
+    append(&block_system.blocks, new_block)
     for buyable in buyables {
         assert(DB.buyable_data[buyable].blocks_left_to_assign > 0, "No blocks left to assign")
         _assert_buyable_wont_clash_in_block(&new_block, buyable)
         buyable_data := &DB.buyable_data[buyable]
         buyable_data.blocks_left_to_assign -= 1
         buyable_data.assigned_blocks_amount += 1
-        append(&new_block.owned_by, buyable)
+        append(&block_system.blocks[block_idx].owned_by, buyable)
+        append(&buyable_data.assigned_blocks_indices, block_idx)
     }
-    append(&block_system.blocks, new_block)
 }
 
 _add_buyables_as_owner_of_block_idx :: proc(block_idx: int, buyables: ..Buyable) {
@@ -203,6 +167,7 @@ _add_buyables_as_owner_of_block_idx :: proc(block_idx: int, buyables: ..Buyable)
         buyable_data.blocks_left_to_assign -= 1
         buyable_data.assigned_blocks_amount += 1
         append(&block_system.blocks[block_idx].owned_by, buyable)
+        append(&buyable_data.assigned_blocks_indices, block_idx)
     }
 }
 
@@ -429,7 +394,11 @@ _assert_buyable_wont_clash_in_block :: proc(block: ^Block, buyable: Buyable) {
                 }
         }   
 }
-_assert_buyable_wont_clash_in_block_idx :: proc(block_idx: int, buyable: Buyable) {
+_assert_buyable_wont_clash_in_block_idx :: proc(block_idx: BlockIndex, buyable: Buyable) {
     block := &block_system.blocks[block_idx]
     _assert_buyable_wont_clash_in_block(block, buyable)
+}
+
+is_block_bought :: proc(idx: BlockIndex) -> bool {
+	return block_system.blocks[idx].bought
 }

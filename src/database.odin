@@ -163,7 +163,7 @@ BuyableData :: struct {
 	assigned_blocks_amount 	: BlocksSize,
 	blocks_left_to_assign	: BlocksSize,
 	blocks_to_be_assigned 	: BlocksSize,
-	assigned_blocks			: [dynamic]^Block,
+	assigned_blocks_indices	: [dynamic]BlockIndex,
 	bought_blocks_amount	: BlocksSize,
 }
 
@@ -253,11 +253,11 @@ _perk_without_share :: proc(display : string = "", id: PerkID, skill_reqs: [dyna
 	DB.perk_data[id] = perk_data
 }
 
-Perk :: proc(display : string = "", id: PerkID, skill_reqs: [dynamic]SKILL_REQ_ENTRY = nil, pre_reqs: [dynamic]PRE_REQ_ENTRY = nil, blocks: BlocksSize, partial_shares: [dynamic]TPartialShare = nil) {
-	defer delete(partial_shares)
+Perk :: proc(display : string = "", id: PerkID, skill_reqs: [dynamic]SKILL_REQ_ENTRY = nil, pre_reqs: [dynamic]PRE_REQ_ENTRY = nil, blocks: BlocksSize, shares: [dynamic]TPartialShare = nil) {
+	defer delete(shares)
 
 	_perk_without_share(display, id, skill_reqs, pre_reqs, blocks)
-	for partial_share in partial_shares {
+	for partial_share in shares {
 		switch buyable in partial_share.buyable_to_share_with {
 			case LeveledSkill:
 				Share(id, buyable.id, buyable.level, partial_share.strength)
@@ -408,8 +408,6 @@ create_buyables :: proc() {
 		block_system_assign_leftover(buyable)
 	}
 
-	assign_all_blocks_to_buyables()
-	
 	recalc_buyable_states()
 }
 

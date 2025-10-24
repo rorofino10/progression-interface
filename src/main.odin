@@ -4,15 +4,19 @@ import "core:slice"
 import "core:mem"
 import "core:fmt"
 
+@require_results
 player_has_perk :: proc(perk: PerkID) -> bool {
 	return perk in DB.owned_perks
 }
+
+@require_results
 player_has_skill :: proc(skill: LeveledSkill) -> bool {
 	owned_skill_level, ok := DB.owned_skills[skill.id]
 	if !ok do return false
 	return  skill.level<=owned_skill_level 
 }
 
+@require_results
 player_has_buyable :: proc(buyable: Buyable) -> bool {
 	switch b in buyable {
 		case LeveledSkill:
@@ -27,7 +31,7 @@ recalc_perks_buyable_state :: proc() {
 	_immediate_perk_state :: proc(perk: PerkID, prereqs: []PRE_REQ_ENTRY, skills_reqs: []SKILL_REQ_ENTRY) -> PerkBuyableState {
 		b_data := &DB.buyable_data[perk]
 		
-		b_data.bought_blocks_amount = slice.count_proc(b_data.assigned_blocks[:], proc(block: ^Block) -> bool {return block.bought})
+		b_data.bought_blocks_amount = slice.count_proc(b_data.assigned_blocks_indices[:], is_block_bought)
 
 		{ // Owned?
 			if player_has_perk(perk) do return .Owned
@@ -93,7 +97,7 @@ recalc_skill_id_raisable_state :: proc() {
 		next_skill := LeveledSkill{skillID, curr_level+1}
 
 		b_data := &DB.buyable_data[next_skill]
-		b_data.bought_blocks_amount = slice.count_proc(b_data.assigned_blocks[:], proc(block: ^Block) -> bool {return block.bought})
+		b_data.bought_blocks_amount = slice.count_proc(b_data.assigned_blocks_indices[:], is_block_bought)
 		
 		{ // Check If Enough Points or Free
 			owned_block_amount := b_data.assigned_blocks_amount
@@ -157,14 +161,14 @@ recalc_buyable_states :: proc() {
 }
 
 unlock_buyable :: proc(buyable: Buyable) {
-	assigned_blocks := DB.buyable_data[buyable].assigned_blocks
-	for &block in assigned_blocks do block.bought = true
+	assigned_blocks := DB.buyable_data[buyable].assigned_blocks_indices
+	for block_idx in assigned_blocks do block_system.blocks[block_idx].bought = true
 }
 
 
 lock_buyable :: proc(buyable: Buyable) {
-	assigned_blocks := DB.buyable_data[buyable].assigned_blocks
-	for &block in assigned_blocks do block.bought = false
+	assigned_blocks := DB.buyable_data[buyable].assigned_blocks_indices
+	for block_idx in assigned_blocks do block_system.blocks[block_idx].bought = false
 }
 
 
@@ -207,7 +211,8 @@ reduce_skill :: proc(skill_id: SkillID) -> (Points, RefundError) {
 	// Set as Locked
 	refunded : Points
 	DB.owned_skills[skill_id] = reduced_level
-	for assigned_block in b_data.assigned_blocks {
+	for assigned_block_idx in b_data.assigned_blocks_indices {
+		assigned_block := &block_system.blocks[assigned_block_idx]
 		if !slice.any_of_proc(assigned_block.owned_by[:], player_has_buyable) {
 			assigned_block.bought = false
 			refunded += 1
@@ -270,7 +275,8 @@ refund_perk :: proc(perk_id: PerkID) -> (Points, RefundError) {
 	DB.owned_perks -= {perk_id}
 	
 	refunded : Points
-	for assigned_block in b_data.assigned_blocks {
+	for assigned_block_idx in b_data.assigned_blocks_indices {
+		assigned_block := &block_system.blocks[assigned_block_idx]
 		if !slice.any_of_proc(assigned_block.owned_by[:], player_has_buyable) {
 			assigned_block.bought = false
 			refunded += 1

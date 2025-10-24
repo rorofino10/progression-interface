@@ -43,46 +43,48 @@ print_blocks_from_indices :: proc(query: BlocksIndexQuery) {
 }
 
 print_buyable_blocks :: proc(buyable: Buyable) {
-    buyable_data := DB.buyable_data[buyable]
-    assigned_blocks := buyable_data.assigned_blocks
+    panic("Not implemented")
+    // buyable_data := DB.buyable_data[buyable]
+    // assigned_blocks := buyable_data.assigned_blocks
 
-    owned_block_amount := buyable_data.assigned_blocks_amount
-    fmt.print(buyable, ": ", sep="")
-    fmt.print(f32(buyable_data.bought_blocks_amount)/f32(owned_block_amount)*100, "%", " ", sep="")
-    fmt.print(buyable_data.bought_blocks_amount, "/", owned_block_amount, " ", sep="")
-    for block in assigned_blocks {
-        if block.bought do fmt.printf("\x1b[42m%d", len(block.owned_by))
-        else do fmt.printf("\x1b[41m%d", len(block.owned_by))
-    }
+    // owned_block_amount := buyable_data.assigned_blocks_amount
+    // fmt.print(buyable, ": ", sep="")
+    // fmt.print(f32(buyable_data.bought_blocks_amount)/f32(owned_block_amount)*100, "%", " ", sep="")
+    // fmt.print(buyable_data.bought_blocks_amount, "/", owned_block_amount, " ", sep="")
+    // for block in assigned_blocks {
+    //     if block.bought do fmt.printf("\x1b[42m%d", len(block.owned_by))
+    //     else do fmt.printf("\x1b[41m%d", len(block.owned_by))
+    // }
     
-    fmt.print("\x1b[0m\n")
-    for block in assigned_blocks do _print_block(block^)
+    // fmt.print("\x1b[0m\n")
+    // for block in assigned_blocks do _print_block(block^)
 }
 print_buyable_blocks_by_query :: proc(buyable: Buyable) {
-    buyable_data := DB.buyable_data[buyable]
-    assigned_blocks := query_all_blocks_from_buyable(buyable)
-    defer free_all(query_system_alloc)
+    panic("Not implemented")
+    // buyable_data := DB.buyable_data[buyable]
+    // assigned_blocks := query_all_blocks_from_buyable(buyable)
+    // defer free_all(query_system_alloc)
 
-    owned_block_amount := buyable_data.assigned_blocks_amount
-    fmt.print(buyable, ": ", sep="")
-    fmt.print(f32(buyable_data.bought_blocks_amount)/f32(owned_block_amount)*100, "%", " ", sep="")
-    fmt.print(buyable_data.bought_blocks_amount, "/", owned_block_amount, " ", sep="")
-    switch {
-        // Already Bought
-        case player_has_buyable(buyable):
-            for block in assigned_blocks do fmt.printf("\x1b[44m%d\x1b[0m", len(block.owned_by))
-        // Free
-        case owned_block_amount == buyable_data.bought_blocks_amount:
-            for block in assigned_blocks do fmt.print("\x1b[43m%d\x1b[0m", len(block.owned_by))
-        case:
-            for block in assigned_blocks {
-                if block.bought do fmt.printf("\x1b[42m%d", len(block.owned_by))
-                else do fmt.printf("\x1b[41m%d", len(block.owned_by))
-            }
-    }
+    // owned_block_amount := buyable_data.assigned_blocks_amount
+    // fmt.print(buyable, ": ", sep="")
+    // fmt.print(f32(buyable_data.bought_blocks_amount)/f32(owned_block_amount)*100, "%", " ", sep="")
+    // fmt.print(buyable_data.bought_blocks_amount, "/", owned_block_amount, " ", sep="")
+    // switch {
+    //     // Already Bought
+    //     case player_has_buyable(buyable):
+    //         for block in assigned_blocks do fmt.printf("\x1b[44m%d\x1b[0m", len(block.owned_by))
+    //     // Free
+    //     case owned_block_amount == buyable_data.bought_blocks_amount:
+    //         for block in assigned_blocks do fmt.print("\x1b[43m%d\x1b[0m", len(block.owned_by))
+    //     case:
+    //         for block in assigned_blocks {
+    //             if block.bought do fmt.printf("\x1b[42m%d", len(block.owned_by))
+    //             else do fmt.printf("\x1b[41m%d", len(block.owned_by))
+    //         }
+    // }
     
-    fmt.print("\x1b[0m\n")
-    for block in assigned_blocks do _print_block(block^)
+    // fmt.print("\x1b[0m\n")
+    // for block in assigned_blocks do _print_block(block^)
 }
 
 print_skill_progress :: proc(skillID: SkillID, level_cap: LEVEL) {

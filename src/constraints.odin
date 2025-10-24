@@ -351,8 +351,8 @@ verify_constraints :: proc() {
 		b_data_a, b_data_b := DB.buyable_data[share.buyableA], DB.buyable_data[share.buyableB]
 		
 		shared_blocks_in_a, shared_blocks_in_b : BlocksSize
-		for assigned_block in b_data_a.assigned_blocks do if slice.contains(assigned_block.owned_by[:], share.buyableB) do shared_blocks_in_a += 1
-		for assigned_block in b_data_b.assigned_blocks do if slice.contains(assigned_block.owned_by[:], share.buyableA) do shared_blocks_in_b += 1
+		for assigned_block_idx in b_data_a.assigned_blocks_indices do if slice.contains(block_system.blocks[assigned_block_idx].owned_by[:], share.buyableB) do shared_blocks_in_a += 1
+		for assigned_block_idx in b_data_b.assigned_blocks_indices do if slice.contains(block_system.blocks[assigned_block_idx].owned_by[:], share.buyableA) do shared_blocks_in_b += 1
 		assert(shared_blocks_in_a == shared_blocks_in_b, fmt.tprintln("Shared blocks in A", shared_blocks_in_a, "not equal to shared_blocks_in_b", shared_blocks_in_b, "in share", share))
 
 		representative_percentage_in_a := f64(shared_blocks_in_a) / f64(b_data_a.assigned_blocks_amount) * 100
@@ -376,8 +376,8 @@ verify_constraints :: proc() {
 
 	for contains in DB.contains_constraint {
 		b_data_container, b_data_containee := DB.buyable_data[contains.container], DB.buyable_data[contains.containee]
-		for assigned_block in b_data_containee.assigned_blocks {
-			assert(_buyable_requires_block(assigned_block^, contains.container), fmt.tprintln("Assigned block", assigned_block, "of", contains.containee, "isn't contained by", contains.container))
+		for assigned_block_idx in b_data_containee.assigned_blocks_indices {
+			assert(_buyable_requires_block(block_system.blocks[assigned_block_idx], contains.container), fmt.tprintln("Assigned block", assigned_block_idx, "of", contains.containee, "isn't contained by", contains.container))
 		}
 	}
 }

@@ -107,7 +107,7 @@ recalc_skill_id_raisable_state :: proc() {
 			skill_id_data := &DB.skill_id_data[skillID]
 			switch skill_id_data.type {
 				case .Main:
-					cap = DB.player_states[DB.unit_level].main_skill_caps[skill_id_data.idx]
+					cap = DB.player_states[DB.unit_level].main_skill_caps[skill_id_data.slot]
 				case .Extra:
 					cap = DB.player_states[DB.unit_level].extra_skill_cap
 			}
@@ -175,10 +175,10 @@ reduce_to_skill :: proc(skill: LeveledSkill) -> (Points, RefundError) {
 	for level in skill.level..<curr_skill_level {
 		reduce_refund, reduce_err := reduce_skill(skill.id)
 		refund += reduce_refund
-		if reduce_err != {} do return refund, reduce_err
+		if reduce_err != nil do return refund, reduce_err
 	}
 
-	return refund, {}
+	return refund, nil
 }
 
 reduce_skill :: proc(skill_id: SkillID) -> (Points, RefundError) {
@@ -223,18 +223,17 @@ reduce_skill :: proc(skill_id: SkillID) -> (Points, RefundError) {
 	if skill_id_data.type == .Main {
 
 	{ // Sift Down if possible 
-		for main_skill_idx := skill_id_data.idx; main_skill_idx < MAIN_SKILLS_AMOUNT-1; main_skill_idx+=1 {
+		for main_skill_idx := skill_id_data.slot; main_skill_idx < MAIN_SKILLS_AMOUNT-1; main_skill_idx+=1 {
 			curr_main_skill, next_main_skill := DB.owned_main_skills[main_skill_idx], DB.owned_main_skills[main_skill_idx+1]
 			curr_main_skill_level, next_main_skill_level := DB.owned_skills[curr_main_skill], DB.owned_skills[next_main_skill] 
 			curr_main_skill_data, next_main_skill_data := &DB.skill_id_data[curr_main_skill], &DB.skill_id_data[next_main_skill]
 
 			if curr_main_skill_level < next_main_skill_level {
 				// swap
-				DB.owned_main_skills[main_skill_idx] = next_main_skill
-				DB.owned_main_skills[main_skill_idx+1] = curr_main_skill
+				slice.swap(DB.owned_main_skills[:], int(main_skill_idx), int(main_skill_idx)+1)
 
-				curr_main_skill_data.idx += 1
-				next_main_skill_data.idx -= 1
+				curr_main_skill_data.slot += 1
+				next_main_skill_data.slot -= 1
 			}
 		}
 	}
@@ -247,14 +246,14 @@ reduce_skill :: proc(skill_id: SkillID) -> (Points, RefundError) {
 			if reduced_level < extra_skill_level {
 				
 				// swap
-				skill_id_data.idx = extra_skill_data.idx
+				skill_id_data.slot = extra_skill_data.slot
 				skill_id_data.type = .Extra
 
-				extra_skill_data.idx = DB.owned_main_skills_amount-1
+				extra_skill_data.slot = DB.owned_main_skills_amount-1
 				extra_skill_data.type = .Main
 				
-				DB.owned_main_skills[extra_skill_data.idx] = extra_skill_id
-				DB.owned_extra_skills[skill_id_data.idx] = skill_id
+				DB.owned_main_skills[extra_skill_data.slot] = extra_skill_id
+				DB.owned_extra_skills[skill_id_data.slot] = skill_id
 				break
 			}
 		}
@@ -336,32 +335,31 @@ raise_skill :: proc(skill_id: SkillID) -> (Points, BuyError) {
 		last_main_skill_id := DB.owned_main_skills[DB.owned_main_skills_amount-1]
 		last_main_skill_level := DB.owned_skills[last_main_skill_id]
 		if skill_id_data.type == .Extra && next_skill.level > last_main_skill_level {
-			// swap
-			(&DB.skill_id_data[last_main_skill_id]).idx = skill_id_data.idx
+			// Promote
+			(&DB.skill_id_data[last_main_skill_id]).slot = skill_id_data.slot
 			(&DB.skill_id_data[last_main_skill_id]).type = .Extra
 			
 			DB.owned_main_skills[DB.owned_main_skills_amount-1] = skill_id
-			DB.owned_extra_skills[skill_id_data.idx] = last_main_skill_id
+			DB.owned_extra_skills[skill_id_data.slot] = last_main_skill_id
 
-			skill_id_data.idx = DB.owned_main_skills_amount-1
+			skill_id_data.slot = DB.owned_main_skills_amount-1
 			skill_id_data.type = .Main
 		}
 	}
 
 	{ // Sift Up if possible 
 		if skill_id_data.type == .Main {
-			for main_skill_idx := skill_id_data.idx; main_skill_idx > 0; main_skill_idx-=1 {
+			for main_skill_idx := skill_id_data.slot; main_skill_idx > 0; main_skill_idx-=1 {
 				curr_main_skill, prev_main_skill := DB.owned_main_skills[main_skill_idx], DB.owned_main_skills[main_skill_idx-1]
 				curr_main_skill_level, prev_main_skill_level := DB.owned_skills[curr_main_skill], DB.owned_skills[prev_main_skill] 
 				curr_main_skill_data, prev_main_skill_data := &DB.skill_id_data[curr_main_skill], &DB.skill_id_data[prev_main_skill]
 
 				if curr_main_skill_level > prev_main_skill_level {
 					// swap
-					DB.owned_main_skills[main_skill_idx] = prev_main_skill
-					DB.owned_main_skills[main_skill_idx-1] = curr_main_skill
+					slice.swap(DB.owned_main_skills[:], int(main_skill_idx), int(main_skill_idx)-1)
 
-					curr_main_skill_data.idx -= 1
-					prev_main_skill_data.idx += 1
+					curr_main_skill_data.slot -= 1
+					prev_main_skill_data.slot += 1
 				}
 			}
 		}
@@ -399,12 +397,14 @@ buy_perk :: proc(perk: PerkID) -> (Points, BuyError) {
 	return blocks_to_buy, .None
 }
 
+INTERFACE :: #config(INTERFACE, "gui")
+
 run :: proc() -> Error {
 	init_block_system_alloc() or_return
 	init_db() or_return
 	
-	// cli_run()
-	gui_run()
+	when INTERFACE == "gui" do gui_run()
+	when INTERFACE == "cli" do cli_run()
 	return nil
 }
 

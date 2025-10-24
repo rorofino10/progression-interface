@@ -1,6 +1,7 @@
 #+feature dynamic-literals
 package main
 
+import "core:reflect"
 import "core:slice"
 import "core:mem"
 import "core:container/queue"
@@ -45,16 +46,17 @@ SkillData :: struct {
 	blocks	: [MAX_SKILL_LEVEL]BlocksSize,
 	raisable_state : SkillRaisableState,
 	type	: SkillType,
-	idx		: u32,
+	slot		: u32,
 }
 
 Perks :: bit_set[PerkID]
 
 PerkData :: struct {
-	blocks:      BlocksSize,
-	prereqs:     []PRE_REQ_ENTRY,
-	buyable_state: PerkBuyableState,
-	skills_reqs: []SKILL_REQ_ENTRY,
+	display			: string,	
+	blocks			: BlocksSize,
+	prereqs			: []PRE_REQ_ENTRY,
+	buyable_state	: PerkBuyableState,
+	skills_reqs		: []SKILL_REQ_ENTRY,
 }
 
 PerkBuyableState :: enum {
@@ -222,11 +224,11 @@ BuildSkills :: proc(blocks_proc: DefineBlockProc) {
 _build_skill_default :: proc(skillID: SkillID, skill_data_arr: [MAX_SKILL_LEVEL]BlocksSize) {
 	if DB.owned_main_skills_amount < MAIN_SKILLS_AMOUNT {
 		DB.owned_main_skills[DB.owned_main_skills_amount] = skillID
-		DB.skill_id_data[skillID] = {blocks = skill_data_arr, type = .Main, idx = DB.owned_main_skills_amount}
+		DB.skill_id_data[skillID] = {blocks = skill_data_arr, type = .Main, slot = DB.owned_main_skills_amount}
 		DB.owned_main_skills_amount += 1
 	}
 	else {
-		DB.skill_id_data[skillID] = {blocks = skill_data_arr, type = .Extra, idx = u32(len(DB.owned_extra_skills))}
+		DB.skill_id_data[skillID] = {blocks = skill_data_arr, type = .Extra, slot = u32(len(DB.owned_extra_skills))}
 		append(&DB.owned_extra_skills, skillID)
 	}
 	DB.owned_skills[skillID] = 0
@@ -241,22 +243,25 @@ _build_skill_lambda :: proc(skillID: SkillID, blockProc: DefineBlockProc){
 }
 // Skill :: proc{_build_skill_default, _build_skill_lambda}
 
-_perk_without_share :: proc(id: PerkID, skill_reqs: [dynamic]SKILL_REQ_ENTRY, pre_reqs: [dynamic]PRE_REQ_ENTRY, blocks: BlocksSize) {
+_perk_without_share :: proc(display : string = "", id: PerkID, skill_reqs: [dynamic]SKILL_REQ_ENTRY, pre_reqs: [dynamic]PRE_REQ_ENTRY, blocks: BlocksSize) {
 	assert(id not_in DB.perk_data, fmt.tprint("Already built Perk:", id))
+	enum_name, ok := reflect.enum_name_from_value(id)
+	assert(ok, "Could not get name from PerkID")
+	to_display := display == "" ? enum_name : display 
 	defer {
 		delete(skill_reqs)
 		delete(pre_reqs)
 	}
 	pre_reqs_copy := slice.clone(pre_reqs[:])
 	skill_reqs_copy := slice.clone(skill_reqs[:])
-	perk_data := PerkData{ blocks = blocks, prereqs = pre_reqs_copy, skills_reqs = skill_reqs_copy }
+	perk_data := PerkData{ display = to_display, blocks = blocks, prereqs = pre_reqs_copy, skills_reqs = skill_reqs_copy }
 	DB.perk_data[id] = perk_data
 }
 
-_perk_with_share :: proc(id: PerkID, skill_reqs: [dynamic]SKILL_REQ_ENTRY = nil, pre_reqs: [dynamic]PRE_REQ_ENTRY = nil, blocks: BlocksSize, partial_shares: [dynamic]TPartialShare = nil) {
+_perk_with_share :: proc(display : string = "", id: PerkID, skill_reqs: [dynamic]SKILL_REQ_ENTRY = nil, pre_reqs: [dynamic]PRE_REQ_ENTRY = nil, blocks: BlocksSize, partial_shares: [dynamic]TPartialShare = nil) {
 	defer delete(partial_shares)
 
-	_perk_without_share(id, skill_reqs, pre_reqs, blocks)
+	_perk_without_share(display, id, skill_reqs, pre_reqs, blocks)
 	for partial_share in partial_shares {
 		switch buyable in partial_share.buyable_to_share_with {
 			case LeveledSkill:
@@ -300,6 +305,7 @@ BuildPlayer :: proc(states: [dynamic]PlayerLevelState) {
 init_db :: proc() -> Error{
 	load_db()
 	assert(DB.owned_main_skills_amount == MAIN_SKILLS_AMOUNT)
+	_assert_all_perks_all_built()
 	block_system_allocate()
 	init_query_system_alloc() or_return
 	create_buyables()
@@ -414,3 +420,6 @@ create_buyables :: proc() {
 	recalc_buyable_states()
 }
 
+_assert_all_perks_all_built :: proc() {
+	for perk in PerkID do assert(perk in DB.perk_data, fmt.tprint(perk, "not built."))
+}

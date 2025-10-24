@@ -317,7 +317,7 @@ _gui_draw_extra_skills_panel :: proc(panel_bound: UIBound) {
     rl.GuiScrollPanel(_ui_rect(panel_bound), "Extra Skills", _ui_rect(scroll_content_bound), &extra_skills_scroll, &extra_skills_view)
 
     view_bound := _ui_bound(extra_skills_view)
-    layout := _ui_layout(_ui_anchor({i32(extra_skills_scroll.x), i32(extra_skills_scroll.y)}, scroll_content_bound))
+    layout := _ui_layout(scroll_content_bound)
 
     rl.BeginScissorMode(view_bound.x, view_bound.y, view_bound.width, view_bound.height)
     {
@@ -343,7 +343,7 @@ _gui_draw_extra_skills_panel :: proc(panel_bound: UIBound) {
             }
 
             skill_name, _ := reflect.enum_name_from_value(skill_id)
-            button_bound := _ui_anchor({layout.bound.x + layout.at.x, layout.bound.y + layout.at.y},{0, 0, SKILL_BUTTON_SIZE.width, SKILL_BUTTON_SIZE.height})
+            button_bound := _ui_anchor({layout.bound.x + layout.at.x + i32(extra_skills_scroll.x), layout.bound.y + layout.at.y + i32(extra_skills_scroll.y)},{0, 0, SKILL_BUTTON_SIZE.width, SKILL_BUTTON_SIZE.height})
             _ui_layout_advance(&layout, SKILL_BUTTON_SIZE, .HORIZONTAL)
 
             button_label : cstring
@@ -387,7 +387,7 @@ _gui_draw_perks_panel :: proc(panel_bound: UIBound) {
     rl.GuiScrollPanel(_ui_rect(panel_bound), "Perks", _ui_rect(scroll_content_bound), &perk_scroll, &perk_view)
 
     view_bound := _ui_bound(perk_view)
-    layout := _ui_layout(_ui_anchor({i32(perk_scroll.x), i32(perk_scroll.y)}, scroll_content_bound))
+    layout := _ui_layout(scroll_content_bound)
 
     rl.BeginScissorMode(view_bound.x, view_bound.y, view_bound.width, view_bound.height);
     {
@@ -405,21 +405,20 @@ _gui_draw_perks_panel :: proc(panel_bound: UIBound) {
             }
             if _should_blink_perk(perk) do state_color = rl.MAGENTA
 
-            perk_name, _ := reflect.enum_name_from_value(perk)
-            button_bound := _ui_anchor({layout.bound.x + layout.at.x, layout.bound.y + layout.at.y},{0, 0, PERK_BUTTON_SIZE.width, PERK_BUTTON_SIZE.height})
+            button_bound := _ui_anchor({layout.bound.x + layout.at.x + i32(perk_scroll.x), layout.bound.y + layout.at.y + i32(perk_scroll.y)},{0, 0, PERK_BUTTON_SIZE.width, PERK_BUTTON_SIZE.height})
             _ui_layout_advance(&layout, PERK_BUTTON_SIZE, .HORIZONTAL)
 
             button_label : string
             if rl.CheckCollisionPointRec(rl.GetMousePosition(), _ui_rect(button_bound)) {
                 #partial switch perk_val.buyable_state {
                     case .Buyable:
-                        button_label = fmt.tprint(perk_name, "\nCost: ", buyable_data.assigned_blocks_amount - buyable_data.bought_blocks_amount, sep = "") 
+                        button_label = fmt.tprint(perk_val.display, "\nCost: ", buyable_data.assigned_blocks_amount - buyable_data.bought_blocks_amount, sep = "") 
                     case .Owned:
                         state_color = rl.SKYBLUE
-                        button_label = fmt.tprint(perk_name, "\nSpent: ", buyable_data.spent, sep = "") 
+                        button_label = fmt.tprint(perk_val.display, "\nSpent: ", buyable_data.spent, sep = "") 
                     case .Free:
                         state_color = rl.YELLOW
-                        button_label = fmt.tprint(perk_name, "\nFREE", sep = "") 
+                        button_label = fmt.tprint(perk_val.display, "\nFREE", sep = "") 
                 }
                 if rl.IsMouseButtonPressed(.LEFT) do buy_perk(perk)
                 if rl.IsMouseButtonPressed(.RIGHT) {
@@ -430,19 +429,18 @@ _gui_draw_perks_panel :: proc(panel_bound: UIBound) {
                     }
                 }
             }
-            else do button_label = fmt.tprint(perk_name)
+            else do button_label = fmt.tprint(perk_val.display)
             button_label_c_string := strings.clone_to_cstring(button_label, context.temp_allocator)
 
             _ui_button_with_color(button_bound, button_label_c_string, padding = {}, color = state_color)
         }
         for perk, perk_val in DB.perk_data do if perk_val.buyable_state == .UnmetRequirements {
             buyable_data := DB.buyable_data[perk]
-            perk_name, _ := reflect.enum_name_from_value(perk)
             button_bound := _ui_anchor({layout.bound.x + layout.at.x, layout.bound.y + layout.at.y},{0, 0, PERK_BUTTON_SIZE.width, PERK_BUTTON_SIZE.height})
             _ui_layout_advance(&layout, PERK_BUTTON_SIZE, .HORIZONTAL)
             button_label : string
             if rl.CheckCollisionPointRec(rl.GetMousePosition(), _ui_rect(button_bound)) {
-                button_label = fmt.tprint(perk_name, "\nCost: ", buyable_data.assigned_blocks_amount - buyable_data.bought_blocks_amount, sep = "") 
+                button_label = fmt.tprint(perk_val.display, "\nCost: ", buyable_data.assigned_blocks_amount - buyable_data.bought_blocks_amount, sep = "") 
                 if rl.IsMouseButtonPressed(.LEFT) do buy_perk(perk)
                 if rl.IsMouseButtonPressed(.RIGHT) {
                     refund, err := refund_perk(perk)
@@ -452,7 +450,7 @@ _gui_draw_perks_panel :: proc(panel_bound: UIBound) {
                     }
                 }
             }
-            else do button_label = fmt.tprint(perk_name)
+            else do button_label = fmt.tprint(perk_val.display)
             button_label_c_string := strings.clone_to_cstring(button_label, context.temp_allocator)
 
             _ui_button_with_color(button_bound, button_label_c_string, padding = {}, color = rl.RED)

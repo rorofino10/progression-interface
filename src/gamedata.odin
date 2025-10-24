@@ -13,67 +13,64 @@ skill_slot_name := [MAIN_SKILLS_AMOUNT]string{"Primary 1", "Primary 2", "Major 1
 PerkID :: PERK
 
 PERK :: enum {
-	Flurry,
-	PerfectFlurry,
-	Deadeye,
-	Headshot,
-	Bullseye,
-	SaturationFire,
-	MoreDakka,
-	GrandSlam,
-	FullSwing,
-	Guillotine,
-	ReignOfTerror,
-	Whirlwind,
-	ImmortalKing,
-	//
-	QuickAttack,
-	Sweep,
-	Skewer,
-	Brutalize,
-	Slam,
-	Setup,
-	Disarm,
-	Hobble,
-	FightMeCoward,
-	HeyListen,	
-	//
-	CoveringFire,
-	Overwatch,
-	Killzone,
-	Bully,
-	Taunt,
-	Feint,
-	Direct,
-	Aim,
-	Predictable,
-	GetItTogether,
-	ZeroIn,
-	Everyone,
-	PerfectlyClear,
-	GrandStrategy,
-	IllTakeYouAllOn,
-	YouDontHaveToDieHere,	
-	//
-	KnifeMaster,
-	Swordmaster,
-	StaffMaster,
-	SpearMaster,
-	Axeman,
-	Hammerer,
-	MasterOfMartialArts,
-	Slinger,
-	Archer,
-	Pistoleer,
-	Marksman,
-	HeavyWeaponsGuy,
+	// Flurry,
+	// PerfectFlurry,
+	// Deadeye,
+	// Headshot,
+	// Bullseye,
+	// SaturationFire,
+	// MoreDakka,
+	// GrandSlam,
+	// FullSwing,
+	// Guillotine,
+	// ReignOfTerror,
+	// Whirlwind,
+	// ImmortalKing,
+	// //
+	// QuickAttack,
+	// Sweep,
+	// Skewer,
+	// Brutalize,
+	// Slam,
+	// Setup,
+	// Disarm,
+	// Hobble,
+	// FightMeCoward,
+	// HeyListen,	
+	// //
+	// CoveringFire,
+	// Overwatch,
+	// Killzone,
+	// Bully,
+	// Taunt,
+	// Feint,
+	// Direct,
+	// Aim,
+	// Predictable,
+	// GetItTogether,
+	// ZeroIn,
+	// Everyone,
+	// PerfectlyClear,
+	// GrandStrategy,
+	// IllTakeYouAllOn,
+	// YouDontHaveToDieHere,	
+	// //
+	// KnifeMaster,
+	// Swordmaster,
+	// StaffMaster,
+	// SpearMaster,
+	// Axeman,
+	// Hammerer,
+	// MasterOfMartialArts,
+	// Slinger,
+	// Archer,
+	// Pistoleer,
+	// Marksman,
+	// HeavyWeaponsGuy,
 	Beamer,
 	//
 	SlingTraining,
 	BowTraining,
-
-	//
-	COUNT
 }
 
 SkillID :: SKILL
@@ -258,8 +255,16 @@ load_db :: proc() {
 	// Perk(.BowTraining,		{Skill{.Ranged, 6}, Skill{.Athletics, 4}}, 						{}, 30, {})
 	// Perk(.SlingTraining,	{Skill{.Ranged, 6}, Skill{.Finesse, 4}, Skill{.Athletics, 2}},	{}, 60, {})
 	Perk(
-		.SlingTraining,	{},	{}, 60, {})
-	Perk(.BowTraining,		{}, 						{}, 60, {{PERK.SlingTraining, 100}})
+		display = "Sling Training",
+		id = .SlingTraining, 
+		blocks = 60, 
+	)
+	Perk(
+		display = "Bow Training",
+		id = .BowTraining, 
+		blocks = 60, 
+		partial_shares = {{PERK.SlingTraining, 100}},
+	)
 	// Perk(.Aim,	{Or(Skill{.Athletics, 1}, Skill{.Melee,1})}, {PERK.Beamer, Or(PERK.SlingTraining, PERK.BowTraining)}, 60, {})
 	Perk(
 		id = .Beamer, 

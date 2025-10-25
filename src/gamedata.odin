@@ -125,7 +125,7 @@ load_db :: proc() {
 	BuildPlayer(
 		// Level = Skill Points on Level, Major Skill Caps, Extra Skill Cap
 		{
-			1 = {100,{6,5,3,2,2,2},		1},
+			1 = {500,{6,5,3,2,2,2},		1},
 			2 = {500,{7,6,4,3,2,2},		1},
 			3 = {500,{8,7,5,4,3,3},		1},
 			4 = {500,{9,8,6,5,4,4},		2},
@@ -138,18 +138,6 @@ load_db :: proc() {
 
 	BuildSkills(proc(i: BlocksSize) -> BlocksSize{return 100+10*i})
 
-	// Overlap(.Athletics, .Composure, 100)
-	// Overlap(.Athletics, .Influence, 50)
-	// Contains(SKILL.Melee, 7, SKILL.Composure, 4)
-	// Contains(SKILL.Composure, 7, SKILL.Melee, 4)
-	// Contains(SKILL.Melee, 4, SKILL.Athletics, 2)
-	// Contains(SKILL.Composure, 4, SKILL.Athletics, 2)
-	// Contains(SKILL.Melee, 4, SKILL.Influence, 2)
-	// Contains(SKILL.Influence, 3, SKILL.Athletics, 2)
-	// Contains(SKILL.Endurance, 4, SKILL.Composure, 3)
-	// Contains(SKILL.Composure, 3, SKILL.Athletics, 2)
-	// Contains(SKILL.Athletics, 4, SKILL.Melee, 1)
-	// Contains(SKILL.Athletics, 4, SKILL.Composure, 3)
 	// ListOf(
 	// 	TestRelation, {
 	// 		{.Melee, .Composure},

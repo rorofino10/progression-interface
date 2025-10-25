@@ -147,15 +147,7 @@ _create_new_block_with_owners :: proc(buyables: ..Buyable) {
     new_block : Block
     block_idx := len(block_system.blocks)
     append(&block_system.blocks, new_block)
-    for buyable in buyables {
-        assert(DB.buyable_data[buyable].blocks_left_to_assign > 0, "No blocks left to assign")
-        _assert_buyable_wont_clash_in_block(&new_block, buyable)
-        buyable_data := &DB.buyable_data[buyable]
-        buyable_data.blocks_left_to_assign -= 1
-        buyable_data.assigned_blocks_amount += 1
-        append(&block_system.blocks[block_idx].owned_by, buyable)
-        append(&buyable_data.assigned_blocks_indices, block_idx)
-    }
+    _add_buyables_as_owner_of_block_idx(block_idx, ..buyables)
 }
 
 _add_buyables_as_owner_of_block_idx :: proc(block_idx: int, buyables: ..Buyable) {

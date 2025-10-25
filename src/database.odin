@@ -142,6 +142,20 @@ LevelUpError :: enum {
 	MAX_LEVEL_REACHED,
 }
 
+ReduceLevelErrorIrreducibleLevel :: struct{}
+ReduceLevelErrorNotEnoughPoints :: struct {
+	points_deficit: Points,
+}
+ReduceLevelErrorExceedsCap :: struct{
+	skill_id: SkillID,
+}
+
+ReduceLevelError :: union {
+	ReduceLevelErrorIrreducibleLevel,
+	ReduceLevelErrorNotEnoughPoints,
+	ReduceLevelErrorExceedsCap,
+}
+
 Error :: union #shared_nil {
 	DatabaseError,
 	BuyableCreationError,
@@ -265,22 +279,6 @@ Perk :: proc(id: PerkID, skill_reqs: [dynamic]SKILL_REQ_ENTRY = nil, pre_reqs: [
 				Share(id, buyable, partial_share.strength)
 		}
 	}
-}
-
-level_up :: proc() -> LevelUpError {
-	if DB.unit_level+1 >= DB.unit_level_cap do return .MAX_LEVEL_REACHED
-	DB.unused_points += DB.player_states[DB.unit_level+1].skill_points_on_level
-	DB.unit_level += 1
-	
-	recalc_buyable_states()
-	return nil
-}
-level_up_to :: proc(to_level: LEVEL) -> LevelUpError {
-	// Recalc only once
-	defer recalc_buyable_states()
-	for level in DB.unit_level..<to_level do level_up() or_return
-	
-	return nil
 }
 
 BuildPlayer :: proc(states: [dynamic]PlayerLevelState) {

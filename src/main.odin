@@ -397,6 +397,43 @@ buy_perk :: proc(perk: PerkID) -> (Points, BuyError) {
 	return blocks_to_buy, .None
 }
 
+level_up :: proc() -> LevelUpError {
+	if DB.unit_level+1 >= DB.unit_level_cap do return .MAX_LEVEL_REACHED
+	DB.unit_level += 1
+	DB.unused_points += DB.player_states[DB.unit_level].skill_points_on_level
+	
+	recalc_buyable_states()
+	return nil
+}
+
+reduce_level :: proc() -> ReduceLevelError {
+	{ // Is Valid?
+		if DB.unit_level == 1 do return ReduceLevelErrorIrreducibleLevel{}
+		if DB.unused_points < DB.player_states[DB.unit_level].skill_points_on_level do return ReduceLevelErrorNotEnoughPoints{DB.player_states[DB.unit_level].skill_points_on_level - DB.unused_points}
+		main_skill_caps := DB.player_states[DB.unit_level-1].main_skill_caps
+		extra_skill_cap := DB.player_states[DB.unit_level-1].extra_skill_cap
+		for main_skill, slot in DB.owned_main_skills {
+			if DB.owned_skills[main_skill] > main_skill_caps[slot] do return ReduceLevelErrorExceedsCap{main_skill}
+		}
+		for extra_skill in DB.owned_extra_skills {
+			if DB.owned_skills[extra_skill] > extra_skill_cap do return ReduceLevelErrorExceedsCap{extra_skill}
+		}
+	}
+	// Reduce
+	DB.unused_points -= DB.player_states[DB.unit_level].skill_points_on_level
+	DB.unit_level -= 1
+	recalc_buyable_states()
+	return nil
+}
+
+level_up_to :: proc(to_level: LEVEL) -> LevelUpError {
+	// Recalc only once
+	defer recalc_buyable_states()
+	for level in DB.unit_level..<to_level do level_up() or_return
+	
+	return nil
+}
+
 INTERFACE :: #config(INTERFACE, "gui")
 
 run :: proc() -> Error {

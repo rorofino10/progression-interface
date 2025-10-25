@@ -11,10 +11,8 @@ DEFAULT_FONT_SIZE :: 15
 DEFAULT_FONT_SPACING :: 2
 DEFAULT_LINE_SPACING :: DEFAULT_FONT_SIZE+5
 
-VRES_HEIGHT :: 1080
-VRES_WIDTH :: 1920
-
-gui_font : rl.Font
+VRES_HEIGHT :: 720
+VRES_WIDTH :: 1280
 
 FontSize :: u8
 
@@ -165,9 +163,9 @@ _ui_label :: proc(bound: UIBound, text: cstring, font_size : FontSize = DEFAULT_
     rl.GuiSetStyle(.LABEL, i32(rl.GuiControlProperty.TEXT_COLOR_NORMAL), _color_to_i32(rl.BLACK));
     rl.GuiSetStyle(.LABEL, i32(rl.GuiControlProperty.TEXT_ALIGNMENT), i32(rl.GuiTextAlignment.TEXT_ALIGN_CENTER));
     curr_style := rl.GuiGetStyle(.DEFAULT, i32(rl.GuiDefaultProperty.TEXT_SIZE))
+    defer rl.GuiSetStyle(.DEFAULT, i32(rl.GuiDefaultProperty.TEXT_SIZE), curr_style)
     rl.GuiSetStyle(.DEFAULT, i32(rl.GuiDefaultProperty.TEXT_SIZE), i32(screen_font_size))
     rl.GuiSetStyle(.DEFAULT, i32(rl.GuiDefaultProperty.TEXT_LINE_SPACING), i32(line_spacing))
-    defer rl.GuiSetStyle(.DEFAULT, i32(rl.GuiDefaultProperty.TEXT_SIZE), curr_style)
 
     rl.GuiLabel(_ui_rect(bound), text)
     
@@ -286,9 +284,8 @@ _ui_draw_panel_layout :: proc(anchor: UIVec2, panel_layout: UIPanelLayout, span:
 }
 
 _ui_content_from_panel :: proc(panel: UIBound, padding: UIPadding = {}, is_scrollable : bool = false) -> (content: UIBound) {
-    virtual_to_screen_ratio := _ui_get_ratio_from_screen_to_virtual()
-    TITLE_OFFSET := i32(24 * virtual_to_screen_ratio.h)
-    SCROLL_BAR_WIDTH := i32(14 * virtual_to_screen_ratio.w)
+    TITLE_OFFSET :: 17
+    SCROLL_BAR_WIDTH :: 10
     content.x = panel.x + padding.left
     content.y = panel.y + TITLE_OFFSET + padding.top
     content.width = panel.width - padding.left - padding.right - (is_scrollable ? SCROLL_BAR_WIDTH : 0)
@@ -309,14 +306,16 @@ _gui_draw_extra_skills_panel :: proc(panel_bound: UIBound) {
     SKILLS_PER_ROW :: 5
     ROWS :: 2
     scroll_view := _ui_content_from_panel(panel_bound, {}, true)
-    SKILL_BUTTON_SIZE := UISize{scroll_view.width/SKILLS_PER_ROW, scroll_view.height/ROWS}
-
+    SKILL_BUTTON_HEIGHT := scroll_view.height/ROWS
     extra_skills_amount := i32(len(DB.owned_extra_skills))
 
-    scroll_content_bound := _ui_content_from_panel({panel_bound.x, panel_bound.y, panel_bound.width, (extra_skills_amount + SKILLS_PER_ROW - 1)/SKILLS_PER_ROW*SKILL_BUTTON_SIZE.height}, {}, true)
+    scroll_content_bound_height := (extra_skills_amount + SKILLS_PER_ROW - 1)/SKILLS_PER_ROW*SKILL_BUTTON_HEIGHT
+    scroll_content_bound := _ui_content_from_panel({panel_bound.x, panel_bound.y, panel_bound.width, scroll_content_bound_height}, {}, scroll_view.height < scroll_content_bound_height)
 
+    SKILL_BUTTON_SIZE := UISize{scroll_content_bound.width/SKILLS_PER_ROW, SKILL_BUTTON_HEIGHT}
+    
     rl.GuiScrollPanel(_ui_rect(panel_bound), "Extra Skills", _ui_rect(scroll_content_bound), &extra_skills_scroll, &extra_skills_view)
-
+    
     view_bound := _ui_bound(extra_skills_view)
     layout := _ui_layout(scroll_content_bound)
 
@@ -354,7 +353,7 @@ _gui_draw_extra_skills_panel :: proc(panel_bound: UIBound) {
                 button_label = fmt.ctprint(skill_name, skill_level) 
             } 
 
-            if rl.CheckCollisionPointRec(rl.GetMousePosition(), _ui_rect(button_bound)) {
+            if !_is_message_active() && !_is_message_active() && rl.CheckCollisionPointRec(rl.GetMousePosition(), _ui_rect(button_bound)) {
                 switch skill_id_data.raisable_state {
                     case .NotEnoughPoints, .Raisable, .Capped:
                         button_label = fmt.ctprint(button_label, "\n", buyable_data.assigned_blocks_amount - buyable_data.bought_blocks_amount, " to raise", sep = "") 
@@ -413,7 +412,7 @@ _gui_draw_perks_panel :: proc(panel_bound: UIBound) {
             _ui_layout_advance(&layout, PERK_BUTTON_SIZE, .HORIZONTAL)
 
             button_label : string
-            if rl.CheckCollisionPointRec(rl.GetMousePosition(), _ui_rect(button_bound)) {
+            if !_is_message_active() && rl.CheckCollisionPointRec(rl.GetMousePosition(), _ui_rect(button_bound)) {
                 #partial switch perk_val.buyable_state {
                     case .Buyable:
                         button_label = fmt.tprint(perk_val.display, "\nCost: ", buyable_data.assigned_blocks_amount - buyable_data.bought_blocks_amount, sep = "") 
@@ -444,7 +443,7 @@ _gui_draw_perks_panel :: proc(panel_bound: UIBound) {
 
             _ui_layout_advance(&layout, PERK_BUTTON_SIZE, .HORIZONTAL)
             button_label : string
-            if rl.CheckCollisionPointRec(rl.GetMousePosition(), _ui_rect(button_bound)) {
+            if !_is_message_active() && rl.CheckCollisionPointRec(rl.GetMousePosition(), _ui_rect(button_bound)) {
                 button_label = fmt.tprint(perk_val.display, "\nCost: ", buyable_data.assigned_blocks_amount - buyable_data.bought_blocks_amount, sep = "") 
                 if rl.IsMouseButtonPressed(.LEFT) do buy_perk(perk)
                 if rl.IsMouseButtonPressed(.RIGHT) {
@@ -468,23 +467,25 @@ _gui_draw_unit_panel :: proc (panel_bound: UIBound) {
     content_bound := _ui_content_from_panel(panel_bound)
     level_button_bound := _ui_anchor({content_bound.x, content_bound.y}, {0,0,content_bound.width,200})
 
-    level_button_label := strings.clone_to_cstring(fmt.tprint("Level:", DB.unit_level), context.temp_allocator)
-    if _ui_button(level_button_bound, level_button_label, 25, line_spacing = 40) do level_up()
+    level_button_label := fmt.ctprint("Level:", DB.unit_level)
+    _ui_button(level_button_bound, level_button_label, 25, line_spacing = 30)
+    if !_is_message_active() && rl.CheckCollisionPointRec(rl.GetMousePosition(), _ui_rect(level_button_bound)) {
+        if rl.IsMouseButtonPressed(.LEFT) do level_up()
+        if rl.IsMouseButtonPressed(.RIGHT) {
+            err := reduce_level()
+            if err != nil do _gui_error(err)
+            
+        }
+    }
 
     points_left_label := strings.clone_to_cstring(fmt.tprint(DB.unused_points, "\npoints left", sep=""), context.temp_allocator)
     points_left_bound := _ui_anchor({content_bound.x, content_bound.y+200},{0,0,content_bound.width,200})
 
-    _ui_label(points_left_bound, points_left_label, font_size = 25, line_spacing = 40)
-}
-
-skills_panel_layout := UIPanelLayout{
-    distribution = {0, 50, 100},
-    panels = {{name="Main Skills",draw=_gui_draw_main_skills_panel}, {name="Extra Skills",draw=_gui_draw_extra_skills_panel}},
-    direction = .VERTICAL,
+    _ui_label(points_left_bound, points_left_label, font_size = 18, line_spacing = 30)
 }
 
 _gui_draw_skills_panel :: proc(panel_bound: UIBound) {
-    _ui_draw_panel_layout({panel_bound.x, panel_bound.y}, skills_panel_layout, panel_bound.width)
+    _ui_draw_panel_layout({panel_bound.x, panel_bound.y}, gui_state.skills_panel_layout, panel_bound.width)
 }
 
 
@@ -555,7 +556,7 @@ _gui_draw_main_skills_panel :: proc(panel_bound: UIBound) {
             button_label = fmt.ctprint(skill_name, skill_level) 
         }    
         
-        if rl.CheckCollisionPointRec(rl.GetMousePosition(), _ui_rect(button_bound)) {
+        if !_is_message_active() && rl.CheckCollisionPointRec(rl.GetMousePosition(), _ui_rect(button_bound)) {
             switch skill_id_data.raisable_state {
                 case .NotEnoughPoints, .Raisable, .Capped:
                     button_label = fmt.ctprint(button_label, "\n", buyable_data.assigned_blocks_amount - buyable_data.bought_blocks_amount, " to raise", sep = "") 
@@ -576,41 +577,44 @@ _gui_draw_main_skills_panel :: proc(panel_bound: UIBound) {
     }
 }
 
-global_panel_layout := UIPanelLayout{
-    distribution = {0, 25, 90, 100},
-    panels = {{name="Perks",draw=_gui_draw_perks_panel}, {name="Skills",draw=_gui_draw_skills_panel}, {name="Unit",draw=_gui_draw_unit_panel}},
-    direction = .HORIZONTAL,
-}
-
 _gui_draw :: proc() {
     rl.BeginDrawing()
     rl.ClearBackground(rl.WHITE)
 
     { // Main Draw
-        _ui_draw_panel_layout({0,0}, global_panel_layout, VRES_HEIGHT)
+        _ui_draw_panel_layout({0,0}, gui_state.global_panel_layout, VRES_HEIGHT)
+        if _is_message_active() {
+            title: cstring
+            content: cstring
+            switch error in gui_state.message_box.error {
+                case ReduceLevelError:
+                    title = "Refund Error"
+                    switch error_data in error {
+                        case ReduceLevelErrorExceedsCap:
+                            content = fmt.ctprint(error_data.skill_id, "exceeds cap")
+                        case ReduceLevelErrorIrreducibleLevel:
+                            content = fmt.ctprint("Can't reduce level 1")
+                        case ReduceLevelErrorNotEnoughPoints:
+                            content = fmt.ctprint("You need", error_data.points_deficit, "more points")
+                    }
+            }
+            if rl.GuiMessageBox(_ui_rect(_ui_center_div({0,0,VRES_WIDTH, VRES_HEIGHT}, {300,200}, .Center)), title, content, "Ok") >= 0 {
+                gui_state.message_box.remaining_time = 0
+            }
+        }
     }
     rl.EndDrawing()
 }
 
-RefundBlink :: struct{
-    per_blink_time      : f32,
-    remaining_time      : f32,
-    remaining_blinks    : int,
-    active_blink        : bool,
-    affected_buyable    : Buyable,
-    cause               : RefundError,
-}
-blinker : RefundBlink
-
 _should_blink_perk :: proc(buyable: Buyable) -> bool {
-    if blinker.remaining_blinks <= 0 || !blinker.active_blink do return false
-    if buyable == blinker.affected_buyable do return true
-    switch blinker.cause {
+    if gui_state.blinker.remaining_blinks <= 0 || !gui_state.blinker.active_blink do return false
+    if buyable == gui_state.blinker.affected_buyable do return true
+    switch gui_state.blinker.cause {
         case .None, .Unrefundable, .BuyableNotOwned:
         case .RequiredByAnotherBuyable:
             #partial switch perk in buyable {
                 case PerkID:
-                    #partial switch affected_buyable in blinker.affected_buyable {
+                    #partial switch affected_buyable in gui_state.blinker.affected_buyable {
                     case PerkID:
                         if affected_buyable in _flattened_pre_reqs(perk) do return true
                     case LeveledSkill:
@@ -628,34 +632,46 @@ _should_blink_perk :: proc(buyable: Buyable) -> bool {
     }
     return false
 }
-_gui_blinker_start :: proc(buyable: Buyable, refund_error: RefundError) {
-    DEFAULT_BLINK_TIME :: 1.0
-    DEFAULT_BLINK_AMOUNT :: 3 * 2
+
+DEFAULT_ERROR_MESSAGE_DURATION :: 3.0
+_is_message_active :: proc() -> bool {
+    return gui_state.message_box.remaining_time > 0
+}
+_gui_error :: proc(error: GUIMessageBoxError, duration: f32 = DEFAULT_ERROR_MESSAGE_DURATION) {
+    gui_state.message_box.remaining_time = duration
+    gui_state.message_box.error = error
+}
+
+DEFAULT_BLINK_TIME :: 1.0
+DEFAULT_BLINK_AMOUNT :: 3
+_gui_blinker_start :: proc(buyable: Buyable, refund_error: RefundError, duration: f32 = DEFAULT_BLINK_TIME, blinks: int = DEFAULT_BLINK_AMOUNT) {
+
     #partial switch refund_error {
         case .None, .Unrefundable, .BuyableNotOwned:
             return
     }
-    blinker.per_blink_time = DEFAULT_BLINK_TIME / DEFAULT_BLINK_AMOUNT
-    blinker.remaining_time = blinker.per_blink_time
-    blinker.remaining_blinks = DEFAULT_BLINK_AMOUNT
-    blinker.affected_buyable = buyable
-    blinker.cause = refund_error
-    blinker.active_blink = true
+    gui_state.blinker.per_blink_time = duration / f32(blinks * 2)
+    gui_state.blinker.remaining_time = gui_state.blinker.per_blink_time
+    gui_state.blinker.remaining_blinks = blinks * 2
+    gui_state.blinker.affected_buyable = buyable
+    gui_state.blinker.cause = refund_error
+    gui_state.blinker.active_blink = true
 }
 
 _gui_update :: proc() {
-    if blinker.remaining_blinks > 0 {
-        if blinker.remaining_time > 0 do blinker.remaining_time -= rl.GetFrameTime()
+    if gui_state.blinker.remaining_blinks > 0 {
+        if gui_state.blinker.remaining_time > 0 do gui_state.blinker.remaining_time -= rl.GetFrameTime()
         else {
-            blinker.active_blink = !blinker.active_blink
-            blinker.remaining_time = blinker.per_blink_time
-            blinker.remaining_blinks -= 1
+            gui_state.blinker.active_blink = !gui_state.blinker.active_blink
+            gui_state.blinker.remaining_time = gui_state.blinker.per_blink_time
+            gui_state.blinker.remaining_blinks -= 1
         }
     }
+    if gui_state.message_box.remaining_time > 0 do gui_state.message_box.remaining_time -= rl.GetFrameTime()
 }
 
 _gui_init_font :: proc() {
-    gui_font = rl.LoadFont("res/DejaVuSansMono.ttf")
+    gui_state.font = rl.LoadFont("res/DejaVuSansMono.ttf")
 }
 
 gui_run :: proc() {
@@ -667,7 +683,8 @@ gui_run :: proc() {
         rl.SetTargetFPS( cfg.max_fps )
         if cfg.fullscreen do rl.ToggleFullscreen()
         _gui_init_font()
-        rl.GuiSetFont(gui_font)
+        rl.GuiSetFont(gui_state.font)
+        rl.GuiSetStyle(.DEFAULT, i32(rl.GuiDefaultProperty.TEXT_SIZE), 20)
     }
     for !rl.WindowShouldClose() {
         defer free_all(context.temp_allocator)
@@ -678,6 +695,49 @@ gui_run :: proc() {
     if rl.IsWindowReady() do rl.CloseWindow()
 }
 
+RefundBlink :: struct{
+    per_blink_time      : f32,
+    remaining_time      : f32,
+    remaining_blinks    : int,
+    active_blink        : bool,
+    affected_buyable    : Buyable,
+    cause               : RefundError,
+}
+
+GUIMessageBoxError :: union {
+    ReduceLevelError,
+}
+
+GUIMessageBox :: struct {
+    error: GUIMessageBoxError,
+    remaining_time      : f32,
+}
+
+GUIState :: struct {
+    blinker: RefundBlink,
+    message_box: GUIMessageBox,
+    font : rl.Font,
+
+    
+
+    skills_panel_layout: UIPanelLayout,
+    global_panel_layout: UIPanelLayout,
+}
+
+gui_state := GUIState {
+    skills_panel_layout = {
+        distribution = {0, 50, 100},
+        panels = {{name="Main Skills",draw=_gui_draw_main_skills_panel}, {name="Extra Skills",draw=_gui_draw_extra_skills_panel}},
+        direction = .VERTICAL,
+    },
+    
+    global_panel_layout = UIPanelLayout{
+        distribution = {0, 25, 90, 100},
+        panels = {{name="Perks",draw=_gui_draw_perks_panel}, {name="Skills",draw=_gui_draw_skills_panel}, {name="Unit",draw=_gui_draw_unit_panel}},
+        direction = .HORIZONTAL,
+    }
+
+}
 
 Config :: struct {
     fullscreen : bool,

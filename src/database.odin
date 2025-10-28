@@ -1,6 +1,7 @@
 #+feature dynamic-literals
 package main
 
+import "base:runtime"
 import "core:reflect"
 import "core:slice"
 import "core:mem"
@@ -49,8 +50,6 @@ SkillData :: struct {
 	slot		: u32,
 }
 
-Perks :: bit_set[PerkID]
-
 PerkData :: struct {
 	display			: string,	
 	blocks			: BlocksSize,
@@ -66,6 +65,17 @@ PerkBuyableState :: enum {
 	Owned,
 }
 
+/*
+################################
+||                            ||
+||          Gamedata          ||
+||                            ||
+################################
+*/
+PerkID :: PERK
+
+Perks :: bit_set[PerkID]
+
 Skill :: LeveledSkill
 
 SKILL_REQ_OR_GROUP :: []LeveledSkill
@@ -76,7 +86,7 @@ SKILL_REQ_ENTRY :: union {
 }
 
 SkillReqsOr :: proc(entries: ..LeveledSkill) -> SKILL_REQ_OR_GROUP {
-	return slice.clone(entries)
+	return slice.clone(entries, database_alloc)
 }
 
 PRE_REQ_OR_GROUP :: Perks
@@ -93,14 +103,89 @@ PreReqsOr :: proc(entries: ..PerkID) -> (group: PRE_REQ_OR_GROUP) {
 	return
 }
 
+SkillRelationship :: proc(A, B: SKILL)
+SKILL_TUPLE :: struct {
+	a: SKILL,
+	b: SKILL,
+}
+ListOf :: proc(relationship: SkillRelationship, list: [dynamic]SKILL_TUPLE) {
+	defer delete(list)
+	for tuple in list do relationship(tuple.a, tuple.b)
+}
+
+DefineBlockProc :: proc(blockIdx: BlocksSize) -> BlocksSize
+BuildSkills :: proc(blocks_proc: DefineBlockProc) {
+	for skill_id in SkillID do _build_skill_lambda(skill_id, blocks_proc)
+}
+
+_build_skill_default :: proc(skillID: SkillID, skill_data_arr: [MAX_SKILL_LEVEL]BlocksSize) {
+	context.allocator = database_alloc
+	if DB.owned_main_skills_amount < MAIN_SKILLS_AMOUNT {
+		DB.owned_main_skills[DB.owned_main_skills_amount] = skillID
+		DB.skill_id_data[skillID] = {blocks = skill_data_arr, type = .Main, slot = DB.owned_main_skills_amount}
+		DB.owned_main_skills_amount += 1
+	}
+	else {
+		DB.skill_id_data[skillID] = {blocks = skill_data_arr, type = .Extra, slot = u32(len(DB.owned_extra_skills))}
+		append(&DB.owned_extra_skills, skillID)
+	}
+	DB.owned_skills[skillID] = 0
+}
+
+_build_skill_lambda :: proc(skillID: SkillID, blockProc: DefineBlockProc){
+	blocks_list : [MAX_SKILL_LEVEL]BlocksSize
+	for idx in 1..=MAX_SKILL_LEVEL {
+		blocks_list[idx-1] = blockProc(BlocksSize(idx))
+	}
+	_build_skill_default(skillID, blocks_list)
+}
+// Skill :: proc{_build_skill_default, _build_skill_lambda}
+
+_perk_without_share :: proc(display : string = "", id: PerkID, skill_reqs: [dynamic]SKILL_REQ_ENTRY, pre_reqs: [dynamic]PRE_REQ_ENTRY, blocks: BlocksSize) {
+	context.allocator = database_alloc
+	// assert(id not_in DB.perk_data, fmt.tprint("Already built Perk:", id))
+	enum_name, ok := reflect.enum_name_from_value(id)
+	assert(ok, "Could not get name from PerkID")
+	to_display := display == "" ? enum_name : display 
+	defer {
+		// for req in skill_reqs do if or_group, ok := req.(SKILL_REQ_OR_GROUP); ok do delete(or_group)
+		delete(skill_reqs)
+		delete(pre_reqs)
+	}
+	pre_reqs_copy := slice.clone(pre_reqs[:])
+	skill_reqs_copy := slice.clone(skill_reqs[:])
+	perk_data := PerkData{ display = to_display, blocks = blocks, prereqs = pre_reqs_copy, skills_reqs = skill_reqs_copy }
+	DB.perk_data[id] = perk_data
+}
+
+Perk :: proc(id: PerkID, skill_reqs: [dynamic]SKILL_REQ_ENTRY = nil, pre_reqs: [dynamic]PRE_REQ_ENTRY = nil, blocks: BlocksSize, shares: [dynamic]TPartialShare = nil, display : string = "") {
+	defer delete(shares)
+
+	_perk_without_share(display, id, skill_reqs, pre_reqs, blocks)
+	for partial_share in shares {
+		switch buyable in partial_share.buyable_to_share_with {
+			case LeveledSkill:
+				Share(id, buyable.id, buyable.level, partial_share.strength)
+			case PerkID:
+				Share(id, buyable, partial_share.strength)
+		}
+	}
+}
+
+BuildLevel :: proc(level: LEVEL, skill_points: Points, 	main_skill_caps: [MAIN_SKILLS_AMOUNT]LEVEL, extra_skill_cap: LEVEL) {
+	assert(level <= MAX_UNIT_LEVEL, "Please adjust MAX_UNIT_LEVEL")
+	assert(level == DB.unit_level_cap+1, "You are building levels out of order")
+	DB.player_states[level] = {skill_points, main_skill_caps, extra_skill_cap}
+	DB.unit_level_cap = level
+}
+
+BuildPlayer :: proc() {
+	DB.unit_level = 1
+	DB.unused_points = DB.player_states[1].skill_points_on_level
+}
+
 void :: struct {}
 
-ConstraintError :: enum {
-	None,
-	ShareMissingPerk,
-	StrengthIsNotPercentage,
-	CannotOverlapWithItself,
-}
 
 BuyError :: enum {
 	None,
@@ -119,22 +204,6 @@ RefundError :: enum {
 
 CycleInPreReqsError :: struct {
 	repeated_perk:      PerkID,
-}
-
-ShareFudgeError :: struct {
-	share: TShare
-}
-
-OverlapFudgeError :: struct {
-	overlap: TOverlap,
-	level: LEVEL,
-}
-
-
-BuyableCreationError :: union {
-	CycleInPreReqsError,
-	ShareFudgeError,
-	OverlapFudgeError,
 }
 
 LevelUpError :: enum {
@@ -158,7 +227,6 @@ ReduceLevelError :: union {
 
 Error :: union #shared_nil {
 	DatabaseError,
-	BuyableCreationError,
 	BuyError,
 	ConstraintError,
 	LevelUpError,
@@ -188,8 +256,8 @@ PlayerLevelState :: struct{
 }
 
 Database :: struct {
-	skill_id_data	: map[SkillID]SkillData,
-	perk_data		: map[PerkID]PerkData,
+	skill_id_data	: [SkillID]SkillData,
+	perk_data		: [PerkID]PerkData,
 	buyable_data 	: map[Buyable]BuyableData,
 
 	// Constraint
@@ -208,120 +276,50 @@ Database :: struct {
 	owned_main_skills_amount: u32,
 	owned_extra_skills		: [dynamic]SkillID,
 	owned_perks				: Perks,
-	owned_skills			: map[SkillID]LEVEL,
+	owned_skills			: [SkillID]LEVEL,
 	unit_level_cap			: LEVEL,
 	player_states			: [MAX_UNIT_LEVEL]PlayerLevelState,
 }
 
 DB : Database
 
-SkillRelationship :: proc(A, B: SKILL)
-SKILL_TUPLE :: struct {
-	a: SKILL,
-	b: SKILL,
-}
-ListOf :: proc(relationship: SkillRelationship, list: [dynamic]SKILL_TUPLE) {
-	defer delete(list)
-	for tuple in list do relationship(tuple.a, tuple.b)
-}
+DATABASE_ALLOCATED_MEM :: 512 * runtime.Megabyte
+database_alloc: mem.Allocator
+database_arena: mem.Arena
 
-DefineBlockProc :: proc(blockIdx: BlocksSize) -> BlocksSize
-BuildSkills :: proc(blocks_proc: DefineBlockProc) {
-	for skill_id in SkillID do _build_skill_lambda(skill_id, blocks_proc)
-}
-
-_build_skill_default :: proc(skillID: SkillID, skill_data_arr: [MAX_SKILL_LEVEL]BlocksSize) {
-	if DB.owned_main_skills_amount < MAIN_SKILLS_AMOUNT {
-		DB.owned_main_skills[DB.owned_main_skills_amount] = skillID
-		DB.skill_id_data[skillID] = {blocks = skill_data_arr, type = .Main, slot = DB.owned_main_skills_amount}
-		DB.owned_main_skills_amount += 1
-	}
-	else {
-		DB.skill_id_data[skillID] = {blocks = skill_data_arr, type = .Extra, slot = u32(len(DB.owned_extra_skills))}
-		append(&DB.owned_extra_skills, skillID)
-	}
-	DB.owned_skills[skillID] = 0
-}
-
-_build_skill_lambda :: proc(skillID: SkillID, blockProc: DefineBlockProc){
-	blocks_list : [MAX_SKILL_LEVEL]BlocksSize
-	for idx in 1..=MAX_SKILL_LEVEL {
-		blocks_list[idx-1] = blockProc(BlocksSize(idx))
-	}
-	_build_skill_default(skillID, blocks_list)
-}
-// Skill :: proc{_build_skill_default, _build_skill_lambda}
-
-_perk_without_share :: proc(display : string = "", id: PerkID, skill_reqs: [dynamic]SKILL_REQ_ENTRY, pre_reqs: [dynamic]PRE_REQ_ENTRY, blocks: BlocksSize) {
-	assert(id not_in DB.perk_data, fmt.tprint("Already built Perk:", id))
-	enum_name, ok := reflect.enum_name_from_value(id)
-	assert(ok, "Could not get name from PerkID")
-	to_display := display == "" ? enum_name : display 
-	defer {
-		delete(skill_reqs)
-		delete(pre_reqs)
-	}
-	pre_reqs_copy := slice.clone(pre_reqs[:])
-	skill_reqs_copy := slice.clone(skill_reqs[:])
-	perk_data := PerkData{ display = to_display, blocks = blocks, prereqs = pre_reqs_copy, skills_reqs = skill_reqs_copy }
-	DB.perk_data[id] = perk_data
-}
-
-Perk :: proc(id: PerkID, skill_reqs: [dynamic]SKILL_REQ_ENTRY = nil, pre_reqs: [dynamic]PRE_REQ_ENTRY = nil, blocks: BlocksSize, shares: [dynamic]TPartialShare = nil, display : string = "") {
-	defer delete(shares)
-
-	_perk_without_share(display, id, skill_reqs, pre_reqs, blocks)
-	for partial_share in shares {
-		switch buyable in partial_share.buyable_to_share_with {
-			case LeveledSkill:
-				Share(id, buyable.id, buyable.level, partial_share.strength)
-			case PerkID:
-				Share(id, buyable, partial_share.strength)
-		}
-	}
-}
-
-BuildPlayer :: proc(states: [dynamic]PlayerLevelState) {
-	defer delete(states)
-
-	assert(len(states) <= MAX_UNIT_LEVEL)
-
-	DB.unit_level = 1
-	DB.unused_points = states[DB.unit_level].skill_points_on_level
-	DB.unit_level_cap = LEVEL(len(states))
-
-	for state, idx in states do DB.player_states[idx] = state
+init_db_alloc :: proc() -> mem.Allocator_Error {
+    buffer := make([]byte, DATABASE_ALLOCATED_MEM) or_return
+	mem.arena_init(&database_arena, buffer)
+	database_alloc = mem.arena_allocator(&database_arena)
+    return nil
 }
 
 init_db :: proc() -> Error{
-	when ODIN_DEBUG do load_db_debug()
-	else do load_db()
-	assert(DB.owned_main_skills_amount == MAIN_SKILLS_AMOUNT)
-	_assert_all_perks_all_built()
-	block_system_allocate()
+	init_db_alloc() or_return
+
+	{ // Load Gamedata
+		when ODIN_DEBUG do load_db_debug()
+		else do load_db()
+		BuildPlayer()
+	}
+	{ // Assertions
+		assert(DB.owned_main_skills_amount == MAIN_SKILLS_AMOUNT)
+		// for perk in PerkID do assert(perk in DB.perk_data, fmt.tprint(perk, "not built.")) // FIXME
+	}
+
+	init_block_system_alloc() or_return
 	init_query_system_alloc() or_return
+
+	block_system_allocate()
+
 	create_buyables()
 	verify_constraints()
 	return nil
 }
 
-_flattened_pre_reqs :: proc(perk: PerkID) -> (flattened_pre_reqs: Perks) {
-	pre_reqs := DB.perk_data[perk].prereqs
-	for req in pre_reqs {
-		switch r in req {
-			case PerkID:
-				flattened_pre_reqs |= {r}
-			case Perks:
-				flattened_pre_reqs |= r
-		}
-	}
-	return
-}
 
 create_buyables :: proc() {
 	{ // Check for cycles in pre_reqs
-		
-
 		check_for_cycles :: proc(perk: PerkID, curr_path: Perks, seen: Perks, curr_path_stack: ^[dynamic]PerkID) -> Maybe(PerkID) {
 			append(curr_path_stack, perk)
 			if perk in curr_path do return perk
@@ -381,25 +379,29 @@ create_buyables :: proc() {
 			}
 		}
 	}
-	for perk, perk_data in DB.perk_data {
-   		DB.buyable_data[perk] = BuyableData {
-			blocks_left_to_assign = perk_data.blocks,
-			blocks_to_be_assigned = perk_data.blocks
-        }				
-	}
-	
-	for skill_id, skill_data in DB.skill_id_data {
-		for blocks_to_assign, level_indexed_from_0 in skill_data.blocks {
-			level := level_indexed_from_0 + 1
-			skill := LeveledSkill{skill_id, LEVEL(level)}
-			DB.buyable_data[skill] = BuyableData {
-				blocks_left_to_assign = blocks_to_assign, 
-				blocks_to_be_assigned = blocks_to_assign
-			}			
+	{
+		context.allocator = database_alloc
+		for perk_data, perk in DB.perk_data {
+   			DB.buyable_data[perk] = BuyableData {
+				blocks_left_to_assign = perk_data.blocks,
+				blocks_to_be_assigned = perk_data.blocks,
+				assigned_blocks_indices = make([dynamic]BlockIndex, 0, perk_data.blocks, block_system_alloc)
+    	    }				
 		}
+
+		for skill_data, skill_id in DB.skill_id_data {
+			for blocks_to_assign, level_indexed_from_0 in skill_data.blocks {
+				level := level_indexed_from_0 + 1
+				skill := LeveledSkill{skill_id, LEVEL(level)}
+				DB.buyable_data[skill] = BuyableData {
+					blocks_left_to_assign = blocks_to_assign, 
+					blocks_to_be_assigned = blocks_to_assign,
+					assigned_blocks_indices = make([dynamic]BlockIndex, 0, blocks_to_assign, block_system_alloc),
+				}
+			}
+		}
+
 	}
-	
-	
 
 	handle_constraints()
 
@@ -410,6 +412,15 @@ create_buyables :: proc() {
 	recalc_buyable_states()
 }
 
-_assert_all_perks_all_built :: proc() {
-	for perk in PerkID do assert(perk in DB.perk_data, fmt.tprint(perk, "not built."))
+_flattened_pre_reqs :: proc(perk: PerkID) -> (flattened_pre_reqs: Perks) {
+	pre_reqs := DB.perk_data[perk].prereqs
+	for req in pre_reqs {
+		switch r in req {
+			case PerkID:
+				flattened_pre_reqs |= {r}
+			case Perks:
+				flattened_pre_reqs |= r
+		}
+	}
+	return
 }

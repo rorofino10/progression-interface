@@ -6,18 +6,16 @@ import "core:fmt"
 import "base:runtime"
 import "core:mem"
 
-BLOCK_SYSTEM_ALLOCATED_MEM :: 10 * runtime.Megabyte
-QUERY_SYSTEM_ALLOCATED_MEM :: 10 * runtime.Megabyte
+BLOCK_SYSTEM_ALLOCATED_MEM :: 512 * runtime.Megabyte
+QUERY_SYSTEM_ALLOCATED_MEM :: 512 * runtime.Megabyte
 
 block_system_alloc: mem.Allocator
 block_system_arena: mem.Arena
-block_system_buffer: []byte
 
 block_system: ^BlockSystem
 
 query_system_alloc: mem.Allocator
 query_system_arena: mem.Arena
-query_system_buffer: []byte
 
 BlockSystem :: struct {
     blocks          : Blocks,
@@ -33,24 +31,24 @@ BlocksSize :: int
 BlockIndex :: BlocksSize
 BlocksIndexQuery :: []BlockIndex
 
-init_block_system_alloc :: proc() -> Error {
-	block_system_buffer = make([]byte, BLOCK_SYSTEM_ALLOCATED_MEM) or_return
-	mem.arena_init(&block_system_arena, block_system_buffer)
+init_block_system_alloc :: proc() -> mem.Allocator_Error {
+    buffer := make([]byte, BLOCK_SYSTEM_ALLOCATED_MEM) or_return
+	mem.arena_init(&block_system_arena, buffer)
 	block_system_alloc = mem.arena_allocator(&block_system_arena)
 
     return nil
 }
 
-init_query_system_alloc :: proc() -> Error {
-	query_system_buffer = make([]byte, QUERY_SYSTEM_ALLOCATED_MEM) or_return
-	mem.arena_init(&query_system_arena, query_system_buffer)
+init_query_system_alloc :: proc() -> mem.Allocator_Error {
+    buffer := make([]byte, QUERY_SYSTEM_ALLOCATED_MEM) or_return
+	mem.arena_init(&query_system_arena, buffer)
 	query_system_alloc = mem.arena_allocator(&query_system_arena)
     return nil
 }
 
 block_system_allocate :: proc() {
+    context.allocator = block_system_alloc
     block_system = new(BlockSystem)
-    block_system.blocks = make([dynamic]Block, 0, 1_000_000)
 }
 
 query_blocks_indices_from_buyable :: proc(buyable: Buyable, query_amount: BlocksSize) -> BlocksIndexQuery {
@@ -144,6 +142,7 @@ block_system_assign_leftover :: proc(buyable: Buyable) {
 }
 
 _create_new_block_with_owners :: proc(buyables: ..Buyable) {
+    context.allocator = block_system_alloc
     new_block : Block
     block_idx := len(block_system.blocks)
     append(&block_system.blocks, new_block)

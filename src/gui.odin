@@ -395,7 +395,7 @@ _gui_draw_perks_panel :: proc(panel_bound: UIBound) {
     rl.BeginScissorMode(view_bound.x, view_bound.y, view_bound.width, view_bound.height);
     {
         // TODO: Make this not... Bad
-        for perk, perk_val in DB.perk_data do if perk_val.buyable_state != .UnmetRequirements {
+        for perk_val, perk in DB.perk_data do if perk_val.buyable_state != .UnmetRequirements {
             buyable_data := DB.buyable_data[perk]
             state_color : rl.Color
             #partial switch perk_val.buyable_state {
@@ -437,7 +437,7 @@ _gui_draw_perks_panel :: proc(panel_bound: UIBound) {
 
             _ui_button_with_color(button_bound, button_label_c_string, padding = {}, color = state_color)
         }
-        for perk, perk_val in DB.perk_data do if perk_val.buyable_state == .UnmetRequirements {
+        for perk_val, perk in DB.perk_data do if perk_val.buyable_state == .UnmetRequirements {
             buyable_data := DB.buyable_data[perk]
             button_bound := _ui_anchor({layout.bound.x + layout.at.x + i32(perk_scroll.x * ratio.w) , layout.bound.y + layout.at.y + i32(perk_scroll.y * ratio.h)},{0, 0, PERK_BUTTON_SIZE.width, PERK_BUTTON_SIZE.height})
 
@@ -470,7 +470,10 @@ _gui_draw_unit_panel :: proc (panel_bound: UIBound) {
     level_button_label := fmt.ctprint("Level:", DB.unit_level)
     _ui_button(level_button_bound, level_button_label, 25, line_spacing = 30)
     if !_is_message_active() && rl.CheckCollisionPointRec(rl.GetMousePosition(), _ui_rect(level_button_bound)) {
-        if rl.IsMouseButtonPressed(.LEFT) do level_up()
+        if rl.IsMouseButtonPressed(.LEFT) {
+            err := level_up()
+            if err != nil do fmt.println(err)
+        }
         if rl.IsMouseButtonPressed(.RIGHT) {
             err := reduce_level()
             if err != nil do _gui_error(err)
@@ -491,6 +494,8 @@ _gui_draw_skills_panel :: proc(panel_bound: UIBound) {
 
 _gui_draw_main_skills_panel :: proc(panel_bound: UIBound) {
     MAIN_SKILL_FONT_SIZE :: 20
+    CAP_BOUND_HEIGHT :: 5
+    
     PAD := panel_bound.width*5/100
     SEPARATOR := i32(0)
     main_skills_content_bound := _ui_content_from_panel(panel_bound, {PAD, PAD, PAD, PAD})
@@ -544,6 +549,7 @@ _gui_draw_main_skills_panel :: proc(panel_bound: UIBound) {
         
         button_label : cstring
         owned_bound : UIBound
+        cap_bound : UIBound
         if skill_level == 0 {
             owned_bound = button_bound
             // state_color = rl.GRAY
@@ -551,9 +557,8 @@ _gui_draw_main_skills_panel :: proc(panel_bound: UIBound) {
         }
         else {
             owned_bound = _ui_anchor(content_bottom_left+layout.at, _ui_bound_from_anchor(.BOTTOM_LEFT,{0, 0, button_bound.width, i32(skill_level_row*f32(skill_level))}))
-            cap_bound := _ui_anchor(content_bottom_left+layout.at, _ui_bound_from_anchor(.BOTTOM_LEFT,{0, 0, button_bound.width, i32(skill_level_row*f32(slot_cap))}))
-            // _ui_button_with_color(cap_bound, color = rl.GRAY)
-            _ui_button({cap_bound.x, cap_bound.y, cap_bound.width, 5})
+            cap_bound = _ui_anchor(content_bottom_left+layout.at, _ui_bound_from_anchor(.BOTTOM_LEFT,{0, 0, button_bound.width, i32(skill_level_row*f32(slot_cap))}))
+            cap_bound.height = CAP_BOUND_HEIGHT
             button_label = fmt.ctprint(skill_name, skill_level) 
         }    
         
@@ -571,7 +576,9 @@ _gui_draw_main_skills_panel :: proc(panel_bound: UIBound) {
             }
             if rl.IsMouseButtonPressed(.LEFT) do raise_skill(skill_id)
         }
+
         _ui_button_with_color(owned_bound, button_label, font_size = MAIN_SKILL_FONT_SIZE,  color = state_color)
+        if (cap_bound != UIBound{}) do _ui_button({cap_bound.x, cap_bound.y, cap_bound.width, 5})
 
         rl.GuiUnlock()
         _ui_layout_advance(&layout, {SKILL_BUTTON_WIDTH+SEPARATOR, 0}, .HORIZONTAL)

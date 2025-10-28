@@ -3,19 +3,42 @@ package main
 
 load_db_debug :: proc() {
 
-	BuildPlayer(
-		// Level = Skill Points on Level, Major Skill Caps, Extra Skill Cap
-		{
-			1 = {10000,{6,5,3,2,2,2},		1},
-			2 = {500,{7,6,4,3,2,2},		1},
-			3 = {500,{8,7,5,4,3,3},		1},
-			4 = {500,{9,8,6,5,4,4},		2},
-			5 = {500,{10,9,7,6,5,5},	2},
-			6 = {500,{11,10,8,7,6,6},	3},
-			7 = {500,{12,11,9,8,7,7},	4},
-			8 = {500,{13,12,10,9,8,8},	5},
-		}
-	)
+	// BuildPlayer(
+	// 	// Level = Skill Points on Level, Major Skill Caps, Extra Skill Cap
+	// 	{
+	// 		1 = {10000,{6,5,3,2,2,2},		1},
+	// 		2 = {500,{7,6,4,3,2,2},		1},
+	// 		3 = {500,{8,7,5,4,3,3},		1},
+	// 		4 = {500,{9,8,6,5,4,4},		2},
+	// 		5 = {500,{10,9,7,6,5,5},	2},
+	// 		6 = {500,{11,10,8,7,6,6},	3},
+	// 		7 = {500,{12,11,9,8,7,7},	4},
+	// 		8 = {500,{13,12,10,9,8,8},	5},
+	// 	}
+	// )
+
+	{ // Build Levels
+		BuildLevel(1, 500,	{6,5,3,2,2,2}, 		1)
+		BuildLevel(2, 500,	{7,6,4,3,2,2}, 		1)
+		BuildLevel(3, 500,	{8,7,5,4,3,3}, 		1)
+		BuildLevel(4, 500,	{9,8,6,5,4,4}, 		2)
+		BuildLevel(5, 500,	{10,9,7,6,5,5}, 	2)
+		BuildLevel(6, 500,	{11,10,8,7,6,6},	3)
+		BuildLevel(7, 500,	{12,11,9,8,7,7},	4)
+		BuildLevel(8, 500,	{13,12,10,9,8,8},	5)
+		BuildLevel(9, 500,	{14,13,11,10,9,9},	7)
+	}
+
+	// { // Build Levels
+	// 	SkillPoints = proc(level:LEVEL) -> Points {if level == 1 {return 5000} else {return 1400+Points(level)*100}}
+	// 	Primary1Cap = proc(level:LEVEL) -> LEVEL {return 5+level}
+	// 	Primary2Cap = proc(level:LEVEL) -> LEVEL {return 4+level}
+	// 	Major1Cap	= proc(level:LEVEL) -> LEVEL {return 2+level}
+	// 	Major2Cap	= proc(level:LEVEL) -> LEVEL {return 1+level}
+	// 	Major3Cap	= proc(level:LEVEL) -> LEVEL {return max(2,level)}
+	// 	Major4Cap	= proc(level:LEVEL) -> LEVEL {return max(2,level)}
+	// 	ExtrasCap	= proc(level:LEVEL) -> LEVEL {if level <= 3 {return 1} else if level <= 5 {return 2} else {return level - 3}}
+	// }
 
 	BuildSkills(proc(i: BlocksSize) -> BlocksSize{return 100+10*i})
 

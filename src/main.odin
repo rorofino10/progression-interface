@@ -11,8 +11,7 @@ player_has_perk :: proc(perk: PerkID) -> bool {
 
 @require_results
 player_has_skill :: proc(skill: LeveledSkill) -> bool {
-	owned_skill_level, ok := DB.owned_skills[skill.id]
-	if !ok do return false
+	owned_skill_level := DB.owned_skills[skill.id]
 	return  skill.level<=owned_skill_level 
 }
 
@@ -84,7 +83,7 @@ recalc_perks_buyable_state :: proc() {
 		return .Buyable
 	}
 
-	for perk, &perk_val in DB.perk_data do perk_val.buyable_state = _immediate_perk_state(perk, perk_val.prereqs, perk_val.skills_reqs)
+	for &perk_val, perk in DB.perk_data do perk_val.buyable_state = _immediate_perk_state(perk, perk_val.prereqs, perk_val.skills_reqs)
 }
 recalc_skill_id_raisable_state :: proc() {
 	_immediate_raisable_state :: proc(skillID: SkillID) -> SkillRaisableState{
@@ -398,7 +397,7 @@ buy_perk :: proc(perk: PerkID) -> (Points, BuyError) {
 }
 
 level_up :: proc() -> LevelUpError {
-	if DB.unit_level+1 >= DB.unit_level_cap do return .MAX_LEVEL_REACHED
+	if DB.unit_level >= DB.unit_level_cap do return .MAX_LEVEL_REACHED
 	DB.unit_level += 1
 	DB.unused_points += DB.player_states[DB.unit_level].skill_points_on_level
 	
@@ -437,7 +436,6 @@ level_up_to :: proc(to_level: LEVEL) -> LevelUpError {
 INTERFACE :: #config(INTERFACE, "gui")
 
 run :: proc() -> Error {
-	init_block_system_alloc() or_return
 	init_db() or_return
 	
 	when INTERFACE == "gui" do gui_run()
@@ -451,21 +449,21 @@ test :: proc() -> Error {
 }
 
 main :: proc() {
-	// when ODIN_DEBUG {
-	// 	track: mem.Tracking_Allocator
-	// 	mem.tracking_allocator_init(&track, context.allocator)
-	// 	context.allocator = mem.tracking_allocator(&track)
+	when ODIN_DEBUG {
+		track: mem.Tracking_Allocator
+		mem.tracking_allocator_init(&track, context.allocator)
+		context.allocator = mem.tracking_allocator(&track)
 
-	// 	defer {
-	// 		if len(track.allocation_map) > 0 {
-	// 			fmt.eprintf("=== %v allocations not freed: ===\n", len(track.allocation_map))
-	// 			for _, entry in track.allocation_map {
-	// 				fmt.eprintf("- %v bytes @ %v\n", entry.size, entry.location)
-	// 			}
-	// 		}
-	// 		mem.tracking_allocator_destroy(&track)
-	// 	}
-	// }
+		defer {
+			if len(track.allocation_map) > 0 {
+				fmt.eprintf("=== %v allocations not freed: ===\n", len(track.allocation_map))
+				for _, entry in track.allocation_map {
+					fmt.eprintf("- %v bytes @ %v\n", entry.size, entry.location)
+				}
+			}
+			mem.tracking_allocator_destroy(&track)
+		}
+	}
 
 	err := run()
 	
@@ -473,8 +471,8 @@ main :: proc() {
 		fmt.println(err)
 	}
 	{ // Cleanup
-		delete(block_system_buffer)
-		delete(query_system_buffer)
+		delete(block_system_arena.data)
+		delete(query_system_arena.data)
+		delete(database_arena.data)
 	}
-
 }

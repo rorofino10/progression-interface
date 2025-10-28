@@ -5,12 +5,10 @@ WEAK :: 25
 NORMAL :: 50
 STRONG :: 75
 
-MAX_SKILL_LEVEL :: 50
+MAX_SKILL_LEVEL :: 20
 MAX_SKILL_REQS_LEN :: 10
 
 skill_slot_name := [MAIN_SKILLS_AMOUNT]string{"Primary 1", "Primary 2", "Major 1", "Major 2", "Major 3", "Major 4"}
-
-PerkID :: PERK
 
 PERK :: enum {
 	Flurry,
@@ -122,19 +120,24 @@ SKILL :: enum {
 
 load_db :: proc() {
 
-	BuildPlayer(
-		// Level = Skill Points on Level, Major Skill Caps, Extra Skill Cap
-		{
-			1 = {500,{6,5,3,2,2,2},		1},
-			2 = {500,{7,6,4,3,2,2},		1},
-			3 = {500,{8,7,5,4,3,3},		1},
-			4 = {500,{9,8,6,5,4,4},		2},
-			5 = {500,{10,9,7,6,5,5},	2},
-			6 = {500,{11,10,8,7,6,6},	3},
-			7 = {500,{12,11,9,8,7,7},	4},
-			8 = {500,{13,12,10,9,8,8},	5},
-		}
-	)
+	// BuildPlayer(
+	// 	// Level = Skill Points on Level, Major Skill Caps, Extra Skill Cap
+	// 	{
+	// 		1 = {500,{6,5,3,2,2,2},		1},
+	// 		2 = {500,{7,6,4,3,2,2},		1},
+	// 		3 = {500,{8,7,5,4,3,3},		1},
+	// 		4 = {500,{9,8,6,5,4,4},		2},
+	// 		5 = {500,{10,9,7,6,5,5},	2},
+	// 		6 = {500,{11,10,8,7,6,6},	3},
+	// 		7 = {500,{12,11,9,8,7,7},	4},
+	// 		8 = {500,{13,12,10,9,8,8},	5},
+	// 	}
+	// )
+
+	{ // Build Levels
+		BuildLevel(1, 500,{6,5,3,2,2,2}, 1)
+		BuildLevel(2, 500,{7,6,4,3,2,2}, 1)
+	}
 
 	BuildSkills(proc(i: BlocksSize) -> BlocksSize{return 100+10*i})
 

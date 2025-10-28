@@ -5,6 +5,13 @@ import "core:slice"
 import "core:sort"
 import "core:fmt"
 
+ConstraintError :: enum {
+	None,
+	ShareMissingPerk,
+	StrengthIsNotPercentage,
+	CannotOverlapWithItself,
+}
+
 TPartialShare :: struct {
 	buyable_to_share_with: Buyable,
 	strength: STRENGTH,
@@ -60,10 +67,13 @@ _contains_perk_perk :: proc(perkA, perkB: PerkID) {
 	_build_contains(perkA, perkB)
 }
 _build_contains :: proc(buyableA, buyableB: Buyable) {
+	context.allocator = database_alloc
 	append(&DB.contains_constraint, TContains{buyableA, buyableB})
 }
 
 Drags :: proc(skillA, skillB: SkillID, differential: LEVEL) {
+	context.allocator = database_alloc
+
 	for level in differential+1..=MAX_SKILL_LEVEL {
 		lskillA, lskillB := LeveledSkill{skillA, LEVEL(level)}, LeveledSkill{skillB, LEVEL(level)-differential}
 		append(&DB.contains_constraint, TContains{lskillA, lskillB})
@@ -83,11 +93,13 @@ _share_perk_perk :: proc(perkA, perkB: PerkID, strength: STRENGTH) {
 }
 
 _build_share :: proc(buyableA, buyableB: Buyable, strength: STRENGTH, fudged: bool) {
+	context.allocator = database_alloc
     append(&DB.share_constraints, TShare{buyableA, buyableB, strength, fudged, .MinimizingOverlap})
 }
 
 Overlap :: proc(skillA, skillB : SkillID, strength: STRENGTH) {
-    // append(&DB.overlap_constraints, TOverlap{skillA, skillB, strength})
+	context.allocator = database_alloc
+	
 	for level in 1..=MAX_SKILL_LEVEL {
 		leveled_skillA, leveled_skillB := LeveledSkill{skillA, LEVEL(level)}, LeveledSkill{skillB, LEVEL(level)}
 		
@@ -347,6 +359,7 @@ handle_constraints :: proc() {
 
 
 verify_constraints :: proc() {
+	fmt.println("Verifying constraints...")
 	for share in DB.share_constraints {
 		b_data_a, b_data_b := DB.buyable_data[share.buyableA], DB.buyable_data[share.buyableB]
 		

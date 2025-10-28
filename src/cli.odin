@@ -167,7 +167,7 @@ print_player_state :: proc() {
 
     { // Print Perks
         fmt.println("Perks:")
-        for perk, perk_val in DB.perk_data {
+        for perk_val, perk in DB.perk_data {
                 switch perk_val.buyable_state {
                     case .Buyable:
                         fmt.print("\x1b[42m")
@@ -283,8 +283,8 @@ cli_run :: proc() {
                 else if args[0] == "list" {
                     for arg in args[1:] {
                         switch strings.to_lower(arg, context.temp_allocator) {
-                            case "perks": for perk in DB.perk_data {fmt.print(perk,);print_buyable_blocks(perk)}; continue
-                            case "skills": for skill, level in DB.owned_skills {if level != 0 {fmt.print(skill,level,"");print_buyable_blocks(LeveledSkill{skill, level})}}; continue
+                            case "perks": for _, perk in DB.perk_data {fmt.print(perk,);print_buyable_blocks(perk)}; continue
+                            case "skills": for level, skill in DB.owned_skills {if level != 0 {fmt.print(skill,level,"");print_buyable_blocks(LeveledSkill{skill, level})}}; continue
                         }
                         perk, ok := parse_perk(arg)
                         if ok {print_buyable_blocks(perk);continue}

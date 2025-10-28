@@ -91,132 +91,132 @@ load_db_debug :: proc() {
 	// 	}
 	// )
 
-	Perk(.Flurry, 			{SkillReqsOr({.Melee, 9}, {.Ranged, 9}), Skill{.Finesse, 4}}, 	{},		50, {{Skill{.Finesse, 9}, 50}})
-	Perk(.PerfectFlurry,	{Skill{.Finesse, 15}}, 									{},		70, {})
-	Perk(.Deadeye,			{SkillReqsOr({.Melee, 9}, {.Ranged, 9}), Skill{.Composure, 4}}, 	{.Aim}, 50, {{Skill{.Composure, 9}, 50}})
-	Perk(.Headshot,			{Skill{.Composure, 12}}, 								{},		40, {})
-	Perk(.Bullseye,			{Skill{.Composure, 15}}, 								{},		40, {})
-	Perk(.SaturationFire,	{Skill{.Ranged, 9}, Skill{.Athletics, 4}}, 				{},		50, {{Skill{.Athletics, 9}, 50}})
-	Perk(.MoreDakka,		{Skill{.Ranged, 15}, Skill{.Athletics, 10}},			{},		70, {})
-	Perk(.GrandSlam,		{Skill{.Athletics, 9}, Skill{.Melee, 4}}, 				{},		50, {})
-	Perk(.FullSwing,		{Skill{.Athletics, 15}}, 								{},		70, {})
-	Perk(.Guillotine,		{Skill{.Melee, 9}}, 									{},		50, {})
-	Perk(.ReignOfTerror,	{Skill{.Melee, 15}}, 									{},		70, {})
-	Perk(.Whirlwind,		{SkillReqsOr({.Melee, 9}, {.Ranged, 9})}, 						{},		50, {})
-	Perk(.ImmortalKing,		{SkillReqsOr({.Melee, 15}, {.Ranged, 15})}, 						{},		70, {})
+	// BuildPerk(.Flurry, 			{SkillReqsOr({.Melee, 9}, {.Ranged, 9}), Skill{.Finesse, 4}}, 	{},		50, {{Skill{.Finesse, 9}, 50}})
+	// BuildPerk(.PerfectFlurry,	{Skill{.Finesse, 15}}, 									{},		70, {})
+	// BuildPerk(.Deadeye,			{SkillReqsOr({.Melee, 9}, {.Ranged, 9}), Skill{.Composure, 4}}, 	{.Aim}, 50, {{Skill{.Composure, 9}, 50}})
+	// BuildPerk(.Headshot,			{Skill{.Composure, 12}}, 								{},		40, {})
+	// BuildPerk(.Bullseye,			{Skill{.Composure, 15}}, 								{},		40, {})
+	// BuildPerk(.SaturationFire,	{Skill{.Ranged, 9}, Skill{.Athletics, 4}}, 				{},		50, {{Skill{.Athletics, 9}, 50}})
+	// BuildPerk(.MoreDakka,		{Skill{.Ranged, 15}, Skill{.Athletics, 10}},			{},		70, {})
+	// BuildPerk(.GrandSlam,		{Skill{.Athletics, 9}, Skill{.Melee, 4}}, 				{},		50, {})
+	// BuildPerk(.FullSwing,		{Skill{.Athletics, 15}}, 								{},		70, {})
+	// BuildPerk(.Guillotine,		{Skill{.Melee, 9}}, 									{},		50, {})
+	// BuildPerk(.ReignOfTerror,	{Skill{.Melee, 15}}, 									{},		70, {})
+	// BuildPerk(.Whirlwind,		{SkillReqsOr({.Melee, 9}, {.Ranged, 9})}, 						{},		50, {})
+	// BuildPerk(.ImmortalKing,		{SkillReqsOr({.Melee, 15}, {.Ranged, 15})}, 						{},		70, {})
 
-	Perk(.QuickAttack,	{Skill{.Finesse, 9}},						{.Flurry}	,30, {})
-	Perk(.Sweep,		{SkillReqsOr({.Melee,6}, {.Ranged, 6})},				{}			,30, {})
-	Perk(.Skewer,		{Skill{.Melee, 6}}, 						{}			,30, {})
-	Perk(.Brutalize,	{Skill{.Melee, 6}},							{}			,30, {})
-	Perk(.Slam,			{Skill{.Melee, 6}},							{.Bully}	,30, {})
-	Perk(.Setup,		{Skill{.Acting, 6}, Skill{.Perception, 6}}, {.Feint}	,30, {})
-	Perk(.Disarm,		{SkillReqsOr({.Melee, 6}, {.Ranged, 6})},			{.Aim}		,30, {})
-	Perk(.Hobble,		{SkillReqsOr({.Melee, 6}, {.Ranged, 6})},			{.Aim}		,30, {})
-	Perk(.FightMeCoward,{Skill{.Acting, 6}},						{}			,30, {})
-	Perk(.HeyListen,	{Skill{.Acting, 6}},						{}			,30, {})
+	// BuildPerk(.QuickAttack,	{Skill{.Finesse, 9}},						{.Flurry}	,30, {})
+	// BuildPerk(.Sweep,		{SkillReqsOr({.Melee,6}, {.Ranged, 6})},				{}			,30, {})
+	// BuildPerk(.Skewer,		{Skill{.Melee, 6}}, 						{}			,30, {})
+	// BuildPerk(.Brutalize,	{Skill{.Melee, 6}},							{}			,30, {})
+	// BuildPerk(.Slam,			{Skill{.Melee, 6}},							{.Bully}	,30, {})
+	// BuildPerk(.Setup,		{Skill{.Acting, 6}, Skill{.Perception, 6}}, {.Feint}	,30, {})
+	// BuildPerk(.Disarm,		{SkillReqsOr({.Melee, 6}, {.Ranged, 6})},			{.Aim}		,30, {})
+	// BuildPerk(.Hobble,		{SkillReqsOr({.Melee, 6}, {.Ranged, 6})},			{.Aim}		,30, {})
+	// BuildPerk(.FightMeCoward,{Skill{.Acting, 6}},						{}			,30, {})
+	// BuildPerk(.HeyListen,	{Skill{.Acting, 6}},						{}			,30, {})
 
-	Perk(
+	BuildPerk(
 		display = "Covering Fire",
 		id = .CoveringFire,
 		skill_reqs = {Skill{.Ranged, 3}},
-		blocks = 30,
+		cost = 30,
 	)
-	Perk(
+	BuildPerk(
 		id = .Overwatch,
 		skill_reqs = {SkillReqsOr({.Ranged,3}, {.Melee, 6})},
-		blocks = 30,
+		cost = 30,
 	)
-	Perk(
+	BuildPerk(
 		id = .Killzone,
 		skill_reqs = {Skill{.Ranged, 12}},
-		blocks = 60,
+		cost = 60,
 	)
-	Perk(
+	BuildPerk(
 		id = .Bully,
 		skill_reqs = {Skill{.Athletics, 6}},
-		blocks = 30,
+		cost = 30,
 	)
-	Perk(
+	BuildPerk(
 		id = .Taunt,
 		skill_reqs = {Skill{.Influence, 3}},
-		blocks = 30,
+		cost = 30,
 	)
-	Perk(
+	BuildPerk(
 		id = .Feint,
 		skill_reqs = {Skill{.Influence, 3}},
-		blocks = 30,
+		cost = 30,
 	)
-	Perk(
+	BuildPerk(
 		id = .Direct,
 		skill_reqs = {Skill{.Influence, 9}},
-		blocks = 30,
+		cost = 30,
 	)
-	Perk(
+	BuildPerk(
 		id = .Aim,
 		skill_reqs = {Skill{.Composure, 3}},
-		blocks = 30,
+		cost = 30,
 		shares = {{Skill{.Perception, 1}, 30}},
 	)
-	Perk(
+	BuildPerk(
 		display = "Predictable",
 		id = .Predictable,
 		skill_reqs = {Skill{.Logic, 9}, Skill{.Perception, 4}},
-		blocks = 30,
+		cost = 30,
 	)
-	Perk(
+	BuildPerk(
 		display = "Get It Together",
 		id = .GetItTogether,
 		skill_reqs = {Skill{.Influence, 6}},
-		blocks = 30,
+		cost = 30,
 	)
-	Perk(
+	BuildPerk(
 		display = "Zero-In",
 		id = .ZeroIn,
 		pre_reqs = {.Aim},
 		skill_reqs = {Skill{.Composure, 9}},
-		blocks = 30,
+		cost = 30,
 	)
-	Perk(
+	BuildPerk(
 		display = "Everyone!",
 		id = .Everyone,
 		skill_reqs = {Skill{.Influence, 15}},
-		blocks = 60,
+		cost = 60,
 	)
-	Perk(
+	BuildPerk(
 		display = "Perfectly Clear",
 		id = .PerfectlyClear,
 		pre_reqs = {.Predictable},
 		skill_reqs = {Skill{.Logic, 15}},
-		blocks = 60,
+		cost = 60,
 	)
-	Perk(
+	BuildPerk(
 		display = "I'll Take You All On",
 		id = .IllTakeYouAllOn,
 		skill_reqs = {Skill{.Acting, 9}},
-		blocks = 30,
+		cost = 30,
 	)
-	Perk(
+	BuildPerk(
 		display = "You Don't Have To Die Here",
 		id = .YouDontHaveToDieHere,
 		skill_reqs = {Skill{.Influence, 12}},
-		blocks = 60,
+		cost = 60,
 	)
-	Perk(.KnifeMaster,	{Skill{.Melee, 15}, Skill{.Finesse, 10}}, 							{}, 50, {{.Swordmaster, 50}})
-	Perk(.Swordmaster,	{Skill{.Melee, 15}, Skill{.Finesse, 10}}, 							{}, 50, {{.StaffMaster, 20}})
-	Perk(.StaffMaster,	{Skill{.Melee, 15}, Skill{.Athletics, 10}}, 						{}, 50, {{.SpearMaster, 50}, {.Axeman, 30}, {.Hammerer, 30}})
-	Perk(.SpearMaster,	{Skill{.Melee, 15}, Skill{.Athletics, 10}, Skill{.Composure, 7}}, 	{}, 50, {{.Axeman, 20}, {.Hammerer, 20}})
-	Perk(.Axeman,		{Skill{.Melee, 15}, Skill{.Athletics, 10}}, 						{}, 50, {{.Hammerer, 50}})
-	Perk(.Hammerer,		{Skill{.Melee, 15}, Skill{.Athletics, 10}}, 						{}, 50, {})
+	// BuildPerk(.KnifeMaster,	{Skill{.Melee, 15}, Skill{.Finesse, 10}}, 							{}, 50, {{.Swordmaster, 50}})
+	// BuildPerk(.Swordmaster,	{Skill{.Melee, 15}, Skill{.Finesse, 10}}, 							{}, 50, {{.StaffMaster, 20}})
+	// BuildPerk(.StaffMaster,	{Skill{.Melee, 15}, Skill{.Athletics, 10}}, 						{}, 50, {{.SpearMaster, 50}, {.Axeman, 30}, {.Hammerer, 30}})
+	// BuildPerk(.SpearMaster,	{Skill{.Melee, 15}, Skill{.Athletics, 10}, Skill{.Composure, 7}}, 	{}, 50, {{.Axeman, 20}, {.Hammerer, 20}})
+	// BuildPerk(.Axeman,		{Skill{.Melee, 15}, Skill{.Athletics, 10}}, 						{}, 50, {{.Hammerer, 50}})
+	// BuildPerk(.Hammerer,		{Skill{.Melee, 15}, Skill{.Athletics, 10}}, 						{}, 50, {})
 
-	Perk(.MasterOfMartialArts,	{Skill{.Melee, 15}, 	Skill{.Athletics, 10}, Skill{.Finesse, 7}}, {}, 50, {{.StaffMaster, 50}})
-	Perk(.Slinger,				{Skill{.Ranged, 15}, 	Skill{.Finesse, 10}, Skill{.Athletics, 7}}, {.SlingTraining}, 50, {{PERK.Archer, 20}, {PERK.Pistoleer, 20}, {PERK.Marksman, 40}})
-	Perk(.Archer,				{Skill{.Ranged, 15}, 	Skill{.Finesse, 10}, Skill{.Athletics, 7}}, {.BowTraining}, 50, {{PERK.Marksman, 40}})
-	Perk(.Pistoleer,			{Skill{.Ranged, 15}, 	Skill{.Finesse, 10}}, {}, 50, {{PERK.Marksman, 40}, {PERK.HeavyWeaponsGuy, 20}})
-	Perk(.Marksman,				{Skill{.Ranged, 15},	Skill{.Composure, 10}}, {}, 50, {{PERK.HeavyWeaponsGuy, 40}})
-	Perk(.HeavyWeaponsGuy,		{Skill{.Ranged, 15},	Skill{.Athletics, 10}, Skill{.Endurance, 10}}, {}, 50, {{PERK.Beamer, 40}})
-	Perk(.Beamer,				{Skill{.Ranged, 15},	Skill{.Endurance, 10}}, {}, 50, {})
+	// BuildPerk(.MasterOfMartialArts,	{Skill{.Melee, 15}, 	Skill{.Athletics, 10}, Skill{.Finesse, 7}}, {}, 50, {{.StaffMaster, 50}})
+	// BuildPerk(.Slinger,				{Skill{.Ranged, 15}, 	Skill{.Finesse, 10}, Skill{.Athletics, 7}}, {.SlingTraining}, 50, {{PERK.Archer, 20}, {PERK.Pistoleer, 20}, {PERK.Marksman, 40}})
+	// BuildPerk(.Archer,				{Skill{.Ranged, 15}, 	Skill{.Finesse, 10}, Skill{.Athletics, 7}}, {.BowTraining}, 50, {{PERK.Marksman, 40}})
+	// BuildPerk(.Pistoleer,			{Skill{.Ranged, 15}, 	Skill{.Finesse, 10}}, {}, 50, {{PERK.Marksman, 40}, {PERK.HeavyWeaponsGuy, 20}})
+	// BuildPerk(.Marksman,				{Skill{.Ranged, 15},	Skill{.Composure, 10}}, {}, 50, {{PERK.HeavyWeaponsGuy, 40}})
+	// BuildPerk(.HeavyWeaponsGuy,		{Skill{.Ranged, 15},	Skill{.Athletics, 10}, Skill{.Endurance, 10}}, {}, 50, {{PERK.Beamer, 40}})
+	// BuildPerk(.Beamer,				{Skill{.Ranged, 15},	Skill{.Endurance, 10}}, {}, 50, {})
 
-	Perk(.BowTraining,		{Skill{.Ranged, 6}, Skill{.Athletics, 4}}, 						{}, 30, {})
-	Perk(.SlingTraining, {Skill{.Ranged, 6}, Skill{.Finesse, 4}, Skill{.Athletics, 2}},	{}, 60, {})
+	// BuildPerk(.BowTraining,		{Skill{.Ranged, 6}, Skill{.Athletics, 4}}, 						{}, 30, {})
+	// BuildPerk(.SlingTraining, {Skill{.Ranged, 6}, Skill{.Finesse, 4}, Skill{.Athletics, 2}},	{}, 60, {})
 }

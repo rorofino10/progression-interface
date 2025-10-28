@@ -99,15 +99,15 @@ _ui_anchored_bound :: proc( anchor: Anchor, bound: UIBound ) -> UIBound {
 }
 _ui_bound_from_anchor :: proc( anchor: Anchor, bound: UIBound ) -> UIBound {
 	switch anchor {
-		case .TOP_LEFT:			return {  }
-		case .TOP_CENTER:		return {  }
-		case .TOP_RIGHT:		return {  }
-		case .CENTER_LEFT:		return {  }
-		case .CENTER:			return {  }
-		case .CENTER_RIGHT:		return {  }
+		case .TOP_LEFT:			panic("Bound from anchor not implemented")
+		case .TOP_CENTER:		panic("Bound from anchor not implemented")
+		case .TOP_RIGHT:		panic("Bound from anchor not implemented")
+		case .CENTER_LEFT:		panic("Bound from anchor not implemented")
+		case .CENTER:			panic("Bound from anchor not implemented")
+		case .CENTER_RIGHT:		panic("Bound from anchor not implemented")
 		case .BOTTOM_LEFT:		return { bound.x, bound.y-bound.height, bound.width, bound.height }
-		case .BOTTOM_CENTER:	return { }
-		case .BOTTOM_RIGHT:		return { }
+		case .BOTTOM_CENTER:	panic("Bound from anchor not implemented")
+		case .BOTTOM_RIGHT:		panic("Bound from anchor not implemented")
 	}
 	return {}
 }
@@ -498,7 +498,9 @@ _gui_draw_main_skills_panel :: proc(panel_bound: UIBound) {
     layout := _ui_layout(main_skills_content_bound)
     
     content_bottom_left := _ui_anchored_pos(.BOTTOM_LEFT, main_skills_content_bound)
-    // _ui_button(main_skills_panel_bound, nil)
+
+    max_slot_cap := DB.player_states[DB.unit_level].main_skill_caps[0] // Assuming the max slot cap is the first one
+    skill_level_row := f32(main_skills_content_bound.height)/f32(max_slot_cap)
     for skill_id, slot in DB.owned_main_skills {
         skill_id_data := DB.skill_id_data[skill_id]
         skill_level := DB.owned_skills[skill_id]
@@ -522,8 +524,6 @@ _gui_draw_main_skills_panel :: proc(panel_bound: UIBound) {
         }
 
         skill_name, _ := reflect.enum_name_from_value(skill_id)
-        owned_bound := _ui_anchor(content_bottom_left+layout.at, _ui_bound_from_anchor(.BOTTOM_LEFT,{0, 0, button_bound.width, button_bound.height/MAX_SKILL_LEVEL*i32(skill_level)}))
-
 
         { // Make Invis and Disable Hover effects
             button_color_normal := rl.GuiGetStyle(.BUTTON, i32(rl.GuiControlProperty.BASE_COLOR_NORMAL))
@@ -543,16 +543,17 @@ _gui_draw_main_skills_panel :: proc(panel_bound: UIBound) {
         rl.GuiLock()
         
         button_label : cstring
-        label_bound : UIBound
+        owned_bound : UIBound
         if skill_level == 0 {
-            label_bound = button_bound
+            owned_bound = button_bound
             // state_color = rl.GRAY
             button_label = fmt.ctprint("Unlock\n",skill_name, sep = "") 
         }
         else {
-            label_bound = owned_bound
-            cap_bound := _ui_anchor(content_bottom_left+layout.at, _ui_bound_from_anchor(.BOTTOM_LEFT,{0, 0, button_bound.width, button_bound.height/MAX_SKILL_LEVEL*i32(slot_cap)}))
-            _ui_button_with_color(cap_bound, color = rl.GRAY)
+            owned_bound = _ui_anchor(content_bottom_left+layout.at, _ui_bound_from_anchor(.BOTTOM_LEFT,{0, 0, button_bound.width, i32(skill_level_row*f32(skill_level))}))
+            cap_bound := _ui_anchor(content_bottom_left+layout.at, _ui_bound_from_anchor(.BOTTOM_LEFT,{0, 0, button_bound.width, i32(skill_level_row*f32(slot_cap))}))
+            // _ui_button_with_color(cap_bound, color = rl.GRAY)
+            _ui_button({cap_bound.x, cap_bound.y, cap_bound.width, 5})
             button_label = fmt.ctprint(skill_name, skill_level) 
         }    
         
@@ -570,7 +571,7 @@ _gui_draw_main_skills_panel :: proc(panel_bound: UIBound) {
             }
             if rl.IsMouseButtonPressed(.LEFT) do raise_skill(skill_id)
         }
-        _ui_button_with_color(label_bound, button_label, font_size = MAIN_SKILL_FONT_SIZE,  color = state_color)
+        _ui_button_with_color(owned_bound, button_label, font_size = MAIN_SKILL_FONT_SIZE,  color = state_color)
 
         rl.GuiUnlock()
         _ui_layout_advance(&layout, {SKILL_BUTTON_WIDTH+SEPARATOR, 0}, .HORIZONTAL)

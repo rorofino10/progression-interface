@@ -1,131 +1,12 @@
 #+feature dynamic-literals
 package main
 
-WEAK :: 25
-NORMAL :: 50
-STRONG :: 75
-
-MAX_SKILL_LEVEL :: 50
-MAX_SKILL_REQS_LEN :: 10
-
-skill_slot_name := [MAIN_SKILLS_AMOUNT]string{"Primary 1", "Primary 2", "Major 1", "Major 2", "Major 3", "Major 4"}
-
-PerkID :: PERK
-
-PERK :: enum {
-	Flurry,
-	PerfectFlurry,
-	Deadeye,
-	Headshot,
-	Bullseye,
-	SaturationFire,
-	MoreDakka,
-	GrandSlam,
-	FullSwing,
-	Guillotine,
-	ReignOfTerror,
-	Whirlwind,
-	ImmortalKing,
-	//
-	QuickAttack,
-	Sweep,
-	Skewer,
-	Brutalize,
-	Slam,
-	Setup,
-	Disarm,
-	Hobble,
-	FightMeCoward,
-	HeyListen,	
-	//
-	CoveringFire,
-	Overwatch,
-	Killzone,
-	Bully,
-	Taunt,
-	Feint,
-	Direct,
-	Aim,
-	Predictable,
-	GetItTogether,
-	ZeroIn,
-	Everyone,
-	PerfectlyClear,
-	// GrandStrategy,
-	IllTakeYouAllOn,
-	YouDontHaveToDieHere,	
-	//
-	KnifeMaster,
-	Swordmaster,
-	StaffMaster,
-	SpearMaster,
-	Axeman,
-	Hammerer,
-	MasterOfMartialArts,
-	Slinger,
-	Archer,
-	Pistoleer,
-	Marksman,
-	HeavyWeaponsGuy,
-	Beamer,
-	//
-	SlingTraining,
-	BowTraining,
-}
-
-SkillID :: SKILL
-
-SKILL :: enum {
-	// Physical
-	Athletics,
-	Finesse,
-	Endurance,
-
-	// Combat
-	Melee,
-	Ranged,
-
-	// Mental
-	Logic,
-	Composure,
-	Perception,
-	
-	// Social
-	Influence,
-	Acting,
-
-	// Magic
-	Sorcery,
-	Astral,
-	Mana,	
-
-	// Professional (Operative)
-	Medicine,
-	Survival,
-	Thievery,
-
-	// Professional (Operative Sometimes)
-	Arcana,
-	Computers,
-	Construction,
-	Piloting,
-
-	// Professional (Noncombat)
-	Arts,
-	Biology,
-	Chemistry,
-	Geology,
-	Engineering,
-	Language,
-	Physics,
-}
-
-load_db :: proc() {
+load_db_debug :: proc() {
 
 	BuildPlayer(
 		// Level = Skill Points on Level, Major Skill Caps, Extra Skill Cap
 		{
-			1 = {500,{6,5,3,2,2,2},		1},
+			1 = {10000,{6,5,3,2,2,2},		1},
 			2 = {500,{7,6,4,3,2,2},		1},
 			3 = {500,{8,7,5,4,3,3},		1},
 			4 = {500,{9,8,6,5,4,4},		2},
@@ -138,54 +19,54 @@ load_db :: proc() {
 
 	BuildSkills(proc(i: BlocksSize) -> BlocksSize{return 100+10*i})
 
-	ListOf(
-		CloseSkills, {
-		{.Melee, .Athletics},
-		{.Ranged, .Finesse},
-		{.Influence, .Acting},
-		}
-	)
-	ListOf(
-		DistantSkills, {
-		{.Influence, .Composure},
-		{.Acting, .Composure},
-		{.Influence, .Acting},
-		{.Endurance, .Composure},
-		{.Endurance, .Athletics},
-		{.Athletics, .Finesse},
-		{.Logic, .Perception},
-		{.Arts, .Influence},
-		{.Arts, .Acting},
-		{.Ranged, .Perception},
-		{.Melee, .Perception},
-		{.Survival, .Perception},
-		{.Survival, .Construction},
-	})
-	ListOf(
-		CloseDerivativeSkills, {
-		{.Computers, .Logic},
-		{.Medicine, .Logic},
-		{.Thievery, .Finesse},
-		{.Construction, .Athletics},
-		{.Engineering, .Logic},
-		{.Geology, .Logic},
-		// {.Physics, .Logic},
-		{.Piloting, .Finesse},
-		{.Influence, .Language},
-		{.Arts, .Acting},
-		}
-	)
-	ListOf(
-		DistantDerivativeSkills,{
-		{.Sorcery, .Arcana},
-		// {.Arcana, .Logic},
-		// {.Engineering, .Physics},
-		{.Biology, .Chemistry},
-		{.Chemistry, .Physics},
-		// {.Geology, .Physics},
-		// {.Arts, .Language},
-		}
-	)
+	// ListOf(
+	// 	CloseSkills, {
+	// 	{.Melee, .Athletics},
+	// 	{.Ranged, .Finesse},
+	// 	{.Influence, .Acting},
+	// 	}
+	// )
+	// ListOf(
+	// 	DistantSkills, {
+	// 	{.Influence, .Composure},
+	// 	{.Acting, .Composure},
+	// 	{.Influence, .Acting},
+	// 	{.Endurance, .Composure},
+	// 	{.Endurance, .Athletics},
+	// 	{.Athletics, .Finesse},
+	// 	{.Logic, .Perception},
+	// 	{.Arts, .Influence},
+	// 	{.Arts, .Acting},
+	// 	{.Ranged, .Perception},
+	// 	{.Melee, .Perception},
+	// 	{.Survival, .Perception},
+	// 	{.Survival, .Construction},
+	// })
+	// ListOf(
+	// 	CloseDerivativeSkills, {
+	// 	{.Computers, .Logic},
+	// 	{.Medicine, .Logic},
+	// 	{.Thievery, .Finesse},
+	// 	{.Construction, .Athletics},
+	// 	{.Engineering, .Logic},
+	// 	{.Geology, .Logic},
+	// 	// {.Physics, .Logic},
+	// 	{.Piloting, .Finesse},
+	// 	{.Influence, .Language},
+	// 	{.Arts, .Acting},
+	// 	}
+	// )
+	// ListOf(
+	// 	DistantDerivativeSkills,{
+	// 	{.Sorcery, .Arcana},
+	// 	// {.Arcana, .Logic},
+	// 	// {.Engineering, .Physics},
+	// 	{.Biology, .Chemistry},
+	// 	{.Chemistry, .Physics},
+	// 	// {.Geology, .Physics},
+	// 	// {.Arts, .Language},
+	// 	}
+	// )
 
 	Perk(.Flurry, 			{SkillReqsOr({.Melee, 9}, {.Ranged, 9}), Skill{.Finesse, 4}}, 	{},		50, {{Skill{.Finesse, 9}, 50}})
 	Perk(.PerfectFlurry,	{Skill{.Finesse, 15}}, 									{},		70, {})
@@ -315,24 +196,4 @@ load_db :: proc() {
 
 	Perk(.BowTraining,		{Skill{.Ranged, 6}, Skill{.Athletics, 4}}, 						{}, 30, {})
 	Perk(.SlingTraining, {Skill{.Ranged, 6}, Skill{.Finesse, 4}, Skill{.Athletics, 2}},	{}, 60, {})
-}
-
-CloseSkills :: proc(A, B: SKILL) {
-	Contains(A, 4, B, 1)
-	Contains(B, 4, A, 1)
-	Overlap(A, B, 60)
-}
-
-DistantSkills :: proc(A, B: SKILL) {
-	Overlap(A, B, 40)
-}
-
-CloseDerivativeSkills :: proc(A, B: SKILL) {
-	Drags(A, B, 5)
-	Overlap(A, B, 20)
-}
-
-DistantDerivativeSkills :: proc(A, B: SKILL) {
-	Drags(A, B, 8)
-	Overlap(A, B, 20)
 }

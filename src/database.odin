@@ -215,12 +215,12 @@ Database :: struct {
 
 DB : Database
 
-Relationship :: proc(A, B: SKILL)
+SkillRelationship :: proc(A, B: SKILL)
 SKILL_TUPLE :: struct {
 	a: SKILL,
 	b: SKILL,
 }
-ListOf :: proc(relationship: Relationship, list: [dynamic]SKILL_TUPLE) {
+ListOf :: proc(relationship: SkillRelationship, list: [dynamic]SKILL_TUPLE) {
 	defer delete(list)
 	for tuple in list do relationship(tuple.a, tuple.b)
 }
@@ -294,7 +294,8 @@ BuildPlayer :: proc(states: [dynamic]PlayerLevelState) {
 }
 
 init_db :: proc() -> Error{
-	load_db()
+	when ODIN_DEBUG do load_db_debug()
+	else do load_db()
 	assert(DB.owned_main_skills_amount == MAIN_SKILLS_AMOUNT)
 	_assert_all_perks_all_built()
 	block_system_allocate()
